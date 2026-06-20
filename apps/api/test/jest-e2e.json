@@ -1,0 +1,13 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.ts$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@tamarcado/shared-types$": "<rootDir>/../../../packages/shared-types/src/index.ts",
+    "^@tamarcado/shared-utils$": "<rootDir>/../../../packages/shared-utils/src/index.ts"
+  }
+}

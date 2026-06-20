@@ -1,0 +1,40 @@
+name: Deploy Production
+
+# Dispara em push para main. O CI (ci.yml) roda como check separado no mesmo
+# push; configure branch protection exigindo o check "validate" verde antes do
+# merge para que o deploy só ocorra com CI verde (architecture.md §9.2).
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/tamarcado
+            git pull origin main
+            pnpm install --frozen-lockfile --prod
+            pnpm -r build
+            pnpm --filter api run migration:run
+            pm2 restart tamarcado-api || pm2 start /opt/tamarcado/ecosystem.config.js
+            mkdir -p /var/www/tamarcado
+            cp -r /opt/tamarcado/apps/web/dist/. /var/www/tamarcado/

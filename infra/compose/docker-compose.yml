@@ -1,0 +1,69 @@
+# Ambiente de DEV — tudo local, custo R$0 (architecture.md §8.1).
+# Uso: docker compose -f infra/compose/docker-compose.yml up
+# O contexto de build é a raiz do monorepo.
+name: tamarcado-dev
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: tamarcado_dev
+      REDIS_URL: redis://redis:6379
+      WHATSAPP_PROVIDER: evolution_api
+      EVOLUTION_API_URL: http://evolution-api:8080
+      JWT_SECRET: dev-secret-change-in-prod
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  mysql:
+    image: mysql:8.0
+    command: ["--default-time-zone=+00:00"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tamarcado_dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+    ports:
+      - "8080:8080"
+    # Configuração completa (instância por tenant) entra no Épico 2.
+
+volumes:
+  mysql_dev_data:

@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/coverage
+**/.expo
+.git
+_bmad
+_bmad-output
+docs
+**/*.log
+.env
+.env.*
+!.env.example

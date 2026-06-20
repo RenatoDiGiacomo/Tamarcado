@@ -1,0 +1,962 @@
+---
+stepsCompleted: [1, 2, 3, 4]
+inputDocuments:
+  - "_bmad-output/planning-artifacts/prds/prd-Tamarcado-2026-06-15/prd.md"
+  - "_bmad-output/planning-artifacts/prds/prd-Tamarcado-2026-06-15/addendum.md"
+  - "_bmad-output/planning-artifacts/architecture/arch-Tamarcado-2026-06-15/architecture.md"
+  - "_bmad-output/planning-artifacts/ux/ux-Tamarcado-2026-06-15/ux-spec.md"
+---
+
+# Tamarcado - Epic Breakdown
+
+## Overview
+
+Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetura em épicos e histórias implementáveis para o MVP do Tamarcado (entrega até 13/09/2026).
+
+## Requirements Inventory
+
+### Functional Requirements
+
+**FR-A: Bot de Agendamento (WhatsApp — inbound da cliente)**
+
+- FR-A1: Reconhecer mensagens com intenção de agendar via correspondência de palavras-chave/frases configuráveis por instalação; iniciar fluxo sem intervenção do profissional.
+- FR-A2: Fluxo em 3 etapas: serviço → dia disponível (bot apresenta) → horário disponível (bot apresenta).
+- FR-A3: Slot disponível = pelo menos 1 profissional livre no horário; bot não revela qual profissional.
+- FR-A4: Ao confirmar horário, registra pré-agendamento com status *aguardando confirmação* e `professional_id` nulo; notifica dono/funcionário (multi) ou profissional (solo).
+- FR-A5: Sem disponibilidade no dia escolhido → bot apresenta outros dias.
+- FR-A6: Atomicidade na criação — dois clientes concorrendo pelo mesmo slot resultam em 1 pré-agendamento; o outro recebe indisponibilidade imediata (ver NFR-C1).
+- FR-A7: Fallback para entradas não reconhecidas, redirecionando ao passo atual do fluxo.
+- FR-A8: Um agendamento = um único serviço (MVP).
+- `[ASSUMPTION]` Notificação FR-A4 via WhatsApp: solo → número do profissional; multi → número do dono/gestão configurado.
+
+**FR-B: Confirmação e Recusa pelo Profissional**
+
+- FR-B1: Notificação de nova solicitação com nome, serviço, data, horário; aparece na agenda como *aguardando confirmação* sem profissional atribuído.
+- FR-B2: Confirmação/recusa exclusivamente pelo painel web. O número de WhatsApp do bot é dedicado à Evolution API — profissional não consegue responder por ele para confirmar; app mobile é somente leitura nesta fase (ver DL-018).
+- FR-B3: Confirmado → status *confirmado* + mensagem de confirmação automática à cliente.
+- FR-B4: Recusa exige justificativa obrigatória; sem justificativa, recusa não processada.
+- FR-B5: Recusa com justificativa → bot notifica cliente com motivo e sugere outras datas/horários.
+- FR-B6: Timeout de 2h em horário comercial sem resposta → bot notifica cliente "em análise"; status permanece *aguardando confirmação* (sem cancelamento automático no MVP).
+- `[ASSUMPTION]` Horário comercial = 08h–19h, seg–sáb. Contador pausa fora do horário comercial e retoma no próximo (ver QA-1).
+
+**FR-C: Cancelamento**
+
+- FR-C1: Cliente cancela enviando mensagem com intenção de cancelar no WhatsApp.
+- FR-C2: Bot identifica intenção, apresenta dados do agendamento para confirmação; se houver múltiplos futuros, pergunta qual cancelar.
+- FR-C3: Confirmado o cancelamento → status *cancelado*, slot liberado, notificação automática ao profissional.
+- FR-C4: Dono, profissional e funcionário podem cancelar pelo painel web respeitando matriz de permissões (FR-I2).
+- FR-C5: Sem política de antecedência mínima no MVP.
+- FR-C6: Cancelamento via painel/app por dono/profissional/funcionário → notificação WhatsApp automática à cliente (se número cadastrado) com cancelamento e oferta de reagendamento imediato. Sem número cadastrado → sem notificação (consistente com FR-D8).
+
+**FR-D: Painel Web — Agenda**
+
+- FR-D1: Agenda em três visões: dia, semana, mês.
+- FR-D2: Dono/funcionário veem agenda de todos os profissionais; profissional vê só a própria.
+- FR-D3: Cada entrada exibe cliente, serviço, horário, status e indicador de origem (FR-K4).
+- FR-D4: Painel permite cancelar agendamentos respeitando matriz de permissões (FR-I2).
+- FR-D5: Dono/funcionário criam agendamento manual para qualquer profissional; profissional só para si (FR-I2).
+- FR-D6: Agendamento manual entra com status *confirmado* automaticamente (sem fluxo de aprovação).
+- FR-D7: Campo de WhatsApp da cliente é opcional no agendamento manual.
+- FR-D8: Agendamento manual sem WhatsApp da cliente não dispara notificação automática; comunicação é responsabilidade de quem criou.
+- FR-D9: Marcar manualmente um agendamento *confirmado* como *não compareceu* (no-show) no painel, respeitando a matriz de permissões. Informativo no MVP (sem automação, sem notificação à cliente); habilita relatório de faltas futuro (DL-023).
+
+**FR-E: Painel Web — Clientes**
+
+- FR-E1: Cadastro com nome, contato WhatsApp e data do primeiro agendamento.
+- FR-E2: Histórico completo de agendamentos por cliente (serviço, data, status, profissional).
+- FR-E3: Observações livres no cadastro da cliente.
+- FR-E4: No cadastro manual, nome é obrigatório; WhatsApp/e-mail/demais campos opcionais.
+- `[ASSUMPTION]` Clientes cadastradas automaticamente na 1ª interação via WhatsApp (nome do perfil + número); sem cadastro manual obrigatório prévio.
+
+**FR-F: Painel Web — Pagamentos**
+
+- FR-F1: Registro manual de pagamento por agendamento — valor + forma de pagamento via dropdown (Dinheiro/PIX/Cartão débito/Cartão crédito/Outro).
+- FR-F2: Dono visualiza e registra pagamento de todos os profissionais.
+- FR-F3: Profissional visualiza/registra só os próprios.
+- FR-F4: Funcionário registra pagamentos de qualquer agendamento; sem acesso a relatórios financeiros consolidados.
+- FR-F5: Sem integração com gateway no MVP — registro manual e informativo.
+
+**FR-G: Painel Web — Configurações**
+
+- FR-G1: Dono configura serviços (nome, duração, preço).
+- FR-G2: Dono configura horários de atendimento por profissional (dias + faixa de horário).
+- FR-G3: Dono configura intervalo entre agendamentos consecutivos.
+- FR-G4: Dono gerencia profissionais (convidar, ativar/desativar acesso).
+- FR-G5: Dono define/altera nível de permissão de cada usuário.
+- FR-G6: Dono acessa configurações de personalização da instalação (ver FR-J).
+
+**FR-H: App Mobile do Profissional**
+
+- FR-H1: Agenda do usuário autenticado em visões dia/semana.
+- FR-H2: Lista agendamentos *aguardando confirmação* para consulta. Confirmação e recusa não são feitas pelo app no MVP — exclusivo do painel web (ver FR-B2, DL-018).
+- FR-H3: *(Removido — recusa não ocorre pelo app no MVP, ver DL-018.)*
+- FR-H4: Disponível para iOS e Android.
+- Nota MVP: app não cria agendamentos. Origem `app` reservada para uso futuro.
+
+**FR-I: Permissões e Controle de Acesso**
+
+- FR-I1: Controle de acesso em dois eixos independentes (DL-022): **nível de acesso** (Dono/Gestão/Básico) + **atende clientes** (sim/não). Papéis não são mutuamente exclusivos — uma pessoa pode acumular função administrativa e agenda própria. "Atende clientes" determina quem entra na disponibilidade e pode ser `professional_id`.
+- FR-I2: Matriz de permissões por nível de acesso (ver tabela no PRD): Dono e Gestão agem sobre todos; Básico só sobre os próprios/não atribuídos. Só Dono vê relatórios consolidados, configura sistema e gerencia usuários.
+- FR-I3: Exatamente um usuário com nível Dono por instalação; não pode ser removido sem transferência prévia.
+- FR-I4: Isolamento completo de dados entre instalações (ver NFR-S1).
+
+**FR-J: Personalização e Identidade**
+
+- FR-J1: Identidade visual própria por instalação (nome, logo, cor primária).
+- FR-J2: Bot assina mensagens com nome da instalação.
+- FR-J3: Painel web e app exibem nome e logo da instalação.
+- FR-J4: Painel suporta tema claro/escuro, selecionável pelo usuário.
+- FR-J5: Personalização configurada por Renato no setup presencial; sem editor self-service no MVP.
+
+**FR-K: Rastreabilidade de Origem**
+
+- FR-K1: Todo agendamento registra origem obrigatória: `whatsapp` / `manual` / `app` (reservado, não usado no MVP).
+- FR-K2: Origem `manual` registra o usuário criador para auditoria.
+- FR-K3: Status inicial por origem — `whatsapp` → *aguardando confirmação*; `manual` → *confirmado*.
+- FR-K4: Agenda exibe origem de forma visualmente distinguível (ícone/cor).
+- FR-K5: Agenda oferece filtro por origem.
+
+### NonFunctional Requirements
+
+- NFR-A1: Bot responde a mensagens em até 3 segundos em condições normais.
+- NFR-A2: Páginas do painel carregam em até 2 segundos em 4G.
+- NFR-A3: Painel detecta novos pendentes via polling em segundo plano (15–30s), sem nunca recarregar a página — atualiza só o badge de pendentes e dispara toast, preservando modais abertos e texto em edição. Evolução futura: WebSocket/SSE (ver DL-019).
+- NFR-C1: Atomicidade garantida na criação de agendamentos — concorrência pelo mesmo slot resulta em exatamente 1 registro; o outro recebe indisponibilidade imediata.
+- NFR-C2: Monitoramento de conectividade com o provider WhatsApp; alerta a Renato em caso de queda/falha de entrega.
+- NFR-C3: Falha temporária do provider WhatsApp → mensagens recebidas são registradas e processadas na volta da conectividade, sem perda de contexto de fluxo em andamento.
+- NFR-S1: Isolamento por tenant — nenhuma query pode retornar dados de outra instalação como efeito colateral.
+- NFR-S2: Dados de clientes finais tratados conforme LGPD; sem compartilhamento entre instalações.
+- NFR-S3: Autenticação segura no painel e app, com controle de sessão e expiração de token.
+- NFR-O1: Custo total de infraestrutura ≤ R$130/mês na fase de lançamento, compartilhado entre tenants.
+- NFR-O2: Arquitetura acomoda crescimento de tenants sem reescrita dos componentes centrais.
+- NFR-O3: Abstração do provider WhatsApp — troca de provider não exige alteração na lógica de negócio.
+- NFR-O4: Mesmo princípio de abstração para gateway de pagamento (sem integração no MVP).
+
+### Additional Requirements
+
+*(extraídos de architecture.md e addendum.md)*
+
+- Monorepo com `pnpm` workspaces: `apps/api` (NestJS), `apps/web` (React+Vite), `apps/mobile` (React Native+Expo), `packages/shared-types`, `packages/shared-utils`. Sem starter template de terceiros — estrutura definida do zero pela arquitetura (ver architecture.md seção 2).
+- Backend como monolito modular NestJS com módulos de fronteira clara: Auth, Tenant, Users, Clients, Services, Schedules, Appointments, Notifications, WhatsApp, Payments, Reports, Installation.
+- Modelo de dados MySQL 8 completo: `companies`, `users`, `clients`, `salon_services`, `professional_services`, `professional_schedules`, `appointments`, `payments`, `whatsapp_conversations` — com índices compostos liderados por `company_id`.
+- Multi-tenancy: `TenantMiddleware` injeta `company_id` via `AsyncLocalStorage`; `TenantAwareRepository<T>` aplica filtro automático em toda query.
+- Campo `timezone` por tenant em `companies` (default `America/Sao_Paulo`) — toda lógica de data/hora deve ler esse campo, nunca usar timezone global hardcoded.
+- Campo `evolution_instance_name` por tenant — uma instance Evolution API dedicada por instalação (não compartilhada).
+- Interface `WhatsAppProvider` (`sendMessage`, `getConnectionStatus`, `registerIncomingMessageHandler`) com `EvolutionApiProvider` ativo no MVP e `CloudApiMetaProvider` implementado como módulo plugável (não ativo).
+- Interface `PaymentGateway` (`createCharge`, `getChargeStatus`, `refund`) com `NullPaymentGateway` no MVP (lança `NotImplementedException`).
+- Atomicidade de slot via transação MySQL com `SELECT ... FOR UPDATE` no momento da criação do agendamento via bot.
+- Job BullMQ (`appointment-timeout`) agendado por agendamento, com delay calculado em horário comercial por tenant.
+- `ConversationStateService`: estado de conversa do bot em Redis (cache, TTL 4h) com MySQL (`whatsapp_conversations`) como fonte de verdade.
+- LGPD: campo `is_deleted` (soft delete) em `clients` e `appointments`; mecanismo de anonimização/hard delete sob solicitação do titular (procedimento manual no MVP, mas viabilizado pela arquitetura — ver architecture.md seção 3.10).
+- Três ambientes: Dev (Docker Compose local, zero custo), Staging (local na máquina do desenvolvedor, build de produção via `docker-compose.staging.yml`, zero custo — staging em nuvem é evolução futura, ver ADR-010), Produção (VPS brasileiro — Hostinger preferencial ou HostGator, datacenter São Paulo, PM2 + Nginx + Certbot, ≤ R$130/mês — ver ADR-009).
+- CI/CD via GitHub Actions: `ci.yml` (lint, typecheck, test, build) em todo push/PR; `deploy.yml` (SSH deploy + PM2 restart) em push para `main`.
+- Backup diário de MySQL via cron → armazenamento R2/S3-compatible.
+- Autenticação JWT (access 15 min + refresh 7 dias) com `JwtAuthGuard` e `RolesGuard` aplicando a matriz de permissões (FR-I2).
+- Teste de carga simples no VPS antes do go-live, medindo conversas WhatsApp simultâneas suportadas; definir limite de alerta para escalar.
+- `professional_id` nullable em `appointments` desde o schema inicial — suporta atribuição futura sem migração (addendum C.4-bis); validar necessidade após os primeiros 5 clientes.
+- Provider WhatsApp (Evolution API vs. Cloud API Meta) é selecionado por Renato no setup de cada instalação — sem UI de troca pelo cliente no MVP (addendum A.3).
+- Confirmar/recusar pendentes via endpoints REST compartilhados (`PATCH /appointments/:id/confirm` e `/refuse`), consumidos pelo painel web no MVP. App mobile já consome a API para leitura; a ação de confirmar/recusar pelo app é feature futura que reaproveita esses mesmos endpoints, sem mudança de backend (ver DL-018).
+- Notificação de pendentes no painel via polling REST (`GET /appointments/pending-count`, intervalo 15–30s, em background, sem reload) — ver NFR-A3, ADR-011, DL-019. WebSocket/SSE é evolução futura.
+
+### UX Design Requirements
+
+*(extraídos de ux-spec.md)*
+
+- UX-DR1: Implementar a máquina de estados completa do bot (IDLE → SERVIÇO → DIA → HORÁRIO → AGUARD. CONFIRMAÇÃO → CONFIRMADO/RECUSADO; IDLE → CANCELAMENTO → CONFIRMA CANCELAMENTO) conforme diagrama da seção 3.1.
+- UX-DR2: Implementar a biblioteca completa de mensagens de agendamento do bot (MSG-A01 a MSG-A07), incluindo regra de pular seleção quando há só 1 serviço e paginação de até 8 serviços. Inclui o passo de confirmação da cliente "1 sim / 2 não" (MSG-A05b, estado `AWAITING_CONFIRMATION`): após escolher o horário, a cliente confirma "Confirma agendar [serviço] em [dia] às [hora]?" antes de o pré-agendamento ser criado; "2" volta à seleção. Só com "1" o pré-agendamento é gravado e a cliente recebe "foi enviado ao salão, pode haver ajuste, você será avisada do aceite/recusa" (MSG-A06).
+- UX-DR3: Implementar as mensagens de notificação ao profissional/dono sobre nova solicitação (MSG-B01 solo / MSG-B02 multi — ambas direcionam ao painel, sem "1/2" pelo WhatsApp, ver DL-018) e as mensagens enviadas à cliente como resultado da decisão tomada **no painel web**: confirmação (MSG-B04), recusa com alternativas (MSG-B05), timeout (MSG-B06). MSG-B03 e FB-07 removidos (justificativa de recusa é digitada no modal do painel, não via WhatsApp). `[OK — corrigido no ux-spec.md]` Distinção importante: o "1/2" da cliente (confirmando o próprio agendamento, MSG-A05b/UX-DR2) é mantido; o que foi removido é o "1/2" do profissional.
+- UX-DR4: Implementar mensagens de cancelamento pela cliente (MSG-C01 a MSG-C06), incluindo seleção entre múltiplos agendamentos futuros (MSG-C02) e exceção de cliente sem WhatsApp (MSG-C06).
+- UX-DR5: Implementar os fallbacks do bot FB-01 a FB-06, incluindo mensagem fora do fluxo (FB-05). `[CORRIGIDO — DL-018]` FB-07 (profissional respondendo texto livre em vez de 1/2) removido — premissa inválida, profissional não confirma/recusa pelo WhatsApp do bot.
+- UX-DR6: Aplicar regras de copy globalmente: zero emojis, "você" não "tu", frases curtas, datas no formato `Dia, DD/MM`, horas em `HH:MM` 24h, variáveis sempre entre colchetes.
+- UX-DR7: Navegação responsiva do painel — sidebar fixa em desktop (≥768px), tabs no rodapé em mobile (<768px) com menu "+" de ações rápidas e badge numérico vermelho de pendentes. Badge é atualizado por polling em segundo plano (15–30s, ver NFR-A3/DL-019), permanece visível até o salão tratar o pendente (nunca resetado por reload de página), e a chegada de um novo pendente dispara um toast momentâneo além da atualização do badge.
+- UX-DR8: Tela Agenda — visões dia/semana/mês; indicadores de cor por status (amarelo/pendente, verde/confirmado, cinza/concluído, vermelho riscado/cancelado); ícone de origem (balão = whatsapp, lápis = manual); filtro por origem (`[Todos] [WhatsApp] [Manual]`); FAB "Novo agendamento"; label "Não atribuído" em itálico cinza quando `professional_id` nulo.
+- UX-DR9: Tela Pendentes — confirmação inline sem modal (toast de feedback); recusa abre modal com campo de justificativa obrigatório (botão desabilitado até preenchido).
+- UX-DR10: Tela Novo Agendamento Manual — busca de cliente em tempo real com criação inline via modal "+ Nova"; campo Profissional só visível para dono/funcionário; validação de data (hoje ou futura) e aviso (não bloqueio) de slot já ocupado; texto fixo "Entra como: Confirmado (sem aprovação)".
+- UX-DR11: Tela Clientes — lista com busca, perfil exibindo WhatsApp, data de cadastro, observações editáveis e histórico completo de agendamentos com atalho "Novo agendamento para esta cliente".
+- UX-DR12: Tela Registro de Pagamento — modal com dropdown de forma de pagamento (5 opções fixas) e atualização do agendamento para status *Concluído* ao salvar.
+- UX-DR13: Tela Configurações (somente Dono) — 4 subseções: Serviços (CRUD com duração/preço), Horários de atendimento (por profissional, toggle de dia + intervalo entre atendimentos), Equipe e permissões (convite por link, troca de papel via radio), Identidade visual (nome, logo upload, cor primária).
+- UX-DR14: Fluxo de convite de equipe — link de convite enviado, usuário cria a própria senha no primeiro acesso.
+- UX-DR15: Tema claro/escuro como preferência individual do usuário (tela "Perfil", não em Configurações da instalação).
+- UX-DR16: App mobile — navegação por 3 tabs (Agenda/Pendentes/Perfil). `[CORRIGIDO — DL-018]` Tab Pendentes é somente leitura: lista os agendamentos *aguardando confirmação* sem ação de confirmar/recusar; tela orienta o usuário a tratar pelo painel web. Sem paridade de ações com o painel nesta fase.
+- UX-DR17: Estados vazios padronizados para Agenda, Pendentes, Clientes e Histórico de cliente (textos especificados na seção 6.1).
+- UX-DR18: Modal de cancelamento com texto condicional — aviso de notificação automática se cliente tem WhatsApp cadastrado; aviso de "comunicação por sua conta" se não tem.
+- UX-DR19: Toast de feedback padronizado para toda ação de mutação (confirmar, recusar, cancelar, criar agendamento, registrar pagamento) — sempre com confirmação textual do que aconteceu.
+
+### FR Coverage Map
+
+**Funcionais:**
+- FR-A1–A8 → Épico 2 (fluxo de agendamento via bot)
+- FR-B1–B6 → Épico 2 (notificação ao salão + confirmação/recusa pelo painel)
+- FR-C1–C6 → Épico 2 (cancelamento via bot e via painel)
+- FR-D1–D9 → Épico 2 (agenda do painel + agendamento manual + marcação de não compareceu)
+- FR-E1–E4 → Épico 3 (cadastro e histórico de clientes)
+- FR-F1–F5 → Épico 4 (registro manual de pagamentos)
+- FR-G1–G6 → Épico 1 (configurações da instalação)
+- FR-H1, FR-H2, FR-H4 → Épico 5 (app mobile somente leitura; FR-H3 removido — DL-018)
+- FR-I1–I4 → Épico 1 (permissões e isolamento de tenant)
+- FR-J1, FR-J3, FR-J4, FR-J5 → Épico 1 (identidade visual, tema); FR-J2 → Épico 2 (assinatura do bot)
+- FR-K1–K5 → Épico 2 (rastreabilidade de origem, exibida na agenda)
+
+**Não-funcionais:**
+- NFR-A1 (resposta do bot ≤3s) → Épico 2
+- NFR-A2 (painel ≤2s em 4G) → Épico 1 (shell/transversal ao painel)
+- NFR-A3 (polling de pendentes) → Épico 2
+- NFR-C1–C3 (atomicidade, monitoramento e resiliência do WhatsApp) → Épico 2
+- NFR-S1–S3 (isolamento, LGPD, autenticação) → Épico 1
+- NFR-O1 (custo ≤R$130/mês), NFR-O2 (escalabilidade de tenants) → Épico 1
+- NFR-O3 (abstração do provider WhatsApp) → Épico 2
+- NFR-O4 (abstração do gateway de pagamento) → Épico 4
+
+## Epic List
+
+### Épico 1: Fundação, Configuração da Instalação e Controle de Acesso
+Estabelece o alicerce sobre o qual todo o resto roda e entrega ao dono o controle completo da sua instalação. Inclui o scaffold do monorepo, multi-tenancy com isolamento por `company_id`, autenticação JWT, os três ambientes (dev/staging local/produção), CI/CD e backup. No nível de produto, o dono cria a conta da empresa, configura serviços (nome/duração/preço), horários de atendimento por profissional, intervalo entre atendimentos, convida e gerencia a equipe com a matriz de permissões, e personaliza a identidade visual (nome, logo, cor, tema claro/escuro). Ao fim, existe uma instalação configurada, segura e isolada — pré-requisito técnico de todos os épicos seguintes, e já entrega valor: o salão está cadastrado e parametrizado.
+**FRs cobertas:** FR-G1–G6, FR-I1–I4, FR-J1, FR-J3, FR-J4, FR-J5
+**NFRs:** NFR-A2, NFR-S1, NFR-S2, NFR-S3, NFR-O1, NFR-O2
+**UX-DRs:** UX-DR7 (shell de navegação responsivo), UX-DR13, UX-DR14, UX-DR15
+
+### Épico 2: Ciclo de Agendamento — Bot WhatsApp + Painel de Confirmação
+Entrega o coração do produto: a cliente agenda e cancela pelo WhatsApp, e o salão gere essas solicitações pelo painel web — ciclo completo e autônomo. Cobre a máquina de estados do bot (serviço → dia → horário → confirmação "1 sim/2 não" da cliente → pré-agendamento), a notificação ao salão, a confirmação/recusa **exclusivamente pelo painel** (o número do bot é dedicado à Evolution API), o cancelamento pelos dois lados, a agenda do painel (dia/semana/mês) com origem visível, o agendamento manual, a atomicidade de slot (`SELECT ... FOR UPDATE`), o job de timeout de 2h e a detecção de pendentes por polling (badge + toast, sem reload). Funde os antigos Épicos 2 e 3 porque a confirmação migrou para o painel: sem o painel, um agendamento do bot ficaria pendente para sempre — bot e painel formam um único ciclo indivisível sobre `AppointmentsModule`/`NotificationsModule`.
+**FRs cobertas:** FR-A1–A8, FR-B1–B6, FR-C1–C6, FR-D1–D9, FR-J2, FR-K1–K5
+**NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C2, NFR-C3, NFR-O3
+**UX-DRs:** UX-DR1, UX-DR2, UX-DR3, UX-DR4, UX-DR5, UX-DR6, UX-DR8, UX-DR9, UX-DR10, UX-DR18, UX-DR19
+
+### Épico 3: Gestão de Clientes
+O salão mantém o cadastro de clientes com histórico e observações, transformando dados soltos de agendamento em relacionamento. Cobre o cadastro (nome obrigatório, contato opcional), o histórico completo de agendamentos por cliente, observações livres e o atalho "novo agendamento para esta cliente". Autônomo: usa a base do Épico 1 e enriquece os agendamentos do Épico 2, mas funciona por si.
+**FRs cobertas:** FR-E1–E4
+**UX-DRs:** UX-DR11, UX-DR17 (estados vazios de Clientes e Histórico)
+
+### Épico 4: Registro de Pagamentos
+O salão registra manualmente o recebimento por agendamento, dando visão de faturamento sem integração com gateway. Cobre o registro com valor e forma de pagamento (dropdown de 5 opções), as regras de visibilidade por papel (dono vê tudo, profissional só o próprio, funcionário registra mas não vê consolidado) e a transição do agendamento para *concluído*. A abstração `PaymentGateway`/`NullPaymentGateway` é preparada sem integração ativa.
+**FRs cobertas:** FR-F1–F5
+**NFRs:** NFR-O4
+**UX-DRs:** UX-DR12
+
+### Épico 5: App Mobile do Profissional (somente leitura)
+O profissional consulta a própria agenda no celular (iOS/Android), em visões dia/semana, e vê os pendentes — sem ações de confirmar/recusar/criar no MVP (DL-018). O app já consome a API de leitura; confirmar/recusar e criar pelo app são feature futura que reaproveita os endpoints já existentes do painel, sem mudança de backend. Autônomo: depende apenas da API consolidada nos épicos anteriores.
+**FRs cobertas:** FR-H1, FR-H2, FR-H4
+**UX-DRs:** UX-DR16, UX-DR17 (estados vazios de Agenda e Pendentes no app)
+
+---
+
+## Épico 1: Fundação, Configuração da Instalação e Controle de Acesso
+
+**Objetivo:** estabelecer o alicerce técnico (monorepo, multi-tenancy, autenticação, ambientes, CI/CD, backup) e entregar ao dono o controle completo da sua instalação — serviços, horários, equipe, permissões e identidade visual. Pré-requisito de todos os épicos seguintes.
+
+**FRs:** FR-G1–G6, FR-I1–I4, FR-J1, FR-J3, FR-J4, FR-J5 · **NFRs:** NFR-A2, NFR-S1, NFR-S2, NFR-S3, NFR-O1, NFR-O2 · **UX-DRs:** UX-DR7, UX-DR13, UX-DR14, UX-DR15
+
+### Story 1.1: Walking skeleton e pipeline de entrega
+
+As a desenvolvedor (Renato),
+I want um monorepo inicializado com API e painel que sobem, banco provisionado e pipeline de CI/CD funcionando,
+So that exista um esqueleto implantável de ponta a ponta sobre o qual todas as features são construídas.
+
+**Acceptance Criteria:**
+
+**Given** o repositório recém-clonado
+**When** rodo o comando de bootstrap do monorepo (`pnpm install`) e subo o Docker Compose de desenvolvimento
+**Then** a API NestJS (`apps/api`) sobe e responde `200` em `GET /health`
+**And** o painel web (`apps/web`, React+Vite) sobe e renderiza uma página inicial
+**And** MySQL 8 e Redis sobem como serviços do Compose
+
+**Given** a estrutura do monorepo
+**When** inspeciono os workspaces
+**Then** existem `apps/api`, `apps/web`, `apps/mobile` (placeholder), `packages/shared-types`, `packages/shared-utils` conforme a arquitetura (seção 2), sem starter template de terceiros
+
+**Given** a migration inicial
+**When** ela é aplicada
+**Then** a tabela `companies` é criada com ao menos `id`, `name`, `timezone` (default `America/Sao_Paulo`), `created_at` — sem criar tabelas que ainda não são necessárias
+
+**Given** um push para qualquer branch
+**When** o GitHub Actions roda `ci.yml`
+**Then** executa lint, typecheck, testes e build de todos os pacotes, falhando o pipeline em qualquer erro
+
+**Given** um push para `main` com CI verde
+**When** `deploy.yml` executa
+**Then** faz deploy via SSH para o VPS de produção (PM2 restart da API + cópia do build web para o Nginx), conforme ADR-009
+
+**Given** os ambientes definidos
+**When** valido a configuração
+**Then** dev (Docker Compose local) e staging (local, `docker-compose.staging.yml`, ver ADR-010) estão configurados, e o custo de infraestrutura de produção respeita NFR-O1 (≤ R$130/mês)
+
+### Story 1.2: Autenticação do dono e shell do painel
+
+As a dono de salão,
+I want fazer login no painel com e-mail e senha e ver a estrutura de navegação,
+So that eu acesse minha instalação de forma segura.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** a tabela `users` é criada com `id`, `company_id`, `name`, `email`, `password_hash`, `access_level` (enum owner/manager/basic), `attends_clients` (boolean), `theme` (enum light/dark, default light), `is_active`, timestamps — dois eixos de acesso independentes (DL-022) e tema individual por usuário (DL-021)
+
+**Given** credenciais válidas
+**When** o dono faz login
+**Then** o sistema retorna um JWT de acesso (15 min) e um refresh token (7 dias), e o `JwtStrategy` extrai `{ userId, companyId, accessLevel, attendsClients }` (NFR-S3, DL-022)
+
+**Given** um access token expirado e um refresh token válido
+**When** o cliente chama o endpoint de refresh
+**Then** um novo access token é emitido sem novo login
+
+**Given** uma requisição a endpoint protegido sem token válido
+**When** o `JwtAuthGuard` avalia
+**Then** a requisição é rejeitada com `401`
+
+**Given** um usuário autenticado
+**When** acessa o painel
+**Then** vê o shell de navegação responsivo — sidebar fixa em desktop (≥768px) e tabs no rodapé em mobile (<768px) com menu "+" e área para badge de pendentes (UX-DR7)
+
+### Story 1.3: Multi-tenancy e isolamento de dados
+
+As a operador da plataforma,
+I want que toda consulta seja automaticamente filtrada pela instalação do usuário autenticado,
+So that nenhum dado vaze entre salões.
+
+**Acceptance Criteria:**
+
+**Given** uma requisição autenticada
+**When** o `TenantMiddleware` processa
+**Then** valida que a empresa está ativa e injeta `company_id` no `AsyncLocalStorage`
+
+**Given** um repositório que herda de `TenantAwareRepository<T>`
+**When** qualquer query é executada
+**Then** o filtro `WHERE company_id = ?` é aplicado automaticamente, sem o desenvolvedor precisar adicioná-lo (NFR-S1)
+
+**Given** dois salões com dados distintos
+**When** o usuário do salão A consulta qualquer recurso
+**Then** nenhum registro do salão B é retornado, em nenhuma rota (NFR-S1, NFR-S2, FR-I4)
+
+**Given** uma tentativa de acesso a um `id` pertencente a outra instalação
+**When** a query roda sob o tenant atual
+**Then** o registro não é encontrado (comporta-se como inexistente)
+
+### Story 1.4: Gestão de equipe e permissões
+
+As a dono de salão,
+I want convidar usuários, definir o nível de acesso e se cada um atende clientes, e ativar/desativar acesso,
+So that minha equipe use o sistema com as permissões corretas, refletindo quem é administrativo e quem tem agenda própria.
+
+**Acceptance Criteria:**
+
+**Given** que sou o dono
+**When** convido um novo usuário por link
+**Then** o convite é gerado e o usuário cria a própria senha no primeiro acesso (UX-DR14)
+
+**Given** o modelo de dois eixos (FR-I1, DL-022)
+**When** defino ou altero o **nível de acesso** (Dono/Gestão/Básico) e o atributo **atende clientes** (sim/não) de um usuário
+**Then** os dois campos são persistidos de forma independente e passam a valer nas próximas requisições (FR-G5); ex.: uma manicure pode ser Gestão + atende, e uma recepcionista pura pode ser Gestão + não atende
+
+**Given** a matriz de permissões por nível de acesso (FR-I2)
+**When** um usuário tenta uma ação fora do seu nível (ex: Gestão acessando relatórios consolidados)
+**Then** o `RolesGuard` rejeita a ação com `403`
+
+**Given** um usuário com `attends_clients = true` (FR-I1)
+**When** o `AvailabilityService` calcula disponibilidade e o agendamento registra `professional_id`
+**Then** apenas usuários que atendem entram na disponibilidade e podem ser atribuídos, independentemente do nível de acesso
+
+**Given** que existe exatamente um nível Dono por instalação (FR-I3)
+**When** tento remover o nível Dono de um usuário sem transferir antes
+**Then** a operação é bloqueada com mensagem explicativa
+
+**Given** um usuário desativado
+**When** ele tenta autenticar ou usar um token existente
+**Then** o acesso é negado (FR-G4)
+
+### Story 1.5: Catálogo de serviços
+
+As a dono de salão,
+I want cadastrar e manter os serviços oferecidos com nome, duração e preço,
+So that eles fiquem disponíveis para agendamento e configuração.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** as tabelas `salon_services` e `professional_services` são criadas, com `company_id` e índices liderados por ele
+
+**Given** que sou o dono
+**When** crio, edito ou inativo um serviço (nome, duração em minutos, preço)
+**Then** a mudança é persistida e validada (UX-DR13 — subseção Serviços, FR-G1)
+
+**Given** um serviço inativado
+**When** listo serviços para agendamento
+**Then** ele não aparece (apenas `is_active = true`)
+
+**Given** a associação profissional ↔ serviço
+**When** defino quais serviços cada profissional executa
+**Then** a relação é persistida em `professional_services`
+
+### Story 1.6: Horários de atendimento e intervalo
+
+As a dono de salão,
+I want configurar os dias e faixas de horário de atendimento de cada profissional e o intervalo entre atendimentos,
+So that a disponibilidade da agenda reflita a realidade do salão.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** a tabela `professional_schedules` é criada com `company_id`, `professional_id`, dia da semana e faixa de horário
+
+**Given** que sou o dono
+**When** configuro, por profissional, os dias ativos e a faixa de horário (início/fim)
+**Then** a configuração é persistida (FR-G2, UX-DR13 — subseção Horários)
+
+**Given** o intervalo entre atendimentos consecutivos
+**When** defino esse valor
+**Then** ele é persistido e ficará disponível para o cálculo de disponibilidade (FR-G3)
+
+**Given** uma faixa de horário inválida (fim antes do início)
+**When** tento salvar
+**Then** a validação impede e exibe erro
+
+### Story 1.7: Identidade visual e tema
+
+As a dono de salão,
+I want personalizar nome, logo e cor da instalação e escolher o tema claro/escuro,
+So that o sistema reflita a identidade do meu negócio.
+
+**Acceptance Criteria:**
+
+**Given** que sou o dono
+**When** configuro nome do estabelecimento, faço upload do logo e defino a cor primária
+**Then** os dados são persistidos e o painel passa a exibir nome e logo (FR-J1, FR-J3, UX-DR13 — subseção Identidade)
+
+**Given** a configuração de personalização (FR-G6, FR-J5)
+**When** acesso essa área
+**Then** ela está restrita ao dono e é feita no painel (sem editor self-service além disso no MVP)
+
+**Given** qualquer usuário autenticado
+**When** alterna o tema claro/escuro na tela de Perfil
+**Then** a preferência é gravada em `users.theme` (individual por usuário, não na instalação — DL-021) e persiste entre sessões (FR-J4, UX-DR15)
+
+### Story 1.8: Backup diário do banco
+
+As a operador da plataforma (Renato),
+I want um backup diário automatizado do MySQL,
+So that os dados das instalações estejam protegidos contra perda.
+
+**Acceptance Criteria:**
+
+**Given** o ambiente de produção
+**When** o cron diário executa
+**Then** um dump do MySQL é gerado e enviado para armazenamento compatível com S3/R2
+
+**Given** um backup armazenado
+**When** executo a rotina de restauração documentada
+**Then** o banco é restaurado com sucesso a partir do dump (validação de que o backup é recuperável, não só gerado)
+
+---
+
+## Épico 2: Ciclo de Agendamento — Bot WhatsApp + Painel de Confirmação
+
+**Objetivo:** entregar o coração do produto — a cliente agenda e cancela pelo WhatsApp e o salão gere as solicitações pelo painel web, em um ciclo completo e autônomo.
+
+**FRs:** FR-A1–A8, FR-B1–B6, FR-C1–C6, FR-D1–D9, FR-J2, FR-K1–K5 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C2, NFR-C3, NFR-O3 · **UX-DRs:** UX-DR1–DR6, UX-DR8, UX-DR9, UX-DR10, UX-DR18, UX-DR19
+
+### Story 2.1: Abstração WhatsAppProvider e integração Evolution API
+
+As a operador da plataforma,
+I want enviar e receber mensagens de WhatsApp por uma interface abstrata, com a Evolution API ativa,
+So that o bot opere sobre um provider sem acoplar a lógica de negócio a ele.
+
+**Acceptance Criteria:**
+
+**Given** a interface `WhatsAppProvider` (`sendMessage`, `getConnectionStatus`, `registerIncomingMessageHandler`)
+**When** o `WhatsAppModule` inicializa
+**Then** a factory lê `companies.whatsapp_provider` e instancia o `EvolutionApiProvider` para o tenant (NFR-O3)
+
+**Given** a migration desta story
+**When** aplicada
+**Then** `companies` ganha `whatsapp_provider` (default `evolution_api`) e `evolution_instance_name` (uma instância dedicada por tenant — AQ-2/ADR não compartilhada)
+
+**Given** uma mensagem recebida pela cliente
+**When** o webhook da Evolution API é chamado
+**Then** o `WhatsAppController` resolve o `company_id` pela instância e dispara o handler registrado com a `IncomingMessage`
+
+**Given** uma mensagem de saída
+**When** `sendMessage` é chamado
+**Then** a mensagem é entregue via Evolution API; falha permanente lança `WhatsAppDeliveryException`
+
+**Given** uma consulta de status
+**When** `getConnectionStatus` é chamado
+**Then** retorna `connected` / `disconnected` / `unknown` para a instalação
+
+**Given** uma instância Evolution API conectada e um handler de echo temporário registrado (smoke test de ponta a ponta — maior risco técnico, validar cedo)
+**When** envio uma mensagem real ao número do bot a partir de outro WhatsApp
+**Then** o webhook recebe a `IncomingMessage`, o handler dispara, e o `EvolutionApiProvider` envia de volta uma resposta (mesmo que fixa, ex: "recebi: [texto]") que chega no WhatsApp de origem
+**And** o ciclo recebe→processa→envia é comprovado funcionando antes da story 2.2 (máquina de estados) começar
+
+### Story 2.2: Máquina de estados do bot e estado de conversa
+
+As a cliente,
+I want que o bot mantenha o contexto da minha conversa e me guie passo a passo,
+So that eu consiga agendar sem me perder, mesmo se digitar algo inesperado.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story (ordem de criação — DL-020)
+**When** aplicada
+**Then** a tabela `clients` é criada **antes** de qualquer tabela de agendamento (campos base: `id`, `company_id`, `name`, `phone_whatsapp`, `phone_whatsapp_normalized`, `notes`, `is_deleted`, timestamps), com `UNIQUE (company_id, phone_whatsapp_normalized)` e índices liderados por `company_id` — necessária pela FK `client_id` de `appointments` (criada na Story 2.3) e pelo `findOrCreate` do bot (Story 2.4)
+
+**Given** a migration desta story
+**When** aplicada
+**Then** a tabela `whatsapp_conversations` é criada (estado, `context_json`, `company_id`, `phone_whatsapp`) como fonte de verdade; a coluna `appointment_id` existe como `BIGINT NULL`, mas a **FK `appointment_id → appointments` é adicionada na Story 2.3** (após `appointments` existir — DL-020)
+
+**Given** o `ConversationStateService`
+**When** lê/escreve estado
+**Then** usa Redis como cache (TTL 4h) com fallback/persistência em MySQL
+
+**Given** uma mensagem com keyword de agendamento configurável (FR-A1)
+**When** não há conversa ativa
+**Then** o `BotOrchestrator` cria a conversa e inicia o fluxo (estado `AWAITING_SERVICE`), implementando a máquina de estados da UX-DR1
+
+**Given** uma entrada não reconhecida dentro de um passo (FR-A7)
+**When** o bot avalia
+**Then** responde com o fallback correto (FB-01 a FB-06, UX-DR5), redirecionando ao passo atual sem perder o contexto
+
+**Given** as regras de copy (UX-DR6)
+**When** o bot monta qualquer mensagem
+**Then** segue: zero emojis, "você", frases curtas, datas `Dia, DD/MM`, horas `HH:MM`, variáveis entre colchetes
+
+**Given** uma mensagem recebida em condições normais (NFR-A1)
+**When** o bot processa
+**Then** a resposta é enviada em até 3 segundos
+
+### Story 2.3: Cálculo de disponibilidade
+
+As a cliente,
+I want ver apenas dias e horários realmente disponíveis,
+So that eu escolha um horário que o salão consegue atender.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story (a tabela `clients` já existe desde a Story 2.2 — DL-020)
+**When** aplicada
+**Then** a tabela `appointments` é criada com `company_id`, `professional_id` (nullable, FK → `users`), `client_id` (FK → `clients`), `service_id` (FK → `salon_services`), `scheduled_at`, `status`, `source`, `is_deleted` e índices compostos liderados por `company_id`
+**And** a FK `whatsapp_conversations.appointment_id → appointments` é adicionada agora (a coluna foi criada na Story 2.2)
+
+**Given** um serviço e uma data (FR-A3)
+**When** o `AvailabilityService` calcula
+**Then** cruza `professional_schedules`, duração do serviço e `appointments` não-cancelados, gerando slots livres; o slot existe se ≥1 profissional está livre no horário
+
+**Given** o intervalo entre atendimentos configurado (FR-G3)
+**When** os slots são gerados
+**Then** o intervalo é respeitado entre agendamentos consecutivos
+
+**Given** a consulta de próximos dias (FR-A2)
+**When** há disponibilidade
+**Then** o serviço retorna até 5 datas com slots; respeita o `timezone` do tenant (ADR-008), nunca um fuso global
+
+### Story 2.4: Fluxo de agendamento via bot
+
+As a cliente,
+I want agendar um serviço pelo WhatsApp escolhendo serviço, dia e horário e confirmando,
+So that eu marque meu atendimento sem ligar para o salão.
+
+**Acceptance Criteria:**
+
+**Given** o fluxo de 3 etapas (FR-A2) e a biblioteca MSG-A01–A07 (UX-DR2)
+**When** a cliente avança serviço → dia → horário
+**Then** o bot apresenta as opções em cada passo; com exatamente 1 serviço, pula a seleção; sem disponibilidade no dia, oferece outros dias (FR-A5)
+
+**Given** o horário escolhido
+**When** o bot pede confirmação (MSG-A05b, "1 sim / 2 não")
+**Then** com "2" volta para escolher outro horário; só com "1" o pré-agendamento é criado
+
+**Given** a confirmação da cliente (FR-A6, NFR-C1)
+**When** `AppointmentsService.createFromBot()` executa em transação com `SELECT ... FOR UPDATE`
+**Then** dois clientes concorrendo pelo mesmo slot resultam em exatamente 1 pré-agendamento; o outro recebe indisponibilidade imediata (MSG-A07)
+
+**Given** uma cliente nova
+**When** o pré-agendamento é criado
+**Then** o `findOrCreate` insere ou recupera a cliente por `phone_whatsapp_normalized` na tabela `clients` já existente (registro mínimo: nome do perfil + número — a tabela é criada na Story 2.2, DL-020), e o agendamento entra com `source = whatsapp`, status *aguardando confirmação*, `professional_id` nulo (FR-A4, FR-K1, FR-K3, FR-A8)
+
+**Given** a primeira mensagem e a confirmação (FR-J2)
+**When** o bot se comunica
+**Then** assina com o nome da instalação; a cliente recebe "solicitação enviada ao salão, pode haver ajuste, você será avisada" (MSG-A06)
+
+### Story 2.5: Notificação ao salão e confirmação/recusa pelo painel
+
+As a dono/funcionário/profissional,
+I want receber a solicitação e confirmá-la ou recusá-la pelo painel,
+So that eu controle quais agendamentos aceito.
+
+**Acceptance Criteria:**
+
+**Given** um pré-agendamento criado (FR-B1)
+**When** o `NotificationsModule` consome o evento
+**Then** notifica o salão via WhatsApp (MSG-B01 solo / MSG-B02 multi) direcionando ao painel — sem "1/2" por WhatsApp (DL-018); o painel exibe o pendente
+
+**Given** a tela Pendentes (UX-DR9)
+**When** confirmo um pendente (FR-B2, FR-B3)
+**Then** a confirmação é inline (sem modal), o status vai a *confirmado* e a cliente recebe MSG-B04
+
+**Given** uma recusa (FR-B4)
+**When** abro o modal de recusa
+**Then** a justificativa é obrigatória (botão desabilitado até preenchida); sem justificativa, a recusa não é processada
+
+**Given** uma recusa com justificativa (FR-B5)
+**When** confirmo
+**Then** a cliente recebe MSG-B05 com o motivo e sugestões de outras datas/horários
+
+**Given** a matriz de permissões (FR-I2)
+**When** confirmo/recuso
+**Then** apenas papéis autorizados conseguem; profissional só age sobre os próprios ou não atribuídos
+
+### Story 2.6: Timeout de 2 horas em horário comercial
+
+As a cliente,
+I want ser avisada se o salão demorar a responder,
+So that eu saiba que minha solicitação ainda está em análise.
+
+**Acceptance Criteria:**
+
+**Given** um pré-agendamento criado via bot (FR-B6)
+**When** ele é registrado
+**Then** um job BullMQ `appointment-timeout` é agendado com delay calculado em horário comercial, usando `company.timezone` (ADR-008), nunca um fuso global
+
+**Given** 2 horas de horário comercial sem confirmação/recusa
+**When** o job dispara
+**Then** a cliente recebe MSG-B06 ("em análise") e o status permanece *aguardando confirmação* — sem cancelamento automático no MVP
+
+**Given** o agendamento confirmado ou recusado antes do prazo
+**When** o job dispararia
+**Then** ele é cancelado/ignorado (não notifica indevidamente)
+
+### Story 2.7: Cancelamento pela cliente via bot
+
+As a cliente,
+I want cancelar um agendamento pelo WhatsApp,
+So that eu libere o horário quando não puder comparecer.
+
+**Acceptance Criteria:**
+
+**Given** uma mensagem com intenção de cancelar (FR-C1, UX-DR4)
+**When** o bot reconhece a intenção
+**Then** apresenta os dados do agendamento vigente para confirmação (MSG-C01)
+
+**Given** mais de um agendamento futuro (FR-C2)
+**When** a cliente pede cancelamento
+**Then** o bot pergunta qual cancelar (MSG-C02)
+
+**Given** a confirmação do cancelamento (FR-C3, FR-C5)
+**When** a cliente confirma
+**Then** o status vai a *cancelado*, o slot é liberado e o profissional é notificado automaticamente (MSG-C03); não há política de antecedência mínima
+
+### Story 2.8: Cancelamento pelo painel e notificação à cliente
+
+As a dono/profissional/funcionário,
+I want cancelar um agendamento pelo painel e avisar a cliente,
+So that eu gerencie a agenda quando algo muda no salão.
+
+**Acceptance Criteria:**
+
+**Given** a matriz de permissões (FR-C4, FR-I2)
+**When** cancelo um agendamento pelo painel
+**Then** o cancelamento respeita o papel e libera o slot
+
+**Given** uma cliente com WhatsApp cadastrado (FR-C6)
+**When** o cancelamento é feito
+**Then** ela recebe MSG-C06 informando o cancelamento e oferecendo reagendamento
+
+**Given** uma cliente sem WhatsApp (FR-D8)
+**When** o cancelamento é feito
+**Then** nenhuma notificação é disparada
+
+**Given** o modal de cancelamento (UX-DR18)
+**When** ele abre
+**Then** o texto é condicional: avisa "a cliente será notificada" se há WhatsApp, ou "comunicação por sua conta" se não há
+
+### Story 2.9: Agenda do painel com origem e filtro
+
+As a dono/funcionário/profissional,
+I want ver a agenda em dia/semana/mês com status e origem,
+So that eu acompanhe os agendamentos do salão de relance.
+
+**Acceptance Criteria:**
+
+**Given** a agenda (FR-D1, UX-DR8)
+**When** acesso o painel
+**Then** vejo visões dia/semana/mês com cores por status (amarelo/pendente, verde/confirmado, cinza/concluído, vermelho riscado/cancelado, cinza-escuro/não compareceu)
+
+**Given** um agendamento *confirmado* e a matriz de permissões (FR-D9, FR-I2, DL-023)
+**When** marco-o como *não compareceu* pelo menu de contexto do card
+**Then** o status passa a *no_show* — registro manual e informativo, sem automação e sem notificação à cliente; o item fica disponível para futuro relatório de faltas
+
+**Given** os papéis (FR-D2)
+**When** visualizo a agenda
+**Then** dono/funcionário veem todos os profissionais; profissional vê só a própria
+
+**Given** cada entrada (FR-D3, FR-K4)
+**When** é exibida
+**Then** mostra cliente, serviço, horário, status e ícone de origem (balão = whatsapp, lápis = manual); "Não atribuído" em itálico cinza quando `professional_id` nulo
+
+**Given** o filtro por origem (FR-K5)
+**When** seleciono `[Todos] [WhatsApp] [Manual]`
+**Then** a agenda filtra; agendamentos manuais registram o criador para auditoria (FR-K2)
+
+### Story 2.10: Agendamento manual pelo painel
+
+As a dono/funcionário/profissional,
+I want criar um agendamento manualmente,
+So that eu registre clientes que chegam pessoalmente ou por telefone.
+
+**Acceptance Criteria:**
+
+**Given** a tela de novo agendamento manual (FR-D5, UX-DR10)
+**When** dono/funcionário criam
+**Then** podem escolher qualquer profissional; o profissional só cria para si (campo Profissional só aparece para dono/funcionário)
+
+**Given** a criação (FR-D6, FR-K3)
+**When** salvo
+**Then** o agendamento entra com `source = manual`, status *confirmado* (texto fixo "Entra como: Confirmado, sem aprovação"), sem fluxo de confirmação
+
+**Given** o campo de cliente
+**When** busco em tempo real e não encontro
+**Then** posso criar a cliente inline via modal "+ Nova"; o WhatsApp da cliente é opcional (FR-D7)
+
+**Given** a validação
+**When** escolho data/horário
+**Then** a data deve ser hoje ou futura; slot já ocupado gera aviso (não bloqueio)
+
+**Given** uma cliente sem WhatsApp (FR-D8)
+**When** o agendamento manual é criado
+**Then** nenhuma notificação automática é disparada
+
+### Story 2.11: Resiliência e monitoramento do provider WhatsApp
+
+As a operador da plataforma (Renato),
+I want ser alertado sobre quedas do WhatsApp e não perder mensagens em falhas temporárias,
+So that o serviço seja confiável mesmo quando o provider oscila.
+
+**Acceptance Criteria:**
+
+**Given** o monitoramento de conectividade (NFR-C2)
+**When** o provider cai ou falha entrega
+**Then** Renato é alertado
+
+**Given** uma falha temporária do provider (NFR-C3)
+**When** mensagens chegam durante a indisponibilidade
+**Then** são registradas e processadas quando a conectividade volta, sem perda de contexto do fluxo em andamento
+
+### Story 2.12: Detecção de pendentes por polling no painel
+
+As a dono/funcionário/profissional,
+I want ser avisado de novos pendentes sem recarregar a página,
+So that eu trate as solicitações rapidamente sem perder o que estou fazendo.
+
+**Acceptance Criteria:**
+
+**Given** o painel aberto (NFR-A3, ADR-011)
+**When** o polling em background consulta `GET /appointments/pending-count` a cada 15–30s
+**Then** atualiza apenas o badge de pendentes e dispara um toast — nunca recarrega a página, não fecha modais nem apaga texto em edição
+
+**Given** o badge de pendentes (UX-DR7)
+**When** há pendentes
+**Then** permanece visível até o salão tratar; o toast é alerta momentâneo
+
+**Given** qualquer ação de mutação (UX-DR19)
+**When** confirmo, recuso, cancelo, crio agendamento ou registro pagamento
+**Then** um toast padronizado confirma textualmente o que aconteceu
+
+**Given** a fonte de verdade (MySQL) e a atomicidade (NFR-C1)
+**When** o polling lê
+**Then** apenas lê o estado já salvo, sem risco de perda; o conflito de slot segue protegido pelo `SELECT ... FOR UPDATE` independente de quando o salão vê a notificação
+
+---
+
+## Épico 3: Gestão de Clientes
+
+**Objetivo:** transformar dados soltos de agendamento em relacionamento — o salão mantém cadastro, histórico e observações das clientes. Estende a tabela `clients` (criada mínima na story 2.4) e entrega a UI de gestão; autônomo, enriquece os agendamentos do Épico 2 sem depender de épicos futuros.
+
+**FRs:** FR-E1–E4 · **UX-DRs:** UX-DR11, UX-DR17 (estados vazios de Clientes e Histórico)
+
+### Story 3.1: Cadastro e listagem de clientes
+
+As a dono/funcionário/profissional,
+I want manter o cadastro de clientes com busca,
+So that eu encontre rapidamente quem atendo e registre quem chega sem WhatsApp.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** a tabela `clients` é estendida com os campos de cadastro necessários (e-mail e data do primeiro agendamento, além dos já criados na Story 2.2 — DL-020), preservando `phone_whatsapp_normalized` e `is_deleted`
+
+**Given** a lista de clientes (UX-DR11)
+**When** acesso a tela Clientes
+**Then** vejo a lista com busca por nome ou número; estado vazio padronizado quando não há clientes (UX-DR17)
+
+**Given** um cadastro manual (FR-E4)
+**When** crio uma cliente pelo painel
+**Then** o nome é obrigatório; WhatsApp, e-mail e demais campos são opcionais
+
+**Given** o cadastro de uma cliente (FR-E1)
+**When** é exibido
+**Then** mostra nome, contato WhatsApp e data do primeiro agendamento
+
+### Story 3.2: Perfil da cliente — observações e histórico
+
+As a dono/funcionário/profissional,
+I want ver o histórico e registrar observações de cada cliente,
+So that eu personalize o atendimento (preferências, alergias, histórico de serviço).
+
+**Acceptance Criteria:**
+
+**Given** o perfil de uma cliente (FR-E2, UX-DR11)
+**When** acesso
+**Then** vejo o histórico completo de agendamentos (serviço, data, status, profissional); estado vazio padronizado quando não há histórico (UX-DR17)
+
+**Given** o campo de observações (FR-E3)
+**When** adiciono ou edito observações livres
+**Then** o texto é persistido e exibido no perfil
+
+**Given** o perfil da cliente (UX-DR11)
+**When** quero agendar para ela
+**Then** existe o atalho "Novo agendamento para esta cliente" que leva ao fluxo de agendamento manual (Épico 2, story 2.10)
+
+---
+
+## Épico 4: Registro de Pagamentos
+
+**Objetivo:** dar ao salão visão de recebimento por agendamento, com registro manual e regras de visibilidade por papel — sem integração com gateway no MVP, mas com a abstração `PaymentGateway` preparada para o futuro.
+
+**FRs:** FR-F1–F5 · **NFRs:** NFR-O4 · **UX-DRs:** UX-DR12
+
+### Story 4.1: Registro manual de pagamento por agendamento
+
+As a dono/funcionário/profissional,
+I want registrar o pagamento recebido de um agendamento,
+So that o salão tenha o histórico de recebimentos sem integração externa.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** a tabela `payments` é criada com `company_id`, `appointment_id`, `amount`, `method`, `created_by`, timestamps, e índices liderados por `company_id`
+
+**Given** o modal de registro de pagamento (FR-F1, UX-DR12)
+**When** registro o pagamento de um agendamento
+**Then** informo o valor e seleciono a forma de pagamento via dropdown com as 5 opções fixas (Dinheiro / PIX / Cartão de débito / Cartão de crédito / Outro) — método é dropdown, não texto livre
+
+**Given** um pagamento registrado (UX-DR12)
+**When** salvo
+**Then** o agendamento correspondente passa para o status *concluído*
+
+**Given** o MVP (FR-F5)
+**When** registro o pagamento
+**Then** o registro é manual e informativo — sem conciliação automática nem emissão de recibo
+
+### Story 4.2: Visibilidade de pagamentos por papel
+
+As a dono/funcionário/profissional,
+I want que cada papel veja e registre pagamentos conforme sua permissão,
+So that o caixa funcione sem expor o faturamento consolidado a quem não deve vê-lo.
+
+**Acceptance Criteria:**
+
+**Given** o papel dono (FR-F2)
+**When** acesso pagamentos
+**Then** visualizo e registro pagamentos de todos os profissionais
+
+**Given** o papel profissional (FR-F3)
+**When** acesso pagamentos
+**Then** visualizo e registro apenas os dos meus próprios agendamentos
+
+**Given** o papel funcionário (FR-F4)
+**When** acesso pagamentos
+**Then** registro pagamentos de qualquer agendamento, mas não visualizo relatórios financeiros consolidados nem totais por profissional
+
+**Given** a matriz de permissões (FR-I2) e o `RolesGuard`
+**When** um papel tenta uma ação fora do permitido
+**Then** a ação é bloqueada com `403`
+
+### Story 4.3: Abstração PaymentGateway (preparação sem integração)
+
+As a operador da plataforma,
+I want a abstração de gateway de pagamento preparada sem integração ativa,
+So that uma futura integração (ex: Asaas) não exija mudança no core do produto.
+
+**Acceptance Criteria:**
+
+**Given** a interface `PaymentGateway` (`createCharge`, `getChargeStatus`, `refund`) (NFR-O4)
+**When** o `PaymentsModule` inicializa
+**Then** usa o `NullPaymentGateway` como implementação ativa
+
+**Given** o `NullPaymentGateway`
+**When** qualquer método é chamado
+**Then** lança `NotImplementedException` — sem cobrança real no MVP
+
+**Given** a arquitetura (NFR-O4)
+**When** o registro manual de pagamento opera
+**Then** funciona de forma totalmente independente do gateway, sem acoplamento ao `PaymentGateway`
+
+---
+
+## Épico 5: App Mobile do Profissional (somente leitura)
+
+**Objetivo:** dar ao profissional consulta da própria agenda e dos pendentes no celular (iOS/Android), em modo somente leitura no MVP (DL-018). O app consome a API já consolidada; confirmar/recusar/criar pelo app são feature futura que reaproveita os endpoints existentes do painel, sem mudança de backend. Autônomo — depende apenas da API dos épicos anteriores.
+
+**FRs:** FR-H1, FR-H2, FR-H4 · **UX-DRs:** UX-DR16, UX-DR17 (estados vazios de Agenda e Pendentes no app)
+
+### Story 5.1: Autenticação e navegação do app mobile
+
+As a profissional,
+I want entrar no app e navegar entre minhas telas no celular,
+So that eu acesse minha agenda de qualquer lugar.
+
+**Acceptance Criteria:**
+
+**Given** o app React Native + Expo (FR-H4)
+**When** instalo e abro em iOS ou Android
+**Then** o app sobe nas duas plataformas
+
+**Given** minhas credenciais
+**When** faço login no app
+**Then** autentico contra a mesma API do painel (JWT, Épico 1), reaproveitando os endpoints existentes
+
+**Given** o app autenticado (UX-DR16)
+**When** navego
+**Then** vejo 3 tabs — Agenda / Pendentes / Perfil
+
+### Story 5.2: Consulta da agenda no app
+
+As a profissional,
+I want ver minha agenda no celular em dia e semana,
+So that eu acompanhe meus atendimentos fora do balcão.
+
+**Acceptance Criteria:**
+
+**Given** a tab Agenda (FR-H1, UX-DR16)
+**When** acesso
+**Then** vejo a agenda do usuário autenticado em visões dia e semana
+
+**Given** que o app é somente leitura no MVP (DL-018)
+**When** abro um agendamento
+**Then** vejo os detalhes para consulta, sem ações de confirmar/recusar/cancelar/criar
+
+**Given** um dia sem agendamentos (UX-DR17)
+**When** abro a agenda
+**Then** vejo o estado vazio padronizado
+
+### Story 5.3: Consulta de pendentes no app
+
+As a profissional,
+I want ver os agendamentos aguardando confirmação no celular,
+So that eu saiba o que está pendente, ciente de que o tratamento é pelo painel.
+
+**Acceptance Criteria:**
+
+**Given** a tab Pendentes (FR-H2, UX-DR16, DL-018)
+**When** acesso
+**Then** vejo a lista de agendamentos *aguardando confirmação* somente para consulta — sem ações de confirmar/recusar no app
+
+**Given** a tela de pendentes
+**When** visualizo um item
+**Then** a tela orienta que o tratamento (confirmar/recusar) é feito pelo painel web
+
+**Given** nenhum pendente (UX-DR17)
+**When** abro a tab
+**Then** vejo o estado vazio padronizado

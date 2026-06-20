@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item *)",
+      "Bash(python)",
+      "Bash(pnpm -r build)",
+      "Bash(pnpm -r lint)",
+      "Bash(pnpm -r typecheck)",
+      "Bash(pnpm --filter @tamarcado/shared-utils --filter web --filter api run test:unit)",
+      "Bash(pnpm --filter @tamarcado/shared-utils --filter web run test)",
+      "Bash(powershell.exe -Command \"Start-Process 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'\")",
+      "Bash(DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 DATABASE_USER=root DATABASE_PASSWORD=root DATABASE_NAME=tamarcado_dev pnpm --filter api run test:e2e)",
+      "Bash(docker exec *)",
+      "Bash(DATABASE_HOST=127.0.0.1 DATABASE_PORT=3306 DATABASE_USER=root DATABASE_PASSWORD=root DATABASE_NAME=tamarcado_dev pnpm -r test)",
+      "Bash(docker compose *)"
+    ]
+  }
+}

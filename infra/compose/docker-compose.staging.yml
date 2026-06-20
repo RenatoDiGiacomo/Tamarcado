@@ -1,0 +1,66 @@
+# Ambiente de STAGING — LOCAL na máquina do dev, build de produção, custo R$0
+# (architecture.md §8.2, ADR-010). NÃO é clone em nuvem.
+# Valida que as imagens buildam e rodam fora do modo dev antes do push para main.
+# Uso: docker compose -f infra/compose/docker-compose.staging.yml up --build
+name: tamarcado-staging
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USER: root
+      DATABASE_PASSWORD: staging
+      DATABASE_NAME: tamarcado_staging
+      REDIS_URL: redis://redis:6379
+      WHATSAPP_PROVIDER: evolution_api
+      EVOLUTION_API_URL: http://evolution-api:8080
+      JWT_SECRET: staging-secret
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      target: production
+    ports:
+      - "4173:4173"
+    depends_on:
+      - api
+
+  mysql:
+    image: mysql:8.0
+    command: ["--default-time-zone=+00:00"]
+    environment:
+      MYSQL_ROOT_PASSWORD: staging
+      MYSQL_DATABASE: tamarcado_staging
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_staging_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-pstaging"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+
+volumes:
+  mysql_staging_data:
