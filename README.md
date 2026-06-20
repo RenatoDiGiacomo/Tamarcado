@@ -42,11 +42,16 @@ Migrations: `pnpm --filter api run migration:run`
 
 ## Qualidade (mesma sequência do CI)
 
+Use os scripts raiz (Turbo) — eles respeitam o `^build`, garantindo que os
+pacotes `@tamarcado/*` sejam buildados antes do typecheck/test que dependem do
+`dist/` deles. Não use `pnpm -r <script>` direto: ignora essa ordem e quebra num
+checkout limpo (sem `dist/`).
+
 ```bash
-pnpm -r lint
-pnpm -r typecheck
-pnpm -r test     # e2e da API exigem MySQL acessível (suba o compose antes)
-pnpm -r build
+pnpm run build      # builda tudo (e os shared-* primeiro)
+pnpm run lint
+pnpm run typecheck
+pnpm run test       # e2e da API exigem MySQL acessível (suba o compose antes)
 ```
 
 ## Ambientes

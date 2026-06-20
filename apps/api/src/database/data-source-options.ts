@@ -21,7 +21,12 @@ export function buildDataSourceOptions(): DataSourceOptions {
     synchronize: false,
     migrationsRun: false,
     timezone: "Z", // banco em UTC; conversão de fuso na aplicação (ADR-008)
-    retryAttempts: 1,
+    // Tolera o MySQL não estar pronto no instante do boot (ex.: subida via
+    // compose). Lidos pelo @nestjs/typeorm em forRoot; ignorados pelo
+    // DataSource da CLI. (A separação liveness/readiness — /health responder
+    // com 'db down' — fica como melhoria futura, ver story 1.1 Pendências.)
+    retryAttempts: 10,
+    retryDelay: 3000,
   };
 
   if (url) {

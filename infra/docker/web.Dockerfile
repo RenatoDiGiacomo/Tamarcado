@@ -20,10 +20,10 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @tamarcado/shared-types build
 RUN pnpm --filter web build
 
-# --- Produção / staging local: serve o dist via vite preview ---
-FROM base AS production
-ENV NODE_ENV=production
-COPY --from=build /app /app
-WORKDIR /app/apps/web
-EXPOSE 4173
-CMD ["pnpm", "run", "preview", "--", "--host", "--port", "4173"]
+# --- Produção / staging local: serve o dist estático via Nginx ---
+# Espelha o modelo de produção (VPS: Nginx serve apps/web/dist) e descarta o
+# Node/toolchain da imagem. Não usa `vite preview` (servidor de dev).
+FROM nginx:alpine AS production
+COPY infra/docker/web-nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+EXPOSE 80

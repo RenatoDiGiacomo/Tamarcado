@@ -47,7 +47,10 @@ jobs:
           cache: "pnpm"
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r lint
-      - run: pnpm -r typecheck
-      - run: pnpm -r test
-      - run: pnpm -r build
+      # Via Turbo (scripts do package.json raiz): respeita `^build`, então os
+      # pacotes compartilhados (@tamarcado/*) são buildados antes de typecheck/
+      # test — que dependem do dist/ deles. `pnpm -r` puro ignora essa ordem.
+      - run: pnpm run build
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test
