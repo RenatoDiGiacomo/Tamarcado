@@ -41,7 +41,7 @@ so that eu acesse minha instalação de forma segura.
 - [ ] **Task 2 — Entidade `User` + migration `users` (AC1)**
   - [ ] Criar `apps/api/src/database/entities/user.entity.ts` conforme architecture.md §3.2 (campos e tipos exatos; `id` como `string` — bigint).
   - [ ] RED: teste de integração `test/migration-users.e2e-spec.ts` que roda as migrations e verifica que `users` existe com as colunas da AC1 (`access_level` enum owner/manager/basic; `attends_clients` bool default false; `theme` enum light/dark default light; `is_active` default true) e a FK para `companies`; e que reverte limpo.
-  - [ ] GREEN: migration `CreateUsers` (timestamp > `1718900000000`) criando a tabela `users` com: `id` bigint PK, `company_id` bigint NOT NULL, `name` varchar(100), `email` varchar(200) **UNIQUE global** (`uq_users_email`), `phone_whatsapp` varchar(20) NULL, `password_hash` varchar(255), `access_level` ENUM('owner','manager','basic'), `attends_clients` bool default false, `theme` ENUM('light','dark') default 'light', `is_active` bool default true, `created_at`/`updated_at`. Índices: `idx_users_company_access (company_id, access_level)`, `idx_users_company_attends (company_id, attends_clients)`, `idx_users_company_active (company_id, is_active)`. FK `fk_users_company (company_id) → companies(id)`.
+  - [ ] GREEN: migration `CreateUsers` (timestamp > `1718900000000`) criando a tabela `users` com: `id` bigint PK, `company_id` bigint NOT NULL, `name` varchar(100), `email` varchar(200), `phone_whatsapp` varchar(20) NULL, `password_hash` varchar(255), `access_level` ENUM('owner','manager','basic'), `attends_clients` bool default false, `theme` ENUM('light','dark') default 'light', `is_active` bool default true, `created_at`/`updated_at`. **Email único POR TENANT** — `UNIQUE uq_users_tenant_email (company_id, email)` (DL-026, ajuste sobre a §3.2). Índices: `idx_users_company_access (company_id, access_level)`, `idx_users_company_attends (company_id, attends_clients)`, `idx_users_company_active (company_id, is_active)`. FK `fk_users_company (company_id) → companies(id)`.
   - [ ] **Não criar** outras tabelas. **Não** adicionar TenantMiddleware/TenantAwareRepository (Story 1.3).
 
 - [ ] **Task 3 — UsersModule mínimo (AC2, AC5)**
@@ -91,8 +91,9 @@ so that eu acesse minha instalação de forma segura.
 
 ### Schema `users` (architecture.md §3.2)
 
-Seguir o schema canônico §3.2 **exatamente**. Pontos de atenção:
-- `email` tem **UNIQUE global** (`uq_users_email`), não por tenant — intencional no schema (um e-mail = um usuário na plataforma). Não transformar em unique composto com `company_id`.
+Seguir o schema §3.2, **com um ajuste (DL-026)**. Pontos de atenção:
+- `email` é **único POR TENANT** — `UNIQUE uq_users_tenant_email (company_id, email)`, **não** global. Ajuste consciente sobre a §3.2 (que tinha `uq_users_email` global): no nosso público a mesma pessoa pode atender em mais de um salão, então o mesmo e-mail pode existir em tenants diferentes. Consequência: o `findByEmail` do login precisa de cuidado (ver abaixo).
+- **Login por email sem tenant explícito:** como o email não é mais globalmente único, `UsersService.findByEmail(email)` pode retornar mais de uma linha (mesma pessoa em salões diferentes). No MVP cada instalação tem seu próprio painel/URL; trate assim: o login resolve o tenant pelo contexto da instalação (host/subdomínio ou um campo `companySlug`/`companyId` no payload de login) e busca por `(company_id, email)`. Se ainda não há roteamento por instalação nesta fase, aceite um identificador da instalação no corpo do login (ex.: `companySlug`) e busque por `(company_id, email)` — **nunca** assuma email globalmente único. Registrar a abordagem escolhida nas notas de conclusão.
 - `access_level ENUM('owner','manager','basic')` e `attends_clients BOOLEAN DEFAULT FALSE` são os **dois eixos independentes** (DL-022). `theme ENUM('light','dark') DEFAULT 'light'` é preferência **individual** (DL-021) — fica em `users`, não em `companies`.
 - Todos os índices de lookup começam por `company_id` (política da §6.3), mesmo sem o filtro automático desta story.
 
