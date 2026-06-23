@@ -1,6 +1,6 @@
 # Story 1.2: Autenticação do dono e shell do painel
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,52 +32,52 @@ so that eu acesse minha instalação de forma segura.
 
 > Ordem TDD (red→green→refactor). Não marque `[x]` sem teste passando. Rode a suíte com MySQL acessível (docker compose up mysql, ou container efêmero).
 
-- [ ] **Task 1 — Dependências e configuração (AC2, AC3)**
-  - [ ] `apps/api`: adicionar `@nestjs/jwt`, `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/config`, `bcryptjs`, `class-validator`, `class-transformer` (+ `@types/passport-jwt`, `@types/bcryptjs`). **Usar `bcryptjs` (JS puro)**, não `bcrypt` nativo — evita build de toolchain na imagem Alpine.
-  - [ ] `apps/web`: adicionar `react-router-dom`.
-  - [ ] Registrar `ConfigModule.forRoot({ isGlobal: true })` no `AppModule`. Variáveis: `JWT_SECRET` (já existe), `JWT_ACCESS_TTL=900s`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_TTL=7d`. Adicionar as novas ao `.env.example`, ao `docker-compose.yml` (serviço `api`) e ao bloco `env`/secrets do CI (`ci.yml`) e do staging.
-  - [ ] `web`: adicionar `VITE_API_URL` (default `http://localhost:3000`) ao `.env.example` e ao serviço `web` do compose.
+- [x] **Task 1 — Dependências e configuração (AC2, AC3)**
+  - [x] `apps/api`: adicionar `@nestjs/jwt`, `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/config`, `bcryptjs`, `class-validator`, `class-transformer` (+ `@types/passport-jwt`, `@types/bcryptjs`). **Usar `bcryptjs` (JS puro)**, não `bcrypt` nativo — evita build de toolchain na imagem Alpine.
+  - [x] `apps/web`: adicionar `react-router-dom`.
+  - [x] Registrar `ConfigModule.forRoot({ isGlobal: true })` no `AppModule`. Variáveis: `JWT_SECRET` (já existe), `JWT_ACCESS_TTL=900s`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_TTL=7d`. Adicionar as novas ao `.env.example`, ao `docker-compose.yml` (serviço `api`) e ao bloco `env`/secrets do CI (`ci.yml`) e do staging.
+  - [x] `web`: adicionar `VITE_API_URL` (default `http://localhost:3000`) ao `.env.example` e ao serviço `web` do compose.
 
-- [ ] **Task 2 — Entidade `User` + migration `users` (AC1)**
-  - [ ] Criar `apps/api/src/database/entities/user.entity.ts` conforme architecture.md §3.2 (campos e tipos exatos; `id` como `string` — bigint).
-  - [ ] RED: teste de integração `test/migration-users.e2e-spec.ts` que roda as migrations e verifica que `users` existe com as colunas da AC1 (`access_level` enum owner/manager/basic; `attends_clients` bool default false; `theme` enum light/dark default light; `is_active` default true) e a FK para `companies`; e que reverte limpo.
-  - [ ] GREEN: migration `CreateUsers` (timestamp > `1718900000000`) criando a tabela `users` com: `id` bigint PK, `company_id` bigint NOT NULL, `name` varchar(100), `email` varchar(200), `phone_whatsapp` varchar(20) NULL, `password_hash` varchar(255), `access_level` ENUM('owner','manager','basic'), `attends_clients` bool default false, `theme` ENUM('light','dark') default 'light', `is_active` bool default true, `created_at`/`updated_at`. **Email único POR TENANT** — `UNIQUE uq_users_tenant_email (company_id, email)` (DL-026, ajuste sobre a §3.2). Índices: `idx_users_company_access (company_id, access_level)`, `idx_users_company_attends (company_id, attends_clients)`, `idx_users_company_active (company_id, is_active)`. FK `fk_users_company (company_id) → companies(id)`.
-  - [ ] **Não criar** outras tabelas. **Não** adicionar TenantMiddleware/TenantAwareRepository (Story 1.3).
+- [x] **Task 2 — Entidade `User` + migration `users` (AC1)**
+  - [x] Criar `apps/api/src/database/entities/user.entity.ts` conforme architecture.md §3.2 (campos e tipos exatos; `id` como `string` — bigint).
+  - [x] RED: teste de integração `test/migration-users.e2e-spec.ts` que roda as migrations e verifica que `users` existe com as colunas da AC1 (`access_level` enum owner/manager/basic; `attends_clients` bool default false; `theme` enum light/dark default light; `is_active` default true) e a FK para `companies`; e que reverte limpo.
+  - [x] GREEN: migration `CreateUsers` (timestamp > `1718900000000`) criando a tabela `users` com: `id` bigint PK, `company_id` bigint NOT NULL, `name` varchar(100), `email` varchar(200), `phone_whatsapp` varchar(20) NULL, `password_hash` varchar(255), `access_level` ENUM('owner','manager','basic'), `attends_clients` bool default false, `theme` ENUM('light','dark') default 'light', `is_active` bool default true, `created_at`/`updated_at`. **Email único POR TENANT** — `UNIQUE uq_users_tenant_email (company_id, email)` (DL-026, ajuste sobre a §3.2). Índices: `idx_users_company_access (company_id, access_level)`, `idx_users_company_attends (company_id, attends_clients)`, `idx_users_company_active (company_id, is_active)`. FK `fk_users_company (company_id) → companies(id)`.
+  - [x] **Não criar** outras tabelas. **Não** adicionar TenantMiddleware/TenantAwareRepository (Story 1.3).
 
-- [ ] **Task 3 — UsersModule mínimo (AC2, AC5)**
-  - [ ] `users.module.ts`, `users.service.ts` com `findByEmail(email)` e `findById(id)` sobre o repositório de `User` (TypeORM `@InjectRepository`). Sem `TenantAwareRepository` ainda — lookup por email é global (a constraint é global) e por id.
-  - [ ] RED→GREEN: `GET /api/users/me` (protegido) retornando o perfil do usuário autenticado: `{ id, companyId, name, email, accessLevel, attendsClients, theme }` — consumido pelo shell (item "Configurações" só para owner; base para tema futuro).
+- [x] **Task 3 — UsersModule mínimo (AC2, AC5)**
+  - [x] `users.module.ts`, `users.service.ts` com `findByEmail(email)` e `findById(id)` sobre o repositório de `User` (TypeORM `@InjectRepository`). Sem `TenantAwareRepository` ainda — lookup por email é global (a constraint é global) e por id.
+  - [x] RED→GREEN: `GET /api/users/me` (protegido) retornando o perfil do usuário autenticado: `{ id, companyId, name, email, accessLevel, attendsClients, theme }` — consumido pelo shell (item "Configurações" só para owner; base para tema futuro).
 
-- [ ] **Task 4 — AuthModule: login + JWT (AC2, AC4)**
-  - [ ] RED: `auth.service.spec.ts` — `validateUser(email, senha)` retorna o usuário quando o hash bate (bcryptjs) e `null`/erro quando não; `login(user)` assina access (TTL 15min) e refresh (TTL 7d) com payload `{ sub: userId, companyId, accessLevel, attendsClients }`.
-  - [ ] GREEN: `auth.service.ts` (validateUser via `UsersService.findByEmail` + `bcrypt.compare`; login via `JwtService.sign` com segredos/TTL distintos para access e refresh), `strategies/jwt.strategy.ts` (extrai Bearer, valida com `JWT_SECRET`, `validate(payload)` → `{ userId: payload.sub, companyId, accessLevel, attendsClients }`), `guards/jwt-auth.guard.ts` (`AuthGuard('jwt')`).
-  - [ ] `auth.controller.ts`: `POST /api/auth/login` (DTO `{ email, password }` validado por class-validator) → `{ accessToken, refreshToken }`. Credenciais inválidas → `401`.
-  - [ ] RED→GREEN: aplicar `JwtAuthGuard` em `GET /api/users/me`; sem token → `401`.
-  - [ ] Registrar `ValidationPipe` global (whitelist) no `main.ts`.
+- [x] **Task 4 — AuthModule: login + JWT (AC2, AC4)**
+  - [x] RED: `auth.service.spec.ts` — `validateUser(email, senha)` retorna o usuário quando o hash bate (bcryptjs) e `null`/erro quando não; `login(user)` assina access (TTL 15min) e refresh (TTL 7d) com payload `{ sub: userId, companyId, accessLevel, attendsClients }`.
+  - [x] GREEN: `auth.service.ts` (validateUser via `UsersService.findByEmail` + `bcrypt.compare`; login via `JwtService.sign` com segredos/TTL distintos para access e refresh), `strategies/jwt.strategy.ts` (extrai Bearer, valida com `JWT_SECRET`, `validate(payload)` → `{ userId: payload.sub, companyId, accessLevel, attendsClients }`), `guards/jwt-auth.guard.ts` (`AuthGuard('jwt')`).
+  - [x] `auth.controller.ts`: `POST /api/auth/login` (DTO `{ email, password }` validado por class-validator) → `{ accessToken, refreshToken }`. Credenciais inválidas → `401`.
+  - [x] RED→GREEN: aplicar `JwtAuthGuard` em `GET /api/users/me`; sem token → `401`.
+  - [x] Registrar `ValidationPipe` global (whitelist) no `main.ts`.
 
-- [ ] **Task 5 — Refresh token (AC3)**
-  - [ ] RED: e2e — login → usar o `refreshToken` em `POST /api/auth/refresh` → recebe novo `accessToken` (200); refresh inválido/expirado → `401`.
-  - [ ] GREEN: `POST /api/auth/refresh` valida o refresh token (segredo `JWT_REFRESH_SECRET`) e emite novo access token. **MVP: refresh stateless** (JWT assinado, sem armazenamento em banco); rotação/blacklist de refresh fica como melhoria futura — registrar na nota da story.
+- [x] **Task 5 — Refresh token (AC3)**
+  - [x] RED: e2e — login → usar o `refreshToken` em `POST /api/auth/refresh` → recebe novo `accessToken` (200); refresh inválido/expirado → `401`.
+  - [x] GREEN: `POST /api/auth/refresh` valida o refresh token (segredo `JWT_REFRESH_SECRET`) e emite novo access token. **MVP: refresh stateless** (JWT assinado, sem armazenamento em banco); rotação/blacklist de refresh fica como melhoria futura — registrar na nota da story.
 
-- [ ] **Task 6 — Seed de company + owner para dev/teste (AC2)**
-  - [ ] Criar seed que insere uma `company` ("Salão Teste", slug único) e um `user` owner (`access_level='owner'`, `attends_clients=true`, senha conhecida via `bcryptjs.hash`) — idempotente. Expor como `pnpm --filter api run seed:dev` e chamar a partir de `infra/scripts/seed-dev.sh` (que já roda as migrations).
-  - [ ] Documentar as credenciais de dev no `README` (apenas dev). Os e2e de auth podem semear o owner no `beforeAll` (não dependa do seed manual nos testes).
+- [x] **Task 6 — Seed de company + owner para dev/teste (AC2)**
+  - [x] Criar seed que insere uma `company` ("Salão Teste", slug único) e um `user` owner (`access_level='owner'`, `attends_clients=true`, senha conhecida via `bcryptjs.hash`) — idempotente. Expor como `pnpm --filter api run seed:dev` e chamar a partir de `infra/scripts/seed-dev.sh` (que já roda as migrations).
+  - [x] Documentar as credenciais de dev no `README` (apenas dev). Os e2e de auth podem semear o owner no `beforeAll` (não dependa do seed manual nos testes).
 
-- [ ] **Task 7 — Frontend: cliente de API + estado de auth (AC2, AC4)**
-  - [ ] `apps/web/src/lib/api.ts`: wrapper `fetch` lendo `import.meta.env.VITE_API_URL`, anexando `Authorization: Bearer <access>` e, em `401`, tentando o refresh uma vez antes de deslogar.
-  - [ ] `apps/web/src/auth/AuthContext.tsx`: guarda tokens (localStorage) + perfil (`/api/users/me`), expõe `login()`, `logout()`, `user`. RED→GREEN com teste do reducer/contexto (mock do fetch).
+- [x] **Task 7 — Frontend: cliente de API + estado de auth (AC2, AC4)**
+  - [x] `apps/web/src/lib/api.ts`: wrapper `fetch` lendo `import.meta.env.VITE_API_URL`, anexando `Authorization: Bearer <access>` e, em `401`, tentando o refresh uma vez antes de deslogar.
+  - [x] `apps/web/src/auth/AuthContext.tsx`: guarda tokens (localStorage) + perfil (`/api/users/me`), expõe `login()`, `logout()`, `user`. RED→GREEN com teste do reducer/contexto (mock do fetch).
 
-- [ ] **Task 8 — Frontend: tela de Login (AC2)**
-  - [ ] RED: `Login.test.tsx` — renderiza form (e-mail, senha, botão), submit chama o client e, em sucesso, redireciona para o shell; erro exibe mensagem.
-  - [ ] GREEN: `src/pages/Login.tsx` + rota pública `/login`. Copy seguindo UX-DR6 (sem emojis, "você", frases curtas).
+- [x] **Task 8 — Frontend: tela de Login (AC2)**
+  - [x] RED: `Login.test.tsx` — renderiza form (e-mail, senha, botão), submit chama o client e, em sucesso, redireciona para o shell; erro exibe mensagem.
+  - [x] GREEN: `src/pages/Login.tsx` + rota pública `/login`. Copy seguindo UX-DR6 (sem emojis, "você", frases curtas).
 
-- [ ] **Task 9 — Frontend: shell responsivo + rotas protegidas (AC5)**
-  - [ ] RED: `AppShell.test.tsx` — em viewport ≥768px renderiza **sidebar** com itens (Agenda, Pendentes [área de badge], Clientes, Pagamentos, Configurações); em <768px renderiza **tabs no rodapé** (Agenda, Pendentes [badge], Clientes, "+"); "Configurações" só aparece para `accessLevel === 'owner'`; há ação "Sair" (logout). (Use mock de `matchMedia`/CSS para o breakpoint.)
-  - [ ] GREEN: `src/components/AppShell.tsx` (layout responsivo com breakpoint 768px, header com logo/nome + avatar/Sair, área de conteúdo placeholder), `src/routes` com guarda: sem sessão → redireciona a `/login`. Itens de menu são placeholders (telas reais vêm nos Épicos 2+); o "+" abre um menu de ações rápidas (placeholder). Badge de pendentes: só o espaço/elemento (a contagem real chega na Story 2.12).
+- [x] **Task 9 — Frontend: shell responsivo + rotas protegidas (AC5)**
+  - [x] RED: `AppShell.test.tsx` — em viewport ≥768px renderiza **sidebar** com itens (Agenda, Pendentes [área de badge], Clientes, Pagamentos, Configurações); em <768px renderiza **tabs no rodapé** (Agenda, Pendentes [badge], Clientes, "+"); "Configurações" só aparece para `accessLevel === 'owner'`; há ação "Sair" (logout). (Use mock de `matchMedia`/CSS para o breakpoint.)
+  - [x] GREEN: `src/components/AppShell.tsx` (layout responsivo com breakpoint 768px, header com logo/nome + avatar/Sair, área de conteúdo placeholder), `src/routes` com guarda: sem sessão → redireciona a `/login`. Itens de menu são placeholders (telas reais vêm nos Épicos 2+); o "+" abre um menu de ações rápidas (placeholder). Badge de pendentes: só o espaço/elemento (a contagem real chega na Story 2.12).
 
-- [ ] **Task 10 — Validações finais (todas as ACs)**
-  - [ ] Rodar a sequência do CI via Turbo em ambiente limpo (sem `dist/`), com MySQL acessível: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test`.
-  - [ ] Validar AC manualmente via compose: login retorna tokens; `/api/users/me` 401 sem token e 200 com token; refresh emite novo access; painel mostra o shell (sidebar/tabs) conforme a largura.
+- [x] **Task 10 — Validações finais (todas as ACs)**
+  - [x] Rodar a sequência do CI via Turbo em ambiente limpo (sem `dist/`), com MySQL acessível: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test`.
+  - [x] Validar AC manualmente via compose: login retorna tokens; `/api/users/me` 401 sem token e 200 com token; refresh emite novo access; painel mostra o shell (sidebar/tabs) conforme a largura.
 
 ## Dev Notes
 
@@ -155,12 +155,55 @@ Seguir o schema §3.2, **com um ajuste (DL-026)**. Pontos de atenção:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-opus-4-8 (Amelia)
 
 ### Debug Log References
 
+- Sequência CI completa em ambiente limpo (sem `dist/`/cache Turbo) com MySQL: build 5/5, lint 5/5, typecheck 7/7, test 9 unit + 14 e2e, exit 0.
+- Bug de infra pego na validação: **Turbo 2.x roda em strict env mode** e removia `DATABASE_*`/`JWT_*` do ambiente das tasks — os e2e que bootam o Nest falhavam em `getOrThrow("JWT_SECRET")` (migrations passavam por usarem defaults de conexão). Quebraria o CI. Corrigido declarando as envs na task `test` do `turbo.json`.
+- Jest e2e travava sem sair (handle aberto/conexão). Mitigado com `--forceExit` no script e2e.
+
 ### Completion Notes List
 
-- Ultimate context engine analysis completed - comprehensive developer guide created.
+- **Tasks 1–10 concluídas.** Backend (auth JWT + users + migration) e frontend (login + shell responsivo) implementados em TDD; branch `story/1.2-auth-shell`.
+- **AC1 ✓** migration `users` (§3.2) com `uq_users_tenant_email (company_id, email)` (DL-026) e FK para `companies`; e2e valida colunas, unique e reversão.
+- **AC2 ✓** `POST /api/auth/login` → access (15min) + refresh (7d); `JwtStrategy` extrai `{ userId, companyId, accessLevel, attendsClients }`.
+- **AC3 ✓** `POST /api/auth/refresh` emite novo access a partir de refresh válido (stateless — DL-025-nota).
+- **AC4 ✓** `JwtAuthGuard` rejeita `GET /api/users/me` sem token com `401`.
+- **AC5 ✓** shell responsivo: sidebar ≥768px / tabs <768px, menu "+", área de badge, Configurações só owner, ação Sair (UX-DR7).
+- **Decisão de login (DL-026):** como o e-mail é único por tenant, o login resolve o tenant por `companySlug` opcional ou, em deploy de tenant único, pela única `company` existente; busca por `(company_id, email)`. Múltiplas instalações sem slug → 401 "informe a instalação".
+- **bcryptjs** (sem build nativo), `ValidationPipe` global, `ConfigModule` global. Seed `seed:dev` cria company "Salão Teste" + owner `dono@tamarcado.dev` / `tamarcado123` (DEV).
+- Pendências: revogação/rotação de refresh token (futuro); multi-tenancy automático (Story 1.3); `RolesGuard`/permissões (Story 1.4).
+
+### Change Log
+
+| Data | Mudança |
+|---|---|
+| 2026-06-22 | Implementação da Story 1.2 em `story/1.2-auth-shell`. Backend auth (`e30df15`), fix Turbo/forceExit (`cd3bfd7`), frontend (`dd036bb`). Status → review. |
 
 ### File List
+
+**Backend (apps/api)**
+- `src/database/entities/user.entity.ts`, `src/database/migrations/1718900100000-CreateUsers.ts`
+- `src/database/data-source-options.ts` (User + migration registrados), `src/database/seeds/seed-dev.ts`
+- `src/modules/auth/{auth.module,auth.controller,auth.service,auth-user,current-user.decorator}.ts`
+- `src/modules/auth/dto/{login.dto,refresh.dto}.ts`, `src/modules/auth/guards/jwt-auth.guard.ts`, `src/modules/auth/strategies/jwt.strategy.ts`
+- `src/modules/users/{users.module,users.controller,users.service}.ts`
+- `src/app.module.ts`, `src/main.ts` (ConfigModule + ValidationPipe)
+- Testes: `src/modules/auth/auth.service.spec.ts`, `src/modules/auth/strategies/jwt.strategy.spec.ts`
+- e2e: `test/auth.e2e-spec.ts`, `test/migration-users.e2e-spec.ts`, `test/test-db.ts`, `test/migration-companies.e2e-spec.ts` (atualizado)
+- `package.json` (deps auth, seed:dev, forceExit)
+
+**Frontend (apps/web)**
+- `src/lib/api.ts`, `src/lib/useMediaQuery.ts`
+- `src/auth/AuthContext.tsx`, `src/pages/Login.tsx`, `src/components/AppShell.tsx`
+- `src/App.tsx`, `src/main.tsx`, `src/vite-env.d.ts`
+- Testes: `src/auth/AuthContext.test.tsx`, `src/pages/Login.test.tsx`, `src/components/AppShell.test.tsx`, `src/App.test.tsx`
+- `package.json` (react-router-dom)
+
+**Infra/config**
+- `turbo.json` (env passthrough), `.env.example`, `infra/compose/docker-compose.yml`, `docker-compose.staging.yml`, `.github/workflows/ci.yml` (envs JWT), `infra/scripts/seed-dev.sh`
+
+**Docs**
+- `_bmad-output/implementation-artifacts/1-2-autenticacao-do-dono-e-shell-do-painel.md`
+- `architecture.md` §3.2 e `.decision-log.md` (DL-026)
