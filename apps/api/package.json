@@ -5,9 +5,9 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "jest && jest --config ./test/jest-e2e.json --runInBand",
+    "test": "jest && jest --config ./test/jest-e2e.json --runInBand --forceExit",
     "test:unit": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --forceExit",
     "build": "nest build",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
