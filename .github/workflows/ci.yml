@@ -35,6 +35,10 @@ jobs:
       DATABASE_PASSWORD: root
       DATABASE_NAME: tamarcado_dev
       REDIS_URL: redis://127.0.0.1:6379
+      JWT_SECRET: ci-test-secret
+      JWT_ACCESS_TTL: "900"
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
+      JWT_REFRESH_TTL: "604800"
 
     steps:
       - uses: actions/checkout@v4

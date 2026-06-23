@@ -9,4 +9,7 @@ cd "$(dirname "$0")/../.."
 echo "==> Aplicando migrations (dev)"
 pnpm --filter api run migration:run
 
-echo "==> Seed concluído (sem dados de exemplo nesta fase)"
+echo "==> Seed de dev (company + owner de teste)"
+pnpm --filter api run seed:dev
+
+echo "==> Seed concluído"

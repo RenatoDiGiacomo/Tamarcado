@@ -211,7 +211,7 @@ CREATE TABLE users (
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_tenant_email (company_id, email),   -- email único POR TENANT (DL-026): mesma pessoa pode atender em >1 salão
   KEY idx_users_company_access   (company_id, access_level),
   KEY idx_users_company_attends  (company_id, attends_clients),
   KEY idx_users_company_active   (company_id, is_active),

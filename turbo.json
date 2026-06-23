@@ -3,14 +3,28 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": ["VITE_API_URL"]
     },
     "lint": {},
     "typecheck": {
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "DATABASE_HOST",
+        "DATABASE_PORT",
+        "DATABASE_USER",
+        "DATABASE_PASSWORD",
+        "DATABASE_NAME",
+        "REDIS_URL",
+        "JWT_SECRET",
+        "JWT_ACCESS_TTL",
+        "JWT_REFRESH_SECRET",
+        "JWT_REFRESH_TTL"
+      ]
     },
     "dev": {
       "cache": false,

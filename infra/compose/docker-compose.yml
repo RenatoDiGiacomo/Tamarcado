@@ -22,6 +22,9 @@ services:
       WHATSAPP_PROVIDER: evolution_api
       EVOLUTION_API_URL: http://evolution-api:8080
       JWT_SECRET: dev-secret-change-in-prod
+      JWT_ACCESS_TTL: "900"
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-in-prod
+      JWT_REFRESH_TTL: "604800"
     depends_on:
       mysql:
         condition: service_healthy
@@ -35,6 +38,9 @@ services:
       target: development
     ports:
       - "5173:5173"
+    environment:
+      # Acessada pelo browser (host) → porta mapeada da API.
+      VITE_API_URL: http://localhost:3000
     depends_on:
       - api
 

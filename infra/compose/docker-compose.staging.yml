@@ -24,6 +24,9 @@ services:
       WHATSAPP_PROVIDER: evolution_api
       EVOLUTION_API_URL: http://evolution-api:8080
       JWT_SECRET: staging-secret
+      JWT_ACCESS_TTL: "900"
+      JWT_REFRESH_SECRET: staging-refresh-secret
+      JWT_REFRESH_TTL: "604800"
     depends_on:
       mysql:
         condition: service_healthy
