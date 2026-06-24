@@ -86,7 +86,8 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException("Refresh token inválido");
     }
-    const user = await this.users.findById(sub);
+    // Refresh é pré-tenant (sem middleware/contexto): lookup sem escopo.
+    const user = await this.users.findByIdUnscoped(sub);
     if (!user || !user.is_active) {
       throw new UnauthorizedException("Refresh token inválido");
     }
