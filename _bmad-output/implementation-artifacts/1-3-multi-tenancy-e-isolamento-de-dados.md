@@ -155,6 +155,7 @@ claude-opus-4-8 (Amelia)
 | Data | Mudança |
 |---|---|
 | 2026-06-23 | Implementação da 1.3 em `story/1.3-multi-tenancy`: core multi-tenancy (`6a5028d`), users tenant-aware (`d2907db`), prova de isolamento + teardown de raiz (`3b0756d`). Status → review. |
+| 2026-06-24 | Fix de CORS (`6f9b6f0`): o login do painel falhava no navegador porque a API não habilitava CORS (causa raiz — não era o hash, que estava correto). `configureApp()` centraliza prefixo+pipe+CORS (main.ts e e2e); `CORS_ORIGIN` configurável; e2e `seed-login` cobre login com a credencial real do seed + preflight CORS. Necessário para validar o isolamento via painel. |
 
 ### File List
 
