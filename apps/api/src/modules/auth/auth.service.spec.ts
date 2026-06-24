@@ -5,7 +5,7 @@ import type { User } from "../../database/entities/user.entity";
 
 type Mocked = {
   svc: AuthService;
-  users: { findByCompanyAndEmail: jest.Mock; findById: jest.Mock };
+  users: { findByCompanyAndEmail: jest.Mock; findByIdUnscoped: jest.Mock };
   jwt: { sign: jest.Mock; verify: jest.Mock };
   companies: { findOne: jest.Mock; find: jest.Mock };
 };
@@ -22,7 +22,10 @@ const baseUser = {
 };
 
 function make(): Mocked {
-  const users = { findByCompanyAndEmail: jest.fn(), findById: jest.fn() };
+  const users = {
+    findByCompanyAndEmail: jest.fn(),
+    findByIdUnscoped: jest.fn(),
+  };
   const jwt = { sign: jest.fn().mockReturnValue("token"), verify: jest.fn() };
   const config = {
     get: jest.fn((_k: string, d?: string) => d ?? "cfg"),
@@ -93,7 +96,7 @@ describe("AuthService", () => {
   it("refresh emite novo access a partir de refresh válido", async () => {
     const { svc, jwt, users } = make();
     jwt.verify.mockReturnValue({ sub: "10" });
-    users.findById.mockResolvedValue(baseUser);
+    users.findByIdUnscoped.mockResolvedValue(baseUser);
     const result = await svc.refresh("valid-refresh");
     expect(result.accessToken).toBeDefined();
   });
