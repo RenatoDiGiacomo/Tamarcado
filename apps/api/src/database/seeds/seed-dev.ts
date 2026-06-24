@@ -8,57 +8,65 @@ import { User } from "../entities/user.entity";
 /**
  * Seed de desenvolvimento — idempotente. Cria uma instalação de teste e um
  * usuário owner para tornar o login do painel testável. SÓ PARA DEV.
- * Credenciais: dono@tamarcado.dev / tamarcado123
  */
-const COMPANY_SLUG = "salao-teste";
-const OWNER_EMAIL = "dono@tamarcado.dev";
-const OWNER_PASSWORD = "tamarcado123";
+export const SEED_COMPANY_SLUG = "salao-teste";
+export const SEED_OWNER_EMAIL = "dono@tamarcado.dev";
+export const SEED_OWNER_PASSWORD = "tamarcado123";
 
-async function run(): Promise<void> {
-  const ds = new DataSource(buildDataSourceOptions());
-  await ds.initialize();
-  try {
-    const companies = ds.getRepository(Company);
-    const users = ds.getRepository(User);
+/** Aplica o seed sobre um DataSource já inicializado. Reutilizável em testes. */
+export async function seedDev(dataSource: DataSource): Promise<void> {
+  const companies = dataSource.getRepository(Company);
+  const users = dataSource.getRepository(User);
 
-    let company = await companies.findOne({ where: { slug: COMPANY_SLUG } });
-    if (!company) {
-      company = await companies.save(
-        companies.create({ name: "Salão Teste", slug: COMPANY_SLUG }),
-      );
-      console.log(`Company criada (${company.id}): Salão Teste`);
-    } else {
-      console.log("Company 'Salão Teste' já existe.");
-    }
+  let company = await companies.findOne({ where: { slug: SEED_COMPANY_SLUG } });
+  if (!company) {
+    company = await companies.save(
+      companies.create({ name: "Salão Teste", slug: SEED_COMPANY_SLUG }),
+    );
+    console.log(`Company criada (${company.id}): Salão Teste`);
+  } else {
+    console.log("Company 'Salão Teste' já existe.");
+  }
 
-    const existing = await users.findOne({
-      where: { company_id: company.id, email: OWNER_EMAIL },
-    });
-    if (!existing) {
-      const owner = await users.save(
-        users.create({
-          company_id: company.id,
-          name: "Dono Teste",
-          email: OWNER_EMAIL,
-          password_hash: await bcrypt.hash(OWNER_PASSWORD, 10),
-          access_level: "owner",
-          attends_clients: true,
-          theme: "light",
-          is_active: true,
-        }),
-      );
-      console.log(
-        `Owner criado: ${owner.email} / senha: ${OWNER_PASSWORD} (DEV)`,
-      );
-    } else {
-      console.log("Owner de dev já existe, nada a fazer.");
-    }
-  } finally {
-    await ds.destroy();
+  const existing = await users.findOne({
+    where: { company_id: company.id, email: SEED_OWNER_EMAIL },
+  });
+  if (!existing) {
+    const owner = await users.save(
+      users.create({
+        company_id: company.id,
+        name: "Dono Teste",
+        email: SEED_OWNER_EMAIL,
+        password_hash: await bcrypt.hash(SEED_OWNER_PASSWORD, 10),
+        access_level: "owner",
+        attends_clients: true,
+        theme: "light",
+        is_active: true,
+      }),
+    );
+    console.log(
+      `Owner criado: ${owner.email} / senha: ${SEED_OWNER_PASSWORD} (DEV)`,
+    );
+  } else {
+    console.log("Owner de dev já existe, nada a fazer.");
   }
 }
 
-run().catch((err) => {
-  console.error("Falha no seed:", err);
-  process.exit(1);
-});
+/** Entry point CLI (`pnpm --filter api run seed:dev`). */
+async function run(): Promise<void> {
+  const dataSource = new DataSource(buildDataSourceOptions());
+  await dataSource.initialize();
+  try {
+    await seedDev(dataSource);
+  } finally {
+    await dataSource.destroy();
+  }
+}
+
+// Executa só quando rodado diretamente (não quando importado por um teste).
+if (require.main === module) {
+  run().catch((err) => {
+    console.error("Falha no seed:", err);
+    process.exit(1);
+  });
+}
