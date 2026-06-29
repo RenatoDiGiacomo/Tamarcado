@@ -7,8 +7,8 @@ import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./modules/health/health.module";
 import { TenantModule } from "./modules/tenant/tenant.module";
 import { TenantMiddleware } from "./modules/tenant/tenant.middleware";
+import { TENANT_AWARE_CONTROLLERS } from "./modules/tenant/tenant-aware-controllers";
 import { UsersModule } from "./modules/users/users.module";
-import { UsersController } from "./modules/users/users.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 
 @Module({
@@ -28,7 +28,9 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     // Tenant-scoping nas rotas tenant-aware. auth/* e health ficam de fora
     // (login/refresh são pré-tenant; o middleware também no-opa sem token).
-    // Cada novo controller tenant-aware deve ser adicionado aqui.
-    consumer.apply(TenantMiddleware).forRoutes(UsersController);
+    // A lista vem da fonte única TENANT_AWARE_CONTROLLERS — o guard-rail
+    // (tenant-coverage.e2e-spec.ts) falha se um controller tenant-aware ficar
+    // de fora dela (DL-027). Registre novos controllers de domínio lá.
+    consumer.apply(TenantMiddleware).forRoutes(...TENANT_AWARE_CONTROLLERS);
   }
 }
