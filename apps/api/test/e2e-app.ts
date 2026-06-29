@@ -1,7 +1,8 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
+import { configureApp } from "../src/app-setup";
 
 export interface E2EContext {
   app: INestApplication;
@@ -20,8 +21,7 @@ export async function bootstrapE2E(): Promise<E2EContext> {
   }).compile();
 
   const app = moduleRef.createNestApplication();
-  app.setGlobalPrefix("api", { exclude: ["health"] });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  configureApp(app);
   await app.init();
 
   return { app, dataSource: app.get(DataSource) };
