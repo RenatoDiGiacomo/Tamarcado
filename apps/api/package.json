@@ -23,6 +23,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.4.5",
     "@nestjs/typeorm": "^11.0.0",
     "@tamarcado/shared-types": "workspace:*",
     "@tamarcado/shared-utils": "workspace:*",
