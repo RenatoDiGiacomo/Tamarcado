@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -40,6 +41,8 @@ function toServiceDto(s: SalonService): ServiceDto {
 
 // Tenant-aware: registrado em TENANT_AWARE_CONTROLLERS (guard-rail 1.3.01).
 // Guards como no UsersController; mutações exigem Dono (matriz FR-I2).
+@ApiTags("services")
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
 @Controller("services")
 export class ServicesController {
