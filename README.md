@@ -40,6 +40,20 @@ docker compose -f infra/compose/docker-compose.yml up
 
 Migrations: `pnpm --filter api run migration:run`
 
+### Documentação da API (Swagger)
+
+Com o compose de dev no ar, a documentação interativa (OpenAPI) da API fica em:
+
+- **<http://localhost:3000/api/docs>** (JSON em `/api/docs-json`)
+
+UI com todos os endpoints (auth, users, services). Para testar rotas protegidas:
+
+1. `POST /api/auth/login` com e-mail, senha e `companySlug` → copie o `accessToken`.
+2. Clique em **Authorize** (topo da página), cole o token e confirme.
+3. Dispare as chamadas direto pelo navegador.
+
+> Disponível **somente fora de produção** (`NODE_ENV !== 'production'`) — Swagger aberto exporia a API inteira, então **não** sobe em produção (DL-031).
+
 ## Qualidade (mesma sequência do CI)
 
 Use os scripts raiz (Turbo) — eles respeitam o `^build`, garantindo que os
