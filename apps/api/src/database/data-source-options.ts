@@ -1,8 +1,10 @@
 import { DataSourceOptions } from "typeorm";
 import { Company } from "./entities/company.entity";
 import { User } from "./entities/user.entity";
+import { UserInvite } from "./entities/user-invite.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
+import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -18,8 +20,12 @@ export function buildDataSourceOptions(): DataSourceOptions {
 
   const base = {
     type: "mysql" as const,
-    entities: [Company, User],
-    migrations: [CreateCompanies1718900000000, CreateUsers1718900100000],
+    entities: [Company, User, UserInvite],
+    migrations: [
+      CreateCompanies1718900000000,
+      CreateUsers1718900100000,
+      CreateUserInvites1718900200000,
+    ],
     synchronize: false,
     migrationsRun: false,
     timezone: "Z", // banco em UTC; conversão de fuso na aplicação (ADR-008)

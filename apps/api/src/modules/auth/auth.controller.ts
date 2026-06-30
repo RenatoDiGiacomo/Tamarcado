@@ -9,6 +9,7 @@ import {
 import { AuthService, AuthTokens } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
+import { AcceptInviteDto } from "./dto/accept-invite.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -32,5 +33,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshDto): Promise<{ accessToken: string }> {
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  /** Aceite de convite — cria a senha no primeiro acesso (AC1). Pré-tenant. */
+  @Post("accept-invite")
+  @HttpCode(HttpStatus.OK)
+  acceptInvite(@Body() dto: AcceptInviteDto): Promise<AuthTokens> {
+    return this.auth.acceptInvite(dto.token, dto.password);
   }
 }

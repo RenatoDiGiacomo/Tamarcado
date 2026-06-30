@@ -76,6 +76,15 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /**
+   * Aceite de convite (pré-tenant, AC1): cria o usuário com a senha escolhida
+   * e já devolve os tokens (auto-login no primeiro acesso).
+   */
+  async acceptInvite(token: string, password: string): Promise<AuthTokens> {
+    const user = await this.users.acceptInvite(token, password);
+    return this.login(user);
+  }
+
   async refresh(refreshToken: string): Promise<{ accessToken: string }> {
     let sub: string;
     try {

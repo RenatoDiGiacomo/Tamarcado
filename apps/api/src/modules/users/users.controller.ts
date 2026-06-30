@@ -1,15 +1,23 @@
 import {
+  Body,
   Controller,
   Get,
   NotFoundException,
   Param,
+  Patch,
+  Post,
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { ActiveUserGuard } from "../auth/guards/active-user.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthUser } from "../auth/auth-user";
 import { User } from "../../database/entities/user.entity";
 import { UsersService } from "./users.service";
+import { InviteUserDto } from "./dto/invite-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 
 interface UserProfile {
   id: string;
@@ -18,6 +26,7 @@ interface UserProfile {
   email: string;
   accessLevel: User["access_level"];
   attendsClients: boolean;
+  isActive: boolean;
   theme: User["theme"];
 }
 
@@ -29,11 +38,14 @@ function toProfile(user: User): UserProfile {
     email: user.email,
     accessLevel: user.access_level,
     attendsClients: user.attends_clients,
+    isActive: user.is_active,
     theme: user.theme,
   };
 }
 
-@UseGuards(JwtAuthGuard)
+// JwtAuthGuard (autentica) → ActiveUserGuard (revoga inativo na hora, AC6) →
+// RolesGuard (matriz FR-I2; só atua onde há @Roles).
+@UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
 @Controller("users")
 export class UsersController {
   constructor(private readonly users: UsersService) {}
@@ -58,6 +70,24 @@ export class UsersController {
     return { total, users: users.map(toProfile) };
   }
 
+  /** Usuários com agenda própria e ativos (AC4). Antes de :id na ordem de rotas. */
+  @Get("attenders")
+  async attenders(): Promise<{ users: UserProfile[] }> {
+    const users = await this.users.listAttenders();
+    return { users: users.map(toProfile) };
+  }
+
+  /** Convida um novo usuário e devolve o link de aceite (AC1). Somente Dono. */
+  @Post("invite")
+  @Roles("owner")
+  async invite(
+    @Body() dto: InviteUserDto,
+    @CurrentUser() authUser: AuthUser,
+  ): Promise<{ link: string; expiresAt: Date }> {
+    const { invite, link } = await this.users.createInvite(dto, authUser.userId);
+    return { link, expiresAt: invite.expires_at };
+  }
+
   /** Busca tenant-scoped: id de outra instalação → 404 (inexistente). */
   @Get(":id")
   async byId(@Param("id") id: string): Promise<UserProfile> {
@@ -66,5 +96,15 @@ export class UsersController {
       throw new NotFoundException();
     }
     return toProfile(user);
+  }
+
+  /** Edita nível/atende/ativo (AC2/AC5/AC6). Somente Dono. */
+  @Patch(":id")
+  @Roles("owner")
+  async update(
+    @Param("id") id: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<UserProfile> {
+    return toProfile(await this.users.updateUser(id, dto));
   }
 }
