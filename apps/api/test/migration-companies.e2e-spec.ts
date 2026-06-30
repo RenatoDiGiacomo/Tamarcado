@@ -50,7 +50,8 @@ describe("Migration CreateCompanies (e2e)", () => {
   });
 
   it("reverte todas as migrations removendo a tabela companies", async () => {
-    // Desfaz users e depois companies (ordem reversa das migrations).
+    // Desfaz na ordem reversa: user_invites (1.4) → users (1.2) → companies (1.1).
+    await ds.undoLastMigration();
     await ds.undoLastMigration();
     await ds.undoLastMigration();
     const tables: Array<{ TABLE_NAME: string }> = await ds.query(
