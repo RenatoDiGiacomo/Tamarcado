@@ -1,6 +1,6 @@
 # Story 1.4: Gestão de equipe e permissões
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -37,46 +37,46 @@ so that minha equipe use o sistema com as permissões corretas, refletindo quem 
 
 > Ordem TDD (red→green→refactor). Rode a suíte com MySQL acessível. Não marque `[x]` sem teste passando. Decisões aprovadas (ver seção "Decisões aprovadas" e DL-029).
 
-- [ ] **Task 1 — `RolesGuard` + `@Roles` decorator (AC3)**
-  - [ ] `common/decorators/roles.decorator.ts`: `@Roles(...levels: AccessLevel[])` via `SetMetadata('roles', levels)` (arquitetura §1.149-151).
-  - [ ] `modules/auth/guards/roles.guard.ts`: lê metadata `roles` (`Reflector`), compara contra `req.user.accessLevel`; sem `@Roles` → libera; nível insuficiente → `ForbiddenException` (403). Roda **depois** do `JwtAuthGuard` (precisa de `req.user`).
-  - [ ] Exportar o `RolesGuard` pelo `AuthModule` (§4.1).
-  - [ ] RED→GREEN unit: `roles.guard.spec.ts` — `owner` passa em `@Roles('owner')`; `manager`/`basic` → 403; endpoint sem `@Roles` → passa.
+- [x] **Task 1 — `RolesGuard` + `@Roles` decorator (AC3)**
+  - [x] `common/decorators/roles.decorator.ts`: `@Roles(...levels: AccessLevel[])` via `SetMetadata('roles', levels)` (arquitetura §1.149-151).
+  - [x] `modules/auth/guards/roles.guard.ts`: lê metadata `roles` (`Reflector`), compara contra `req.user.accessLevel`; sem `@Roles` → libera; nível insuficiente → `ForbiddenException` (403). Roda **depois** do `JwtAuthGuard` (precisa de `req.user`).
+  - [x] Exportar o `RolesGuard` pelo `AuthModule` (§4.1).
+  - [x] RED→GREEN unit: `roles.guard.spec.ts` — `owner` passa em `@Roles('owner')`; `manager`/`basic` → 403; endpoint sem `@Roles` → passa.
 
-- [ ] **Task 2 — Enforçar `is_active` por requisição (AC6)**
-  - [ ] `modules/auth/guards/active-user.guard.ts`: com o tenant já no contexto (middleware roda antes), busca o usuário **tenant-scoped** (`UsersService.findById(req.user.userId)`) e rejeita com **401** se não encontrado ou `is_active=false`. Aplicar junto do `JwtAuthGuard` nas rotas protegidas (decisão aprovada item 2).
-  - [ ] Login já barra inativo (1.2) — adicionar/confirmar teste de regressão.
-  - [ ] RED→GREEN e2e: usuário ativo recebe token → é desativado → mesma requisição com o token antigo → 401.
+- [x] **Task 2 — Enforçar `is_active` por requisição (AC6)**
+  - [x] `modules/auth/guards/active-user.guard.ts`: com o tenant já no contexto (middleware roda antes), busca o usuário **tenant-scoped** (`UsersService.findById(req.user.userId)`) e rejeita com **401** se não encontrado ou `is_active=false`. Aplicar junto do `JwtAuthGuard` nas rotas protegidas (decisão aprovada item 2).
+  - [x] Login já barra inativo (1.2) — adicionar/confirmar teste de regressão.
+  - [x] RED→GREEN e2e: usuário ativo recebe token → é desativado → mesma requisição com o token antigo → 401.
 
-- [ ] **Task 3 — Migration + entidade `user_invites` (AC1)**
-  - [ ] Migration (nova) para a tabela `user_invites` (`id`, `company_id`, `email`, `name`, `access_level`, `attends_clients`, `token_hash`, `expires_at`, `accepted_at NULL`, `invited_by`, timestamps; FK `company_id → companies`; índices liderados por `company_id`; unicidade do convite **pendente** por `(company_id, email)`). `password_hash` em `users` permanece `NOT NULL` — o `User` é criado no aceite (decisão aprovada item 1).
-  - [ ] Registrar a entidade nas `entities`/`migrations` do `data-source-options.ts` e `typeorm.config.ts` (espelhar o padrão de `CreateUsers`).
-  - [ ] RED→GREEN: e2e de migration (espelhar `migration-users.e2e-spec.ts`): aplica e reverte limpo.
+- [x] **Task 3 — Migration + entidade `user_invites` (AC1)**
+  - [x] Migration (nova) para a tabela `user_invites` (`id`, `company_id`, `email`, `name`, `access_level`, `attends_clients`, `token_hash`, `expires_at`, `accepted_at NULL`, `invited_by`, timestamps; FK `company_id → companies`; índices liderados por `company_id`; unicidade do convite **pendente** por `(company_id, email)`). `password_hash` em `users` permanece `NOT NULL` — o `User` é criado no aceite (decisão aprovada item 1).
+  - [x] Registrar a entidade nas `entities`/`migrations` do `data-source-options.ts` e `typeorm.config.ts` (espelhar o padrão de `CreateUsers`).
+  - [x] RED→GREEN: e2e de migration (espelhar `migration-users.e2e-spec.ts`): aplica e reverte limpo.
 
-- [ ] **Task 4 — Convidar usuário (Dono) (AC1, AC2, AC3)**
-  - [ ] `POST /api/users/invite` (ou `/api/team/invite`) protegido por `JwtAuthGuard` + `@Roles('owner')`: valida DTO (`name`, `email`, `access_level`, `attends_clients`), cria convite tenant-scoped com token aleatório seguro (hash no banco, token em claro só no retorno), retorna o **link** de aceite. Bloqueia e-mail já existente como usuário ativo no tenant (`uq_users_tenant_email`).
-  - [ ] Gerar e **retornar o link** de aceite (sem envio de e-mail — decisão aprovada item 3). Endpoint no `UsersController` existente (já coberto pelo guard-rail; sem controller novo — item 5).
-  - [ ] RED→GREEN e2e: Dono convida → 201 + link; `manager`/`basic` convidando → 403.
+- [x] **Task 4 — Convidar usuário (Dono) (AC1, AC2, AC3)**
+  - [x] `POST /api/users/invite` (ou `/api/team/invite`) protegido por `JwtAuthGuard` + `@Roles('owner')`: valida DTO (`name`, `email`, `access_level`, `attends_clients`), cria convite tenant-scoped com token aleatório seguro (hash no banco, token em claro só no retorno), retorna o **link** de aceite. Bloqueia e-mail já existente como usuário ativo no tenant (`uq_users_tenant_email`).
+  - [x] Gerar e **retornar o link** de aceite (sem envio de e-mail — decisão aprovada item 3). Endpoint no `UsersController` existente (já coberto pelo guard-rail; sem controller novo — item 5).
+  - [x] RED→GREEN e2e: Dono convida → 201 + link; `manager`/`basic` convidando → 403.
 
-- [ ] **Task 5 — Aceitar convite / criar senha no primeiro acesso (AC1)**
-  - [ ] Endpoint **público (pré-tenant)**, fora do `TenantMiddleware` (como `auth/*` — DL-026), ex.: `POST /api/auth/accept-invite` `{ token, password }`: valida token (não expirado, não usado), cria o `User` com `password_hash` (bcrypt), `access_level`/`attends_clients` do convite, `is_active=true`, marca convite como aceito (uso único). Opcional: retorna tokens (auto-login) ou exige login depois.
-  - [ ] Resolver o tenant pelo convite (não pelo contexto — não há). Garantir que entra na rota de exclusão do middleware (espelhar exclusão de `auth/*`).
-  - [ ] RED→GREEN e2e: aceite cria usuário e permite login; token expirado/reutilizado → 400/401.
+- [x] **Task 5 — Aceitar convite / criar senha no primeiro acesso (AC1)**
+  - [x] Endpoint **público (pré-tenant)**, fora do `TenantMiddleware` (como `auth/*` — DL-026), ex.: `POST /api/auth/accept-invite` `{ token, password }`: valida token (não expirado, não usado), cria o `User` com `password_hash` (bcrypt), `access_level`/`attends_clients` do convite, `is_active=true`, marca convite como aceito (uso único). Opcional: retorna tokens (auto-login) ou exige login depois.
+  - [x] Resolver o tenant pelo convite (não pelo contexto — não há). Garantir que entra na rota de exclusão do middleware (espelhar exclusão de `auth/*`).
+  - [x] RED→GREEN e2e: aceite cria usuário e permite login; token expirado/reutilizado → 400/401.
 
-- [ ] **Task 6 — Editar usuário: `access_level` + `attends_clients` + ativar/desativar (AC2, AC3, AC5, AC6)**
-  - [ ] `PATCH /api/users/:id` protegido por `@Roles('owner')`, tenant-scoped (id de outro tenant → 404 pelo `TenantAwareRepository`): atualiza `access_level` e/ou `attends_clients` (independentes) e `is_active`.
-  - [ ] **Invariante FR-I3 (AC5) — só o bloqueio:** impedir rebaixar/desativar o **único** `owner` ativo (contar owners ativos do tenant; se a operação deixaria zero, rejeitar com 409/422 + mensagem). **NÃO** construir transferência automática (decisão aprovada item 4). Considerar concorrência (transação/lock) ao contar, para evitar corrida que zere os owners.
-  - [ ] Reuso: usar `UsersRepository`/`UsersService` (tenant-aware) — **não** criar repositório paralelo.
-  - [ ] RED→GREEN e2e: altera os dois eixos de forma independente (novo token reflete — AC2); bloqueio do último owner (AC5); desativar usuário comum ok.
+- [x] **Task 6 — Editar usuário: `access_level` + `attends_clients` + ativar/desativar (AC2, AC3, AC5, AC6)**
+  - [x] `PATCH /api/users/:id` protegido por `@Roles('owner')`, tenant-scoped (id de outro tenant → 404 pelo `TenantAwareRepository`): atualiza `access_level` e/ou `attends_clients` (independentes) e `is_active`.
+  - [x] **Invariante FR-I3 (AC5) — só o bloqueio:** impedir rebaixar/desativar o **único** `owner` ativo (contar owners ativos do tenant; se a operação deixaria zero, rejeitar com 409/422 + mensagem). **NÃO** construir transferência automática (decisão aprovada item 4). Considerar concorrência (transação/lock) ao contar, para evitar corrida que zere os owners.
+  - [x] Reuso: usar `UsersRepository`/`UsersService` (tenant-aware) — **não** criar repositório paralelo.
+  - [x] RED→GREEN e2e: altera os dois eixos de forma independente (novo token reflete — AC2); bloqueio do último owner (AC5); desativar usuário comum ok.
 
-- [ ] **Task 7 — Listagem de equipe + profissionais que atendem (AC2, AC4)**
-  - [ ] `GET /api/users` (já existe) — confirmar que retorna campos de gestão (`access_level`, `attends_clients`, `is_active`) sem vazar `password_hash`.
-  - [ ] `GET /api/users/attenders` (ou query param) tenant-scoped: só `attends_clients=true` e ativos (AC4), para consumo futuro do Épico 2.
-  - [ ] RED→GREEN e2e: lista de equipe traz os campos certos; `attenders` filtra corretamente.
+- [x] **Task 7 — Listagem de equipe + profissionais que atendem (AC2, AC4)**
+  - [x] `GET /api/users` (já existe) — confirmar que retorna campos de gestão (`access_level`, `attends_clients`, `is_active`) sem vazar `password_hash`.
+  - [x] `GET /api/users/attenders` (ou query param) tenant-scoped: só `attends_clients=true` e ativos (AC4), para consumo futuro do Épico 2.
+  - [x] RED→GREEN e2e: lista de equipe traz os campos certos; `attenders` filtra corretamente.
 
-- [ ] **Task 8 — Validação final (todas as ACs)**
-  - [ ] Sequência CI em ambiente limpo, MySQL acessível: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde, **sem `--forceExit`** (manter o padrão da 1.3), e **guard-rail 1.3.01 verde** (controllers tenant-aware cobertos).
-  - [ ] Conferir manualmente (compose): Dono convida, convidado cria senha e loga; Gestão/Básico recebem 403 nas ações de gestão; desativar revoga acesso.
+- [x] **Task 8 — Validação final (todas as ACs)**
+  - [x] Sequência CI em ambiente limpo, MySQL acessível: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde, **sem `--forceExit`** (manter o padrão da 1.3), e **guard-rail 1.3.01 verde** (controllers tenant-aware cobertos).
+  - [x] Conferir manualmente (compose): Dono convida, convidado cria senha e loga; Gestão/Básico recebem 403 nas ações de gestão; desativar revoga acesso.
 
 ## Dev Notes
 
@@ -147,8 +147,56 @@ so that minha equipe use o sistema com as permissões corretas, refletindo quem 
 
 ### Agent Model Used
 
+claude-opus-4-8 (Amelia)
+
 ### Debug Log References
+
+- Sequência verde com MySQL: build OK, typecheck OK, lint OK, **unit 33/33**, **e2e 33/33** (8 suites), encerra sem `--forceExit`. Guard-rail 1.3.01 segue verde (UsersController coberto; AuthController na allowlist pré-tenant).
+- `information_schema.STATISTICS.NON_UNIQUE` (BIGINT) volta como **string** via TypeORM/mysql2 (`supportBigNumbers`) — o teste de índice único compara com `Number(...)`.
+- `POST /users/invite` responde **201** (padrão Nest p/ POST) — asserções e2e ajustadas.
+- Cold-start do `beforeAll` (compile ts-jest do AppModule + bcrypt no seed) passa dos 5s padrão na 1ª suíte → `jest.setTimeout(60000)` no e2e novo (flake pré-existente do CI a frio).
+- Testes de migration acoplados à ordem (companies/users) ajustados para a nova migration `user_invites` (última); `user_invites` adicionada ao reset FK-safe do `test-db`.
 
 ### Completion Notes List
 
+- **Tasks 1–8 concluídas** na branch `story/1.4-gestao-de-equipe-e-permissoes`.
+- **AC1 ✓** convite por link (`POST /api/users/invite`, `@Roles('owner')`) cria `user_invites` (token hasheado, expira, uso único); aceite (`POST /api/auth/accept-invite`, pré-tenant) cria o usuário com a própria senha e auto-loga. Token inválido/expirado/reusado → 400.
+- **AC2 ✓** `PATCH /api/users/:id` altera `access_level` e `attends_clients` de forma independente (provado no e2e).
+- **AC3 ✓** `RolesGuard` + `@Roles('owner')`: não-Dono nas ações de gestão → 403.
+- **AC4 ✓** `GET /api/users/attenders` retorna só `attends_clients=true` e ativos (dado para o Épico 2; sem AvailabilityService aqui).
+- **AC5 ✓** rebaixar/desativar o único Dono ativo → 409. **Só o bloqueio** (DL-029 item 4); transferência automatizada = futuro 1.4.NN.
+- **AC6 ✓** `ActiveUserGuard`: desativar revoga o token de acesso existente na hora → 401; login também barrado.
+- **Decisões (DL-029):** convite via `user_invites` (link, sem e-mail); `ActiveUserGuard` com lookup por request; aceite no `AuthModule` + gestão no `UsersController` (sem controller novo → guard-rail 1.3.01 intacto).
+- **Regressão coberta:** login/refresh/`/users/me`/`/users`/isolamento A↔B seguem passando.
+- **Nota p/ próximos controllers tenant-aware:** aplicar `JwtAuthGuard, ActiveUserGuard, RolesGuard` (como no `UsersController`) e registrar em `TENANT_AWARE_CONTROLLERS`.
+
+### Change Log
+
+| Data | Mudança |
+|---|---|
+| 2026-06-30 | Implementação da 1.4 em `story/1.4-gestao-de-equipe-e-permissoes`: spec + DL-029 (`431ca2d`); `RolesGuard`/`@Roles` (`2be0bd3`); tabela/migration `user_invites` (`417f2b3`); convite/aceite/edição + `ActiveUserGuard` (`b883a4b`). Status → review. |
+
 ### File List
+
+**Auth (`apps/api/src/modules/auth`)**
+- `guards/roles.guard.ts` (+ `.spec.ts`), `guards/active-user.guard.ts` (+ `.spec.ts`)
+- `dto/accept-invite.dto.ts`, `auth.service.ts` (acceptInvite), `auth.controller.ts` (POST /accept-invite)
+
+**Common (`apps/api/src/common`)**
+- `decorators/roles.decorator.ts`
+
+**Users (`apps/api/src/modules/users`)**
+- `dto/invite-user.dto.ts`, `dto/update-user.dto.ts`
+- `users.service.ts` (createInvite/acceptInvite/updateUser/listAttenders), `users.controller.ts` (invite/patch/attenders + guards), `users.module.ts` (UserInvite + ActiveUserGuard)
+
+**Database (`apps/api/src/database`)**
+- `entities/user-invite.entity.ts`, `migrations/1718900200000-CreateUserInvites.ts`, `data-source-options.ts`
+
+**Config**
+- `.env.example` (WEB_BASE_URL)
+
+**Testes (`apps/api/test`)**
+- `team-management.e2e-spec.ts` (novo), `migration-user-invites.e2e-spec.ts` (novo), `test-db.ts`, `migration-companies.e2e-spec.ts`, `migration-users.e2e-spec.ts` (ajuste de ordem)
+
+**Docs**
+- `_bmad-output/implementation-artifacts/1-4-gestao-de-equipe-e-permissoes.md`, `.decision-log.md` (DL-029)
