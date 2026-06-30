@@ -38,22 +38,22 @@ describe("Migration CreateCompanies (e2e)", () => {
   });
 
   it("não cria tabelas de épicos futuros", async () => {
-    // `users` é legítima a partir da Story 1.2; as demais não devem existir.
+    // `salon_services`/`professional_services` passam a existir na Story 1.5;
+    // `professional_schedules` na 1.6; as demais são do Épico 2.
     const tables: Array<{ TABLE_NAME: string }> = await ds.query(
       `SELECT TABLE_NAME FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME IN ('clients','appointments','salon_services',
-                            'professional_services','professional_schedules',
+         AND TABLE_NAME IN ('clients','appointments','professional_schedules',
                             'payments','whatsapp_conversations')`,
     );
     expect(tables).toHaveLength(0);
   });
 
   it("reverte todas as migrations removendo a tabela companies", async () => {
-    // Desfaz na ordem reversa: user_invites (1.4) → users (1.2) → companies (1.1).
-    await ds.undoLastMigration();
-    await ds.undoLastMigration();
-    await ds.undoLastMigration();
+    // Reverte TODAS as migrations (imune a novas) — companies é a primeira.
+    for (let i = 0; i < ds.migrations.length; i++) {
+      await ds.undoLastMigration();
+    }
     const tables: Array<{ TABLE_NAME: string }> = await ds.query(
       `SELECT TABLE_NAME FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'companies'`,
