@@ -261,7 +261,7 @@ CREATE TABLE salon_services (
   company_id        BIGINT          NOT NULL,
   name              VARCHAR(100)    NOT NULL,
   duration_minutes  INT             NOT NULL,
-  price             DECIMAL(10,2)   NOT NULL,
+  price             DECIMAL(10,2)   NULL,            -- opcional: serviço "sob consulta"/variável (DL-030)
   is_active         BOOLEAN         NOT NULL DEFAULT TRUE,
   created_at        TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
