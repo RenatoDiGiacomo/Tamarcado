@@ -1,6 +1,7 @@
 import { Type } from "@nestjs/common";
 import { AuthController } from "../auth/auth.controller";
 import { UsersController } from "../users/users.controller";
+import { ServicesController } from "../services/services.controller";
 
 /**
  * FONTE ÚNICA DE VERDADE dos controllers protegidos pelo TenantMiddleware.
@@ -14,7 +15,10 @@ import { UsersController } from "../users/users.controller";
  *
  * Ao criar um controller de domínio tenant-aware, adicione-o a esta lista.
  */
-export const TENANT_AWARE_CONTROLLERS: Type[] = [UsersController];
+export const TENANT_AWARE_CONTROLLERS: Type[] = [
+  UsersController,
+  ServicesController,
+];
 
 /**
  * Controllers que TOCAM (transitivamente) um `TenantAwareRepository` mas que,

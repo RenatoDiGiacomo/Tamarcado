@@ -67,9 +67,10 @@ describe("Migration CreateUsers (e2e)", () => {
   });
 
   it("reverte a migration removendo a tabela users", async () => {
-    // user_invites (1.4) é a última migration; desfaz ela e depois users (1.2).
-    await ds.undoLastMigration();
-    await ds.undoLastMigration();
+    // Reverte TODAS as migrations (imune a novas) e confirma que users some.
+    for (let i = 0; i < ds.migrations.length; i++) {
+      await ds.undoLastMigration();
+    }
     const tables: Array<{ TABLE_NAME: string }> = await ds.query(
       `SELECT TABLE_NAME FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'`,

@@ -10,6 +10,7 @@ import { TenantMiddleware } from "./modules/tenant/tenant.middleware";
 import { TENANT_AWARE_CONTROLLERS } from "./modules/tenant/tenant-aware-controllers";
 import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { ServicesModule } from "./modules/services/services.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthModule } from "./modules/auth/auth.module";
     HealthModule,
     UsersModule,
     AuthModule,
+    ServicesModule,
   ],
 })
 export class AppModule implements NestModule {

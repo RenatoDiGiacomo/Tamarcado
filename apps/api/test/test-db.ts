@@ -2,7 +2,13 @@ import { DataSource } from "typeorm";
 import { buildDataSourceOptions } from "../src/database/data-source-options";
 
 /** Tabelas conhecidas, em ordem reversa de dependência (para drop). */
-const KNOWN_TABLES = ["user_invites", "users", "companies"];
+const KNOWN_TABLES = [
+  "professional_services",
+  "salon_services",
+  "user_invites",
+  "users",
+  "companies",
+];
 
 export async function createTestDataSource(): Promise<DataSource> {
   const ds = new DataSource(buildDataSourceOptions());

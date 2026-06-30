@@ -8,6 +8,7 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -45,6 +46,8 @@ function toProfile(user: User): UserProfile {
 
 // JwtAuthGuard (autentica) → ActiveUserGuard (revoga inativo na hora, AC6) →
 // RolesGuard (matriz FR-I2; só atua onde há @Roles).
+@ApiTags("users")
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
 @Controller("users")
 export class UsersController {
