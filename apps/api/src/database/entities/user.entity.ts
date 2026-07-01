@@ -46,6 +46,10 @@ export class User {
   @Column({ type: "boolean", default: false })
   attends_clients!: boolean;
 
+  // Intervalo entre atendimentos (minutos), por profissional (FR-G3, DL-032).
+  @Column({ type: "int", default: 0 })
+  slot_interval_minutes!: number;
+
   @Column({ type: "enum", enum: ["light", "dark"], default: "light" })
   theme!: UserTheme;
 
