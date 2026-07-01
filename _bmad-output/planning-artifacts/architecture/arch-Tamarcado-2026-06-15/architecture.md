@@ -206,6 +206,7 @@ CREATE TABLE users (
   password_hash   VARCHAR(255)  NOT NULL,
   access_level    ENUM('owner', 'manager', 'basic') NOT NULL,   -- eixo 1: nível de acesso (DL-022)
   attends_clients BOOLEAN       NOT NULL DEFAULT FALSE,          -- eixo 2: tem agenda própria? (DL-022)
+  slot_interval_minutes INT     NOT NULL DEFAULT 0,             -- intervalo entre atendimentos, por profissional (FR-G3, DL-032)
   theme           ENUM('light', 'dark') NOT NULL DEFAULT 'light', -- preferência individual do usuário (DL-021)
   is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -298,7 +299,8 @@ CREATE TABLE professional_schedules (
   is_active         BOOLEAN     NOT NULL DEFAULT TRUE,
   PRIMARY KEY (id),
   KEY idx_pschedules_company_prof_day (company_id, professional_id, day_of_week),
-  CONSTRAINT fk_pschedules_professional FOREIGN KEY (professional_id) REFERENCES users(id)
+  CONSTRAINT fk_pschedules_professional FOREIGN KEY (professional_id) REFERENCES users(id),
+  CONSTRAINT fk_pschedules_company FOREIGN KEY (company_id) REFERENCES companies(id)  -- consistência (DL-032)
 );
 ```
 

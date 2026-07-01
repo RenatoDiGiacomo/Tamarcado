@@ -74,6 +74,16 @@ export class UsersService {
     });
   }
 
+  /** Tenant-scoped: define o intervalo entre atendimentos do profissional (Story 1.6). */
+  async setSlotInterval(id: string, minutes: number): Promise<User> {
+    const user = await this.tenantUsers.findById(id);
+    if (!user) {
+      throw new NotFoundException();
+    }
+    user.slot_interval_minutes = minutes;
+    return this.tenantUsers.save(user);
+  }
+
   /**
    * Cria um convite tenant-scoped e devolve o link de aceite (AC1, DL-029).
    * O token em claro só existe aqui; o banco guarda só o hash. Re-convidar o
