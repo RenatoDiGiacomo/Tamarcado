@@ -1,6 +1,6 @@
 # Story 1.6: Horários de atendimento e intervalo
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -35,29 +35,29 @@ so that a disponibilidade da agenda reflita a realidade do salão.
 
 > Ordem TDD (red→green→refactor). Rode a suíte com MySQL acessível. Não marque `[x]` sem teste passando. Decisões aprovadas (ver seção "Decisões aprovadas" e DL-032): intervalo por profissional (`users.slot_interval_minutes`, `0–120`); PUT substitui semana+intervalo; FK companies incluída.
 
-- [ ] **Task 1 — Entidade + migration `professional_schedules` (+ armazenamento do intervalo) (AC1)**
-  - [ ] `database/entities/professional-schedule.entity.ts` (§3.6).
-  - [ ] Migration nova (timestamp > `1718900300000`): cria `professional_schedules` (índice por `company_id`, FK `professional_id → users` **e** FK `company_id → companies`) **e** `ALTER TABLE users ADD slot_interval_minutes INT NOT NULL DEFAULT 0` (intervalo por profissional). `down` reverte tudo (drop coluna + drop tabela).
-  - [ ] Registrar entidade(s)+migration em `data-source-options.ts`; incluir `professional_schedules` em `KNOWN_TABLES` (`test-db.ts`).
-  - [ ] RED→GREEN: e2e de migration (espelhar `migration-services.e2e-spec.ts`): colunas, índice por `company_id`, FK(s), coluna de intervalo, reversão. (Lembrar: `information_schema.NON_UNIQUE` é string via TypeORM → `Number(...)`.)
+- [x] **Task 1 — Entidade + migration `professional_schedules` (+ armazenamento do intervalo) (AC1)**
+  - [x] `database/entities/professional-schedule.entity.ts` (§3.6).
+  - [x] Migration nova (timestamp > `1718900300000`): cria `professional_schedules` (índice por `company_id`, FK `professional_id → users` **e** FK `company_id → companies`) **e** `ALTER TABLE users ADD slot_interval_minutes INT NOT NULL DEFAULT 0` (intervalo por profissional). `down` reverte tudo (drop coluna + drop tabela).
+  - [x] Registrar entidade(s)+migration em `data-source-options.ts`; incluir `professional_schedules` em `KNOWN_TABLES` (`test-db.ts`).
+  - [x] RED→GREEN: e2e de migration (espelhar `migration-services.e2e-spec.ts`): colunas, índice por `company_id`, FK(s), coluna de intervalo, reversão. (Lembrar: `information_schema.NON_UNIQUE` é string via TypeORM → `Number(...)`.)
 
-- [ ] **Task 2 — `SchedulesModule` + repositório tenant-aware (AC2, AC3)**
-  - [ ] `modules/schedules/{schedules.module.ts, schedules.controller.ts, schedules.service.ts, schedules.repository.ts, dto/*.dto.ts}`.
-  - [ ] `ProfessionalSchedulesRepository extends TenantAwareRepository<ProfessionalSchedule>`. Importar `TenantModule` + `TypeOrmModule.forFeature([...])` + `UsersModule` (validar `attends_clients`). Prover `ActiveUserGuard` no módulo.
-  - [ ] **Registrar `SchedulesController` em `TENANT_AWARE_CONTROLLERS`** (guard-rail 1.3.01).
+- [x] **Task 2 — `SchedulesModule` + repositório tenant-aware (AC2, AC3)**
+  - [x] `modules/schedules/{schedules.module.ts, schedules.controller.ts, schedules.service.ts, schedules.repository.ts, dto/*.dto.ts}`.
+  - [x] `ProfessionalSchedulesRepository extends TenantAwareRepository<ProfessionalSchedule>`. Importar `TenantModule` + `TypeOrmModule.forFeature([...])` + `UsersModule` (validar `attends_clients`). Prover `ActiveUserGuard` no módulo.
+  - [x] **Registrar `SchedulesController` em `TENANT_AWARE_CONTROLLERS`** (guard-rail 1.3.01).
 
-- [ ] **Task 3 — Endpoints de configuração (AC2, AC3, AC4)**
-  - [ ] `GET /api/schedules/:professionalId` (autenticado do tenant): retorna a semana (7 dias com faixa/ativo) + o intervalo do profissional.
-  - [ ] `PUT /api/schedules/:professionalId` (`@Roles('owner')`): substitui a semana inteira + define o intervalo (`0–120` min). Valida `attends_clients=true` (senão 400) e `end_time > start_time` por dia ativo (AC4 → 400). Persiste tenant-scoped.
-  - [ ] `TIME` I/O: aceitar `"HH:MM"`/`"HH:MM:SS"`; validar formato; comparar início/fim.
-  - [ ] RED→GREEN e2e: Dono configura semana + intervalo; leitura retorna; não-Dono → 403; faixa inválida → 400; profissional não-atendente → erro.
+- [x] **Task 3 — Endpoints de configuração (AC2, AC3, AC4)**
+  - [x] `GET /api/schedules/:professionalId` (autenticado do tenant): retorna a semana (7 dias com faixa/ativo) + o intervalo do profissional.
+  - [x] `PUT /api/schedules/:professionalId` (`@Roles('owner')`): substitui a semana inteira + define o intervalo (`0–120` min). Valida `attends_clients=true` (senão 400) e `end_time > start_time` por dia ativo (AC4 → 400). Persiste tenant-scoped.
+  - [x] `TIME` I/O: aceitar `"HH:MM"`/`"HH:MM:SS"`; validar formato; comparar início/fim.
+  - [x] RED→GREEN e2e: Dono configura semana + intervalo; leitura retorna; não-Dono → 403; faixa inválida → 400; profissional não-atendente → erro.
 
-- [ ] **Task 4 — Swagger dos endpoints novos (1.5.01)**
-  - [ ] `@ApiTags('schedules')` + `@ApiBearerAuth()` no `SchedulesController`; DTOs auto-documentados pelo plugin. Conferir em `/api/docs` (dev).
+- [x] **Task 4 — Swagger dos endpoints novos (1.5.01)**
+  - [x] `@ApiTags('schedules')` + `@ApiBearerAuth()` no `SchedulesController`; DTOs auto-documentados pelo plugin. Conferir em `/api/docs` (dev).
 
-- [ ] **Task 5 — Validação final (todas as ACs)**
-  - [ ] Sequência CI em ambiente limpo, MySQL: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde, sem `--forceExit`, **guard-rail 1.3.01 verde** (SchedulesController coberto).
-  - [ ] Conferir manualmente (compose + `/api/docs`): Dono configura horários e intervalo de um profissional; gestão/básico não configuram (403); faixa inválida barrada.
+- [x] **Task 5 — Validação final (todas as ACs)**
+  - [x] Sequência CI em ambiente limpo, MySQL: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde, sem `--forceExit`, **guard-rail 1.3.01 verde** (SchedulesController coberto).
+  - [x] Conferir manualmente (compose + `/api/docs`): Dono configura horários e intervalo de um profissional; gestão/básico não configuram (403); faixa inválida barrada.
 
 ## Dev Notes
 
@@ -115,8 +115,46 @@ so that a disponibilidade da agenda reflita a realidade do salão.
 
 ### Agent Model Used
 
+claude-opus-4-8 (Amelia)
+
 ### Debug Log References
+
+- Sequência verde com MySQL: build OK, typecheck OK, lint OK, **unit 33/33**, **e2e 56/56** (12 suites), sem `--forceExit`. Guard-rail 1.3.01 verde com `SchedulesController` registrado.
+- Migration mista: cria `professional_schedules` (FKs users+companies) **e** `ALTER users ADD slot_interval_minutes` (down reverte coluna + tabela).
+- `TIME` volta como `"HH:MM:SS"` (TypeORM); GET expõe assim. Validação de faixa por conversão a minutos (`fim > início`).
+- "Substituir a semana" = delete tenant-scoped (`company_id`+`professional_id`) + insert; intervalo persistido via `UsersService.setSlotInterval` (tenant-scoped).
 
 ### Completion Notes List
 
+- **Tasks 1–5 concluídas** na branch `story/1.6-horarios-de-atendimento-e-intervalo`.
+- **AC1 ✓** migration cria `professional_schedules` (§3.6, índice por `company_id`, FKs `users`+`companies` — DL-032) e adiciona `users.slot_interval_minutes` (int, default 0); reverte limpo.
+- **AC2 ✓** `PUT /api/schedules/:professionalId` (owner) configura dias+faixa por profissional; `GET` lê de volta; só `attends_clients=true` (senão 400); não-Dono → 403.
+- **AC3 ✓** intervalo por profissional (`0–120`) persistido; consumo pelo `AvailabilityService` é Épico 2.
+- **AC4 ✓** faixa inválida (`fim ≤ início`) em dia ativo → 400; intervalo `>120` → 400.
+- **Decisões (DL-032):** intervalo por profissional (`users.slot_interval_minutes`, reversível para por-salão no futuro); PUT substitui semana+intervalo; FK companies incluída; teto 120.
+- **Swagger (1.5.01):** `@ApiTags('schedules')`/`@ApiBearerAuth()` — endpoints aparecem em `/api/docs`.
+- **Regressão coberta:** login/refresh, `/users/*`, `/services/*`, isolamento A↔B, guard-rail, permissões seguem passando.
+
+### Change Log
+
+| Data | Mudança |
+|---|---|
+| 2026-07-01 | Implementação da 1.6 em `story/1.6-horarios-de-atendimento-e-intervalo`: spec + DL-032 (`a67301e`); tabela `professional_schedules` + `users.slot_interval_minutes` (`4649b18`); `SchedulesModule` (PUT/GET) (`e72e462`). Status → review. |
+
 ### File List
+
+**Database (`apps/api/src/database`)**
+- `entities/professional-schedule.entity.ts`, `entities/user.entity.ts` (`slot_interval_minutes`)
+- `migrations/1718900400000-CreateProfessionalSchedules.ts`, `data-source-options.ts`
+
+**Schedules (`apps/api/src/modules/schedules`)**
+- `schedules.module.ts`, `schedules.controller.ts`, `schedules.service.ts`, `schedules.repository.ts`, `dto/set-schedule.dto.ts`
+
+**Reuso/wiring**
+- `modules/users/users.service.ts` (`setSlotInterval`), `modules/tenant/tenant-aware-controllers.ts` (registra `SchedulesController`), `app.module.ts` (importa `SchedulesModule`)
+
+**Testes (`apps/api/test`)**
+- `schedules.e2e-spec.ts` (novo), `migration-professional-schedules.e2e-spec.ts` (novo), `test-db.ts`, `migration-companies.e2e-spec.ts` (ajuste "tabelas futuras")
+
+**Docs**
+- `_bmad-output/implementation-artifacts/1-6-horarios-de-atendimento-e-intervalo.md`, `.decision-log.md` (DL-032), `architecture.md` §3.2/§3.6
