@@ -428,6 +428,7 @@ Os itens abaixo são explicitamente excluídos do MVP. Qualquer demanda que se e
 - Múltiplos serviços no mesmo agendamento (combos)
 - Política de antecedência mínima para cancelamento
 - Lista de espera para horários ocupados
+- Folga/ausência pontual de profissional por data específica (bloquear um dia sem mudar o padrão semanal — exige tabela de ausências; ver `addendum.md` §C.8)
 
 **Infraestrutura e canal:**
 - Segundo provider de WhatsApp e seleção de provider pelo profissional/cliente

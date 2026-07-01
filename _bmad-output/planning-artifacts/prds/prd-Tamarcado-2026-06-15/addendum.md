@@ -115,6 +115,17 @@ Cancelamento só permitido até X horas antes do horário.
 
 **Por que é futuro:** não bloqueia a validação do MVP; adicionar essa lógica depois é simples.
 
+### C.8 Folga/Ausência Pontual por Data Específica
+Marcar um profissional como indisponível em **uma data específica** (ex: não atende em 15/07), como exceção pontual — **sem** alterar o padrão semanal dele.
+
+**Distinção importante (não confundir com a Story 1.6):** o `professional_schedules.is_active` e o padrão semanal (dias/faixas) da 1.6 servem para a disponibilidade **recorrente** e mudanças de **longo prazo/permanentes** (gravidez, licença, doença prolongada, mudança de rotina por outro emprego). A folga pontual é uma **exceção de curto prazo numa data específica** — a agenda recorrente continua igual, só aquele dia é bloqueado.
+
+**Implicação de arquitetura:** exige uma **tabela nova de ausências/bloqueios por data** (ex.: `professional_absences` com `company_id`, `professional_id`, `date` [ou intervalo `start_date`/`end_date`], `reason` opcional; índice liderado por `company_id`). O `AvailabilityService` (Épico 2) passaria a subtrair, além dos slots ocupados por agendamentos, os dias com bloqueio pontual. Modelar como camada **aditiva** sobre o padrão semanal — não altera `professional_schedules`.
+
+**Por que é futuro:** o MVP resolve a disponibilidade recorrente (1.6) e a agenda; a folga pontual é refinamento de UX operacional que só compensa quando houver demanda real. A tese "camada aditiva de bloqueios por data" mantém a migração futura barata (não mexe no schema da 1.6).
+
+**Quando implementar:** priorizar quando os primeiros clientes reais pedirem — provável gatilho: profissional que precisa "fechar" um dia específico (folga, viagem, consulta) sem bagunçar o padrão semanal.
+
 ---
 
 ## D. Tese de Longo Prazo
