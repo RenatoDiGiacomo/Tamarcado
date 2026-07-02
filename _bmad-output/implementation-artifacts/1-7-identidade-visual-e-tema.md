@@ -1,6 +1,6 @@
 # Story 1.7: Identidade visual e tema
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -36,37 +36,37 @@ so that o sistema reflita a identidade do meu negócio.
 
 ### API
 
-- [ ] **Task 1 — `InstallationModule` (GET/PATCH da instalação atual) (AC1, AC2, AC4)**
-  - [ ] `modules/installation/{installation.module.ts, installation.controller.ts, installation.service.ts, dto/update-installation.dto.ts}`. Injeta `@InjectRepository(Company)`. Resolve a company atual por `req.user.companyId` (nunca por id do body).
-  - [ ] `GET /api/installation` (qualquer autenticado do tenant): `{ name, logoUrl, primaryColor }` — usado pelo painel para o branding (AC4).
-  - [ ] `PATCH /api/installation` (`@Roles('owner')`): atualiza `name`, `logo_url` (**URL**, opcional/nullable) e `primary_color` (validar hex `#RRGGBB`; `logoUrl` = URL válida quando presente). Não-Dono → 403.
-  - [ ] `@ApiTags('installation')` + `@ApiBearerAuth()`. **Não** registrar em `TENANT_AWARE_CONTROLLERS` (não usa `TenantAwareRepository`; ver contexto). Guards: `JwtAuthGuard, ActiveUserGuard, RolesGuard`.
-  - [ ] RED→GREEN e2e: Dono edita nome/logo(URL)/cor; GET reflete; não-Dono PATCH → 403; hex/URL inválido → 400.
+- [x] **Task 1 — `InstallationModule` (GET/PATCH da instalação atual) (AC1, AC2, AC4)**
+  - [x] `modules/installation/{installation.module.ts, installation.controller.ts, installation.service.ts, dto/update-installation.dto.ts}`. Injeta `@InjectRepository(Company)`. Resolve a company atual por `req.user.companyId` (nunca por id do body).
+  - [x] `GET /api/installation` (qualquer autenticado do tenant): `{ name, logoUrl, primaryColor }` — usado pelo painel para o branding (AC4).
+  - [x] `PATCH /api/installation` (`@Roles('owner')`): atualiza `name`, `logo_url` (**URL**, opcional/nullable) e `primary_color` (validar hex `#RRGGBB`; `logoUrl` = URL válida quando presente). Não-Dono → 403.
+  - [x] `@ApiTags('installation')` + `@ApiBearerAuth()`. **Não** registrar em `TENANT_AWARE_CONTROLLERS` (não usa `TenantAwareRepository`; ver contexto). Guards: `JwtAuthGuard, ActiveUserGuard, RolesGuard`.
+  - [x] RED→GREEN e2e: Dono edita nome/logo(URL)/cor; GET reflete; não-Dono PATCH → 403; hex/URL inválido → 400.
 
-- [ ] **Task 3 — Tema individual (`PATCH /api/users/me`) (AC3)**
-  - [ ] `PATCH /api/users/me` (qualquer autenticado): `{ theme: 'light'|'dark' }` → grava em `users.theme` do próprio usuário (tenant-scoped, `req.user.userId`). Reusar `UsersService` (novo método `setTheme` tenant-scoped). `GET /api/users/me` já devolve `theme`.
-  - [ ] `@ApiTags`/doc no `UsersController`.
-  - [ ] RED→GREEN e2e: seta tema; persiste (novo GET reflete); valor inválido → 400.
+- [x] **Task 3 — Tema individual (`PATCH /api/users/me`) (AC3)**
+  - [x] `PATCH /api/users/me` (qualquer autenticado): `{ theme: 'light'|'dark' }` → grava em `users.theme` do próprio usuário (tenant-scoped, `req.user.userId`). Reusar `UsersService` (novo método `setTheme` tenant-scoped). `GET /api/users/me` já devolve `theme`.
+  - [x] `@ApiTags`/doc no `UsersController`.
+  - [x] RED→GREEN e2e: seta tema; persiste (novo GET reflete); valor inválido → 400.
 
 ### Web (apps/web)
 
-- [ ] **Task 4 — Sistema de tema (claro/escuro) + persistência (AC3, AC4)**
-  - [ ] `ThemeProvider`/contexto: aplica `data-theme` (ou classe) no `<html>`/root e tokens CSS (variáveis) para claro/escuro; lê o tema inicial de `GET /api/users/me` (`theme`) e aplica; toggle chama `PATCH /api/users/me`.
-  - [ ] `lib/api.ts` já cobre `PATCH` JSON — sem multipart (logo é URL). Sem mudança estrutural no client além de helpers de conveniência, se necessário.
-  - [ ] RED→GREEN (Vitest): toggle troca o tema e chama a API; tema inicial vem do `/users/me`.
+- [x] **Task 4 — Sistema de tema (claro/escuro) + persistência (AC3, AC4)**
+  - [x] `ThemeProvider`/contexto: aplica `data-theme` (ou classe) no `<html>`/root e tokens CSS (variáveis) para claro/escuro; lê o tema inicial de `GET /api/users/me` (`theme`) e aplica; toggle chama `PATCH /api/users/me`.
+  - [x] `lib/api.ts` já cobre `PATCH` JSON — sem multipart (logo é URL). Sem mudança estrutural no client além de helpers de conveniência, se necessário.
+  - [x] RED→GREEN (Vitest): toggle troca o tema e chama a API; tema inicial vem do `/users/me`.
 
-- [ ] **Task 5 — Branding no `AppShell` (AC4)**
-  - [ ] Buscar `GET /api/installation` no load; substituir `<strong>Tamarcado</strong>` pelo **nome** + **logo** (`<img>` de `logoUrl`, com fallback pro nome se sem logo); aplicar `primaryColor` como acento (variável CSS).
-  - [ ] RED→GREEN (Vitest): header exibe nome/logo mockados; fallback sem logo.
+- [x] **Task 5 — Branding no `AppShell` (AC4)**
+  - [x] Buscar `GET /api/installation` no load; substituir `<strong>Tamarcado</strong>` pelo **nome** + **logo** (`<img>` de `logoUrl`, com fallback pro nome se sem logo); aplicar `primaryColor` como acento (variável CSS).
+  - [x] RED→GREEN (Vitest): header exibe nome/logo mockados; fallback sem logo.
 
-- [ ] **Task 6 — Tela "Perfil" (toggle de tema) + "Configurações → Identidade visual" (AC1, AC2, AC3)**
-  - [ ] Rotas/páginas: **Perfil** (avatar no header → toggle de tema, UX §"Perfil do usuário") e **Configurações → Identidade visual** (owner-only: nome, **URL do logo**, cor primária, "Salvar" — espelhar UX linhas 966–983, com o campo de logo como URL no MVP).
-  - [ ] Owner-only no client: esconder/rotear "Configurações" só para `accessLevel==='owner'` (o backend já barra com 403 — o client é só UX).
-  - [ ] RED→GREEN (Vitest): form salva (chama PATCH/upload); Perfil alterna tema; não-owner não vê Configurações.
+- [x] **Task 6 — Tela "Perfil" (toggle de tema) + "Configurações → Identidade visual" (AC1, AC2, AC3)**
+  - [x] Rotas/páginas: **Perfil** (avatar no header → toggle de tema, UX §"Perfil do usuário") e **Configurações → Identidade visual** (owner-only: nome, **URL do logo**, cor primária, "Salvar" — espelhar UX linhas 966–983, com o campo de logo como URL no MVP).
+  - [x] Owner-only no client: esconder/rotear "Configurações" só para `accessLevel==='owner'` (o backend já barra com 403 — o client é só UX).
+  - [x] RED→GREEN (Vitest): form salva (chama PATCH/upload); Perfil alterna tema; não-owner não vê Configurações.
 
-- [ ] **Task 7 — Validação final (todas as ACs)**
-  - [ ] Sequência CI: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde (API + web), sem `--forceExit`, guard-rail 1.3.01 verde.
-  - [ ] Conferir manualmente (compose + `/api/docs`): Dono edita nome/logo/cor → painel reflete; usuário comum troca tema e persiste após relogar; não-Dono não acessa Configurações (403 no PATCH).
+- [x] **Task 7 — Validação final (todas as ACs)**
+  - [x] Sequência CI: `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde (API + web), sem `--forceExit`, guard-rail 1.3.01 verde.
+  - [x] Conferir manualmente (compose + `/api/docs`): Dono edita nome/logo/cor → painel reflete; usuário comum troca tema e persiste após relogar; não-Dono não acessa Configurações (403 no PATCH).
 
 ## Dev Notes
 
@@ -124,8 +124,44 @@ so that o sistema reflita a identidade do meu negócio.
 
 ### Agent Model Used
 
+claude-opus-4-8 (Amelia)
+
 ### Debug Log References
+
+- Sequência verde: build (turbo, api+web) OK, typecheck OK, lint OK, **API unit 33/33**, **API e2e 62/62** (14 suites), **web 15/15** (Vitest). Sem `--forceExit`; guard-rail 1.3.01 verde.
+- **Sem migration:** `companies.name/logo_url/primary_color` e `users.theme` já existem — só endpoints + web.
+- `InstallationController` fora de `TENANT_AWARE_CONTROLLERS` (companies não é tenant-aware), mas **adicionado ao `forRoutes` do TenantMiddleware** porque usa o `ActiveUserGuard` (lookup tenant-scoped precisa do contexto). Documentado no `AppModule`.
+- Web sem CSS antes: criado `index.css` com tokens de tema; `AppShell` migrado para variáveis CSS (dark visível). `App.tsx` reestruturado com layout route (`Outlet`) para `/perfil` e `/configuracoes/identidade`, mantendo o `AppShell` com `children` (testes existentes intactos).
 
 ### Completion Notes List
 
+- **Tasks 1,3–7 concluídas** (Task 2 removida — logo é URL, sem upload — DL-034).
+- **AC1 ✓** `PATCH /api/installation` (owner) grava `name`/`logo_url`(URL)/`primary_color`; valida hex e URL; não-Dono → 403.
+- **AC2 ✓** área owner-only; sem editor self-service (só o form).
+- **AC3 ✓** tema individual via `PATCH /api/users/me { theme }`; tela de Perfil com toggle; persiste (novo login reflete).
+- **AC4 ✓** `AppShell` exibe nome + logo (`GET /installation`), cor primária como acento; substitui o placeholder "Tamarcado".
+- **Decisões (DL-034):** logo = URL (upload/S3 = futuro, `addendum §C.9`); full-stack; `PATCH /users/me` p/ tema; cor só acento; sem UI lib.
+- **Swagger:** `@ApiTags('installation')` + `PATCH /users/me` documentados em `/api/docs`.
+- **Regressão coberta:** login/refresh, `/users/*`, `/services/*`, `/schedules/*`, isolamento, guard-rail seguem passando; testes web existentes (AppShell/Login/App/AuthContext) intactos.
+
+### Change Log
+
+| Data | Mudança |
+|---|---|
+| 2026-07-02 | Implementação da 1.7 em `story/1.7-identidade-visual-e-tema`: spec + DL-034 + roadmap §C.9 (`bc925a8`); API `InstallationModule` + tema (`300b19d`); web branding + tema + Configurações (`37ff64c`). Status → review. |
+
 ### File List
+
+**API**
+- `apps/api/src/modules/installation/*` (module, controller, service, `dto/update-installation.dto.ts`)
+- `apps/api/src/modules/users/users.service.ts` (`setTheme`), `users.controller.ts` (`PATCH /me`), `dto/update-me.dto.ts`
+- `apps/api/src/app.module.ts` (importa `InstallationModule`; middleware no `InstallationController`)
+- Testes: `apps/api/test/installation.e2e-spec.ts`, `users-theme.e2e-spec.ts`
+
+**Web (`apps/web/src`)**
+- `index.css` (tokens de tema), `main.tsx` (import), `lib/useInstallation.ts`, `auth/AuthContext.tsx` (`setTheme`)
+- `components/AppShell.tsx` (branding + tema/cor), `pages/Perfil.tsx`, `pages/ConfiguracoesIdentidade.tsx`, `App.tsx` (rotas)
+- Testes: `AppShell.test.tsx`, `Perfil.test.tsx`, `ConfiguracoesIdentidade.test.tsx`
+
+**Docs**
+- `_bmad-output/implementation-artifacts/1-7-identidade-visual-e-tema.md`, `.decision-log.md` (DL-034), `addendum.md` §C.9
