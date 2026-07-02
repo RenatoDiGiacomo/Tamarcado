@@ -12,6 +12,8 @@ import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ServicesModule } from "./modules/services/services.module";
 import { SchedulesModule } from "./modules/schedules/schedules.module";
+import { InstallationModule } from "./modules/installation/installation.module";
+import { InstallationController } from "./modules/installation/installation.controller";
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { SchedulesModule } from "./modules/schedules/schedules.module";
     AuthModule,
     ServicesModule,
     SchedulesModule,
+    InstallationModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -35,6 +38,12 @@ export class AppModule implements NestModule {
     // A lista vem da fonte única TENANT_AWARE_CONTROLLERS — o guard-rail
     // (tenant-coverage.e2e-spec.ts) falha se um controller tenant-aware ficar
     // de fora dela (DL-027). Registre novos controllers de domínio lá.
-    consumer.apply(TenantMiddleware).forRoutes(...TENANT_AWARE_CONTROLLERS);
+    // InstallationController NÃO é tenant-aware (companies não usa
+    // TenantAwareRepository), mas usa o ActiveUserGuard, que faz lookup
+    // tenant-scoped — por isso também precisa do TenantMiddleware (contexto).
+    // Fica fora de TENANT_AWARE_CONTROLLERS (guard-rail): não é repo tenant-aware.
+    consumer
+      .apply(TenantMiddleware)
+      .forRoutes(...TENANT_AWARE_CONTROLLERS, InstallationController);
   }
 }

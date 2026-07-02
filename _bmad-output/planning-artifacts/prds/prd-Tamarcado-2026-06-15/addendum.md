@@ -126,6 +126,15 @@ Marcar um profissional como indisponível em **uma data específica** (ex: não 
 
 **Quando implementar:** priorizar quando os primeiros clientes reais pedirem — provável gatilho: profissional que precisa "fechar" um dia específico (folga, viagem, consulta) sem bagunçar o padrão semanal.
 
+### C.9 Upload de Logo pelo Painel (self-service) + Storage de Assets
+No MVP (Story 1.7, DL-034), o logo da instalação é uma **URL** (`companies.logo_url`) colada por Renato no setup presencial (FR-J5). Não há upload de arquivo nem storage de imagens.
+
+**Evolução futura:** permitir que o próprio Dono **suba o arquivo do logo** pelo painel (self-service), com storage de assets — provavelmente **S3/R2** (a projeção de custo do §B já prevê "armazenamento de logos/assets ~R$5–10/mês"). Alternativa intermediária: disco local da API servido estático + volume, mas S3/R2 é o alvo por durabilidade e por não acoplar asset ao servidor de app.
+
+**Por que é futuro:** o upload adiciona infra (storage, validação de arquivo, volume/persistência, servir estático em produção) que não bloqueia o objetivo do MVP — ter a identidade visível no painel para apresentar aos salões. Enquanto Renato configura presencialmente, a URL resolve.
+
+**Quando implementar:** quando o onboarding deixar de ser 100% presencial (Dono sobe o próprio logo) ou quando surgir demanda de troca frequente de logo pelos clientes.
+
 ---
 
 ## D. Tese de Longo Prazo

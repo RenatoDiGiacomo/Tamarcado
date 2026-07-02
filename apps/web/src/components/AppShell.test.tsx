@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
 
 const useAuthMock = vi.fn();
 vi.mock("../auth/AuthContext", () => ({
   useAuth: () => useAuthMock(),
+}));
+
+const useInstallationMock = vi.fn();
+vi.mock("../lib/useInstallation", () => ({
+  useInstallation: () => useInstallationMock(),
 }));
 
 function mockMatchMedia(matches: boolean): void {
@@ -20,20 +26,30 @@ function mockMatchMedia(matches: boolean): void {
   }));
 }
 
+function renderShell() {
+  return render(
+    <MemoryRouter>
+      <AppShell>
+        <div>conteudo</div>
+      </AppShell>
+    </MemoryRouter>,
+  );
+}
+
 describe("AppShell", () => {
-  beforeEach(() => useAuthMock.mockReset());
+  beforeEach(() => {
+    useAuthMock.mockReset();
+    useInstallationMock.mockReset();
+    useInstallationMock.mockReturnValue(null);
+  });
 
   it("desktop (≥768px): sidebar com Pagamentos e Configurações para owner", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Dono", accessLevel: "owner" },
+      user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(true);
-    render(
-      <AppShell>
-        <div>conteudo</div>
-      </AppShell>,
-    );
+    renderShell();
     expect(
       screen.getByRole("navigation", { name: /lateral/i }),
     ).toBeInTheDocument();
@@ -43,21 +59,21 @@ describe("AppShell", () => {
 
   it("desktop: esconde Configurações de não-owner", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Gestor", accessLevel: "manager" },
+      user: { name: "Gestor", accessLevel: "manager", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(true);
-    render(<AppShell />);
+    renderShell();
     expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
   });
 
   it("mobile (<768px): tabs no rodapé com botão de ações rápidas", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Dono", accessLevel: "owner" },
+      user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(false);
-    render(<AppShell />);
+    renderShell();
     expect(
       screen.getByRole("navigation", { name: /inferior/i }),
     ).toBeInTheDocument();
@@ -68,11 +84,27 @@ describe("AppShell", () => {
 
   it("tem ação Sair", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Dono", accessLevel: "owner" },
+      user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(true);
-    render(<AppShell />);
+    renderShell();
     expect(screen.getByRole("button", { name: /sair/i })).toBeInTheDocument();
+  });
+
+  it("exibe o nome da instalação no header e aplica o tema no documento (AC4/AC3)", () => {
+    useAuthMock.mockReturnValue({
+      user: { name: "Dono", accessLevel: "owner", theme: "dark" },
+      logout: vi.fn(),
+    });
+    useInstallationMock.mockReturnValue({
+      name: "Agenda da Fernanda",
+      logoUrl: null,
+      primaryColor: "#E91E63",
+    });
+    mockMatchMedia(true);
+    renderShell();
+    expect(screen.getByText("Agenda da Fernanda")).toBeInTheDocument();
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 });
