@@ -465,15 +465,15 @@ So that os dados das instalações estejam protegidos contra perda.
 
 ## Épico 2: Design System
 
-**Objetivo:** estabelecer a base de UI (tokens de tema + componentes reutilizáveis) para que as telas full-stack dos Épicos 3–5 saiam bonitas, consistentes e apresentáveis — requisito de venda (DL-035). Formaliza o que a Story 1.7 começou (tokens de tema em `index.css`, `AppShell`).
+**Objetivo:** estabelecer a base de UI (tokens de tema + componentes reutilizáveis + **a casca da grade de agenda**) para que as telas full-stack dos Épicos 3–5 saiam bonitas, consistentes e apresentáveis — requisito de venda (DL-035/DL-036). Formaliza o que a Story 1.7 começou (tokens de tema em `index.css`, `AppShell`) e nasce com o componente visual mais complexo (a grade de agenda) já pronto.
 
-**UX-DRs:** UX-DR17 (estados vazios), UX-DR19 (toasts); base para UX-DR8–DR13
+**UX-DRs:** UX-DR8 (grade de agenda), UX-DR17 (estados vazios), UX-DR19 (toasts); base para UX-DR9–DR13
 
-### Story 2.1: Tokens de tema e primitivos de UI
+### Story 2.1: Tokens de tema, primitivos de UI e casca da grade de agenda
 
 As a desenvolvedor,
-I want um conjunto de tokens de tema e componentes de UI reutilizáveis,
-So that todas as telas do painel tenham visual consistente e apresentável sem reinventar estilos.
+I want tokens de tema, componentes de UI reutilizáveis e a casca visual da grade de agenda,
+So that todas as telas tenham visual consistente e o componente mais complexo (a grade) nasça bonito na base, sem a Story 3.2 construí-lo do zero.
 
 **Acceptance Criteria:**
 
@@ -484,6 +484,14 @@ So that todas as telas do painel tenham visual consistente e apresentável sem r
 **Given** os primitivos de UI
 **When** construo os componentes base
 **Then** existem `Button`, `Input`, `Select`, `Modal`, `Card`, `PageLayout`, `EmptyState` (UX-DR17) e `Toast` (UX-DR19), tipados, testados (Vitest) e usando os tokens de tema
+
+**Given** a **casca visual da grade de agenda** (componente `AgendaGrid` — o mais complexo e importante visualmente, DL-036)
+**When** construo o calendário/grid **dia e semana**
+**Then** o `AgendaGrid` renderiza a estrutura visual (colunas de dia, linhas de horário, células de slot e o card de agendamento) a partir de **props de dados** — recebe a lista de agendamentos e a faixa de horário —, **sem** buscar dados nem regra de negócio própria; pronto, tipado e testado (Vitest) para a Story 3.2 apenas **popular**
+
+**Given** a separação de responsabilidades (DL-036)
+**When** a Story 3.2 (Agenda) for construída
+**Then** ela **reutiliza** o `AgendaGrid` do Design System — não constrói a grade do zero; o Design System é dono da aparência, a 3.2 é dona dos dados
 
 **Given** um componente do design system
 **When** é usado numa tela
@@ -531,9 +539,9 @@ So that eu acompanhe os agendamentos do salão de relance.
 
 **Acceptance Criteria:**
 
-**Given** a agenda (FR-D1, UX-DR8) — full-stack (API lista appointments por período + tela React)
+**Given** a agenda (FR-D1, UX-DR8) — full-stack (API lista appointments por período + tela React) **reutilizando o `AgendaGrid` do Design System** (Story 2.1, DL-036)
 **When** acesso o painel
-**Then** vejo as visões **dia e semana** com cores por status (verde/confirmado, cinza/concluído, vermelho riscado/cancelado, cinza-escuro/não compareceu). *(A visão "mês" e o status "pendente" entram depois — mês como `3.2.NN`; pendente só existe com o bot, Épico 6.)*
+**Then** vejo as visões **dia e semana** (a grade vem pronta do Design System; esta story só a **popula** com os dados da API) com cores por status (verde/confirmado, cinza/concluído, vermelho riscado/cancelado, cinza-escuro/não compareceu). *(A visão "mês" e o status "pendente" entram depois — mês como `3.2.NN`; pendente só existe com o bot, Épico 6.)*
 
 **Given** os papéis (FR-D2)
 **When** visualizo a agenda
