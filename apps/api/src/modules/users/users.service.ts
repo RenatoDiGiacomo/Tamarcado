@@ -10,6 +10,7 @@ import { IsNull, Repository } from "typeorm";
 import { createHash, randomBytes } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
+import type { UserTheme } from "../../database/entities/user.entity";
 import { UserInvite } from "../../database/entities/user-invite.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import { UsersRepository } from "./users.repository";
@@ -81,6 +82,16 @@ export class UsersService {
       throw new NotFoundException();
     }
     user.slot_interval_minutes = minutes;
+    return this.tenantUsers.save(user);
+  }
+
+  /** Tenant-scoped: preferência de tema do próprio usuário (Story 1.7, DL-021/DL-034). */
+  async setTheme(id: string, theme: UserTheme): Promise<User> {
+    const user = await this.tenantUsers.findById(id);
+    if (!user) {
+      throw new NotFoundException();
+    }
+    user.theme = theme;
     return this.tenantUsers.save(user);
   }
 

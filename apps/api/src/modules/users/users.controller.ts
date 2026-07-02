@@ -19,6 +19,7 @@ import { User } from "../../database/entities/user.entity";
 import { UsersService } from "./users.service";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UpdateMeDto } from "./dto/update-me.dto";
 
 interface UserProfile {
   id: string;
@@ -61,6 +62,15 @@ export class UsersController {
       throw new NotFoundException();
     }
     return toProfile(user);
+  }
+
+  /** Preferências do próprio usuário — tema claro/escuro (AC3, Story 1.7). Antes de :id. */
+  @Patch("me")
+  async updateMe(
+    @CurrentUser() authUser: AuthUser,
+    @Body() dto: UpdateMeDto,
+  ): Promise<UserProfile> {
+    return toProfile(await this.users.setTheme(authUser.userId, dto.theme));
   }
 
   /** Lista os usuários do tenant atual (nunca de outro tenant — NFR-S1). */

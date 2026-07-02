@@ -28,6 +28,7 @@ interface AuthContextValue {
     companySlug?: string,
   ) => Promise<void>;
   logout: () => void;
+  setTheme: (theme: "light" | "dark") => Promise<void>;
 }
 
 const ACCESS_KEY = "tamarcado.access";
@@ -101,6 +102,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfile],
   );
 
+  /** Grava a preferência de tema do próprio usuário e atualiza o estado. */
+  const setTheme = useCallback(async (theme: "light" | "dark") => {
+    const access = localStorage.getItem(ACCESS_KEY);
+    const res = await apiRequest("/users/me", {
+      method: "PATCH",
+      body: { theme },
+      token: access,
+    });
+    if (res.ok) {
+      setUser((await res.json()) as CurrentUser);
+    }
+  }, []);
+
   useEffect(() => {
     void loadProfile().finally(() => setLoading(false));
   }, [loadProfile]);
@@ -113,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: user !== null,
         login,
         logout,
+        setTheme,
       }}
     >
       {children}

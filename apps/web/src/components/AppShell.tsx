@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { useInstallation } from "../lib/useInstallation";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 
@@ -19,9 +21,23 @@ const MOBILE_ITEMS: NavItem[] = [
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
+  const installation = useInstallation();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const isOwner = user?.accessLevel === "owner";
   const [quickOpen, setQuickOpen] = useState(false);
+
+  // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
+  useEffect(() => {
+    document.documentElement.dataset.theme = user?.theme ?? "light";
+  }, [user?.theme]);
+  useEffect(() => {
+    if (installation?.primaryColor) {
+      document.documentElement.style.setProperty(
+        "--primary",
+        installation.primaryColor,
+      );
+    }
+  }, [installation?.primaryColor]);
 
   // Sidebar inclui Pagamentos e (só owner) Configurações.
   const sidebarItems: NavItem[] = [
@@ -30,24 +46,41 @@ export function AppShell({ children }: { children?: ReactNode }) {
     ...(isOwner ? [{ key: "config", label: "Configurações" }] : []),
   ];
 
-  const badge = (
-    <span data-testid="badge-pendentes" aria-label="Pendentes" />
+  const badge = <span data-testid="badge-pendentes" aria-label="Pendentes" />;
+
+  const brand = installation?.logoUrl ? (
+    <img
+      src={installation.logoUrl}
+      alt={installation.name}
+      style={{ height: 28, verticalAlign: "middle" }}
+    />
+  ) : (
+    <strong>{installation?.name ?? "Tamarcado"}</strong>
   );
 
   return (
-    <div style={{ minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh" }}>
       <header
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           padding: "0.5rem 1rem",
-          borderBottom: "1px solid #ddd",
+          background: "var(--surface)",
+          borderBottom: "2px solid var(--primary)",
         }}
       >
-        <strong>Tamarcado</strong>
+        <Link
+          to="/"
+          aria-label="Início"
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
+          {brand}
+        </Link>
         <span>
-          <span style={{ marginRight: "0.75rem" }}>{user?.name}</span>
+          <Link to="/perfil" style={{ marginRight: "0.75rem" }}>
+            {user?.name}
+          </Link>
           <button type="button" onClick={logout}>
             Sair
           </button>
@@ -58,12 +91,20 @@ export function AppShell({ children }: { children?: ReactNode }) {
         {isDesktop && (
           <nav
             aria-label="Navegação lateral"
-            style={{ width: 200, padding: "1rem", borderRight: "1px solid #eee" }}
+            style={{
+              width: 200,
+              padding: "1rem",
+              borderRight: "1px solid var(--border)",
+            }}
           >
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {sidebarItems.map((item) => (
                 <li key={item.key} style={{ padding: "0.4rem 0" }}>
-                  {item.label}
+                  {item.key === "config" ? (
+                    <Link to="/configuracoes/identidade">{item.label}</Link>
+                  ) : (
+                    item.label
+                  )}
                   {item.badge ? badge : null}
                 </li>
               ))}
@@ -84,9 +125,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
             right: 0,
             display: "flex",
             justifyContent: "space-around",
-            borderTop: "1px solid #ddd",
+            borderTop: "1px solid var(--border)",
             padding: "0.5rem 0",
-            background: "#fff",
+            background: "var(--surface)",
           }}
         >
           {MOBILE_ITEMS.map((item) => (
