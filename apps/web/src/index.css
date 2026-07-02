@@ -1,0 +1,30 @@
+/* Tokens de tema (Story 1.7). Claro por padrão; escuro via [data-theme="dark"].
+   A cor primária (--primary) é o acento da instalação, definida em runtime a
+   partir de companies.primary_color. */
+:root {
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --surface: #ffffff;
+  --border: #dddddd;
+  --muted: #666666;
+  --primary: #6c63ff;
+}
+
+[data-theme="dark"] {
+  --bg: #16181d;
+  --fg: #e8e8e8;
+  --surface: #1f2229;
+  --border: #333842;
+  --muted: #9aa0aa;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+}
+
+a {
+  color: var(--primary);
+}
