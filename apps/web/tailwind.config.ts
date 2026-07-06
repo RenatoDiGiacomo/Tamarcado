@@ -3,52 +3,56 @@ import tailwindcssAnimate from "tailwindcss-animate";
 
 // Tema Tamarcado (tokens da Sally, DL-037). Dark via [data-theme="dark"]
 // (mecanismo da Story 1.7 / users.theme) — não a classe .dark do shadcn.
+// Cores em `hsl(var(--x) / <alpha-value>)` para os modificadores de opacidade
+// (hover do shadcn, tints de status) funcionarem com variáveis CSS.
+const hslVar = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
+
 const config: Config = {
   darkMode: ["selector", '[data-theme="dark"]'],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        border: hslVar("border"),
+        input: hslVar("input"),
+        ring: hslVar("ring"),
+        background: hslVar("background"),
+        foreground: hslVar("foreground"),
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: hslVar("primary"),
+          foreground: hslVar("primary-foreground"),
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: hslVar("secondary"),
+          foreground: hslVar("secondary-foreground"),
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: hslVar("muted"),
+          foreground: hslVar("muted-foreground"),
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: hslVar("accent"),
+          foreground: hslVar("accent-foreground"),
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: hslVar("destructive"),
+          foreground: hslVar("destructive-foreground"),
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: hslVar("card"),
+          foreground: hslVar("card-foreground"),
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: hslVar("popover"),
+          foreground: hslVar("popover-foreground"),
         },
         // Status do design system (Sally §2.2)
         status: {
-          pending: "hsl(var(--status-pending))",
-          confirmed: "hsl(var(--status-confirmed))",
-          done: "hsl(var(--status-done))",
-          cancelled: "hsl(var(--status-cancelled))",
-          noshow: "hsl(var(--status-noshow))",
+          pending: hslVar("status-pending"),
+          confirmed: hslVar("status-confirmed"),
+          done: hslVar("status-done"),
+          cancelled: hslVar("status-cancelled"),
+          noshow: hslVar("status-noshow"),
         },
       },
       borderRadius: {
