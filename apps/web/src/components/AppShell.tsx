@@ -10,14 +10,14 @@ const DESKTOP_QUERY = "(min-width: 768px)";
 interface NavItem {
   key: string;
   label: string;
-  badge?: boolean;
+  to: string;
 }
 
-/** Itens visíveis nas tabs mobile (UX-DR7). */
-const MOBILE_ITEMS: NavItem[] = [
-  { key: "agenda", label: "Agenda" },
-  { key: "pendentes", label: "Pendentes", badge: true },
-  { key: "clientes", label: "Clientes" },
+/** Navegação principal (DL-036 manual-first — sem "Pendentes"). */
+const NAV_ITEMS: NavItem[] = [
+  { key: "agenda", label: "Agenda", to: "/" },
+  { key: "clientes", label: "Clientes", to: "/clientes" },
+  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos" },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -43,122 +43,126 @@ export function AppShell({ children }: { children?: ReactNode }) {
     }
   }, [installation?.primaryColor]);
 
-  // Sidebar inclui Pagamentos e (só owner) Configurações.
-  const sidebarItems: NavItem[] = [
-    ...MOBILE_ITEMS,
-    { key: "pagamentos", label: "Pagamentos" },
-    ...(isOwner ? [{ key: "config", label: "Configurações" }] : []),
+  const items: NavItem[] = [
+    ...NAV_ITEMS,
+    ...(isOwner
+      ? [{ key: "config", label: "Configurações", to: "/configuracoes/identidade" }]
+      : []),
   ];
 
-  const badge = <span data-testid="badge-pendentes" aria-label="Pendentes" />;
-
   const brand = installation?.logoUrl ? (
-    <img
-      src={installation.logoUrl}
-      alt={installation.name}
-      style={{ height: 28, verticalAlign: "middle" }}
-    />
+    <img src={installation.logoUrl} alt={installation.name} className="h-7" />
   ) : (
-    <strong>{installation?.name ?? "Tamarcado"}</strong>
+    <strong className="text-sm font-semibold text-foreground">
+      {installation?.name ?? "Tamarcado"}
+    </strong>
   );
 
-  return (
-    <div style={{ minHeight: "100vh" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "0.5rem 1rem",
-          background: "var(--surface)",
-          borderBottom: "2px solid var(--primary)",
-        }}
-      >
-        <Link
-          to="/"
-          aria-label="Início"
-          style={{ textDecoration: "none", color: "inherit" }}
+  if (isDesktop) {
+    return (
+      <div className="flex min-h-screen bg-background text-foreground">
+        <nav
+          aria-label="Navegação lateral"
+          className="flex w-56 shrink-0 flex-col justify-between border-r border-border bg-card p-4"
         >
-          {brand}
-        </Link>
-        <span>
-          <Link to="/perfil" style={{ marginRight: "0.75rem" }}>
-            {user?.name}
-          </Link>
-          <button type="button" onClick={logout}>
-            Sair
-          </button>
-        </span>
-      </header>
-
-      <div style={{ display: "flex" }}>
-        {isDesktop && (
-          <nav
-            aria-label="Navegação lateral"
-            style={{
-              width: 200,
-              padding: "1rem",
-              borderRight: "1px solid var(--border)",
-            }}
-          >
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {sidebarItems.map((item) => (
-                <li key={item.key} style={{ padding: "0.4rem 0" }}>
-                  {item.key === "config" ? (
-                    <Link to="/configuracoes/identidade">{item.label}</Link>
-                  ) : (
-                    item.label
-                  )}
-                  {item.badge ? badge : null}
+          <div className="flex flex-col gap-6">
+            <Link to="/" aria-label="Início" className="no-underline">
+              {brand}
+            </Link>
+            <ul className="flex flex-col gap-1">
+              {items.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    to={item.to}
+                    className="block rounded-md px-3 py-2 text-sm font-medium text-foreground no-underline transition-colors hover:bg-accent"
+                  >
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>
-          </nav>
-        )}
-
-        <main style={{ flex: 1, padding: "1rem" }}>{children}</main>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+            <Link
+              to="/perfil"
+              className="truncate text-muted-foreground no-underline hover:text-foreground"
+            >
+              {user?.name}
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Sair
+            </button>
+          </div>
+        </nav>
+        <main className="flex-1 p-6">{children}</main>
       </div>
+    );
+  }
 
-      {!isDesktop && (
-        <nav
-          aria-label="Navegação inferior"
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "space-around",
-            borderTop: "1px solid var(--border)",
-            padding: "0.5rem 0",
-            background: "var(--surface)",
-          }}
-        >
-          {MOBILE_ITEMS.map((item) => (
-            <span key={item.key}>
-              {item.label}
-              {item.badge ? badge : null}
-            </span>
-          ))}
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="flex items-center justify-between border-b-2 border-primary bg-card px-4 py-2">
+        <Link to="/" aria-label="Início" className="no-underline">
+          {brand}
+        </Link>
+        <div className="flex items-center gap-3 text-sm">
+          <Link to="/perfil" className="text-muted-foreground no-underline">
+            {user?.name}
+          </Link>
           <button
             type="button"
-            aria-label="Ações rápidas"
-            onClick={() => setQuickOpen((v) => !v)}
+            onClick={logout}
+            className="text-muted-foreground"
           >
-            +
+            Sair
           </button>
-          {quickOpen && (
-            <ul
-              role="menu"
-              style={{ position: "fixed", bottom: "3rem", right: "1rem" }}
-            >
-              <li role="menuitem">Novo agendamento</li>
-              <li role="menuitem">Nova cliente</li>
-              <li role="menuitem">Registrar pagamento</li>
-            </ul>
-          )}
-        </nav>
-      )}
+        </div>
+      </header>
+
+      <main className="p-4 pb-20">{children}</main>
+
+      <nav
+        aria-label="Navegação inferior"
+        className="fixed inset-x-0 bottom-0 flex items-center justify-around border-t border-border bg-card py-2"
+      >
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.key}
+            to={item.to}
+            className="text-sm text-foreground no-underline"
+          >
+            {item.label}
+          </Link>
+        ))}
+        <button
+          type="button"
+          aria-label="Ações rápidas"
+          onClick={() => setQuickOpen((v) => !v)}
+          className="rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground"
+        >
+          +
+        </button>
+        {quickOpen && (
+          <ul
+            role="menu"
+            className="fixed bottom-14 right-4 flex flex-col gap-1 rounded-md border border-border bg-popover p-2 text-sm shadow-lg"
+          >
+            <li role="menuitem" className="px-2 py-1">
+              Novo agendamento
+            </li>
+            <li role="menuitem" className="px-2 py-1">
+              Nova cliente
+            </li>
+            <li role="menuitem" className="px-2 py-1">
+              Registrar pagamento
+            </li>
+          </ul>
+        )}
+      </nav>
     </div>
   );
 }
