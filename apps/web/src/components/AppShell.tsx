@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
+import { hexToHslTriplet } from "../lib/theme";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 
@@ -31,11 +32,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
     document.documentElement.dataset.theme = user?.theme ?? "light";
   }, [user?.theme]);
   useEffect(() => {
-    if (installation?.primaryColor) {
-      document.documentElement.style.setProperty(
-        "--primary",
-        installation.primaryColor,
-      );
+    // Cor primária do salão em canais HSL (shadcn/Tailwind, DL-037).
+    const triplet = installation?.primaryColor
+      ? hexToHslTriplet(installation.primaryColor)
+      : null;
+    if (triplet) {
+      const root = document.documentElement.style;
+      root.setProperty("--primary", triplet);
+      root.setProperty("--ring", triplet);
     }
   }, [installation?.primaryColor]);
 
