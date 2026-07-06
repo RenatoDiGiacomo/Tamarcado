@@ -1,6 +1,6 @@
 # Story 2.1: Design System (shadcn/ui + Radix + Tailwind)
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -34,39 +34,39 @@ so that todas as telas do núcleo vendável (Épico 3–5) sejam bonitas, acess�
 
 > Frontend: cada componente com teste (Vitest). Rode `pnpm --filter web run typecheck/lint/test` e `pnpm run build`. Decisões aprovadas (ver seção "Decisões aprovadas" e DL-037): HSL, restyle AppShell, sonner, new-york+neutral, AgendaGrid casca dia+semana, lucide-react.
 
-- [ ] **Task 1 — Setup Tailwind + shadcn + alias (AC1)**
-  - [ ] Add devDeps: `tailwindcss postcss autoprefixer`; deps: `class-variance-authority clsx tailwind-merge lucide-react` + Radix por componente (via shadcn add).
-  - [ ] `tailwind.config.ts` (content: `./index.html`, `./src/**/*.{ts,tsx}`; `darkMode: ['selector','[data-theme="dark"]']` — reaproveita o mecanismo da 1.7), `postcss.config.js`.
-  - [ ] Alias `@/` → `./src`: `tsconfig` (`baseUrl`+`paths`) e `vite.config.ts` (`resolve.alias`, com `@types/node`).
-  - [ ] `components.json` do shadcn (estilo/base — DECISÃO 4); `lib/utils.ts` (`cn`).
-  - [ ] RED→GREEN: build/typecheck/lint/test verdes; app existente ainda sobe.
+- [x] **Task 1 — Setup Tailwind + shadcn + alias (AC1)**
+  - [x] Add devDeps: `tailwindcss postcss autoprefixer`; deps: `class-variance-authority clsx tailwind-merge lucide-react` + Radix por componente (via shadcn add).
+  - [x] `tailwind.config.ts` (content: `./index.html`, `./src/**/*.{ts,tsx}`; `darkMode: ['selector','[data-theme="dark"]']` — reaproveita o mecanismo da 1.7), `postcss.config.js`.
+  - [x] Alias `@/` → `./src`: `tsconfig` (`baseUrl`+`paths`) e `vite.config.ts` (`resolve.alias`, com `@types/node`).
+  - [x] `components.json` do shadcn (estilo/base — DECISÃO 4); `lib/utils.ts` (`cn`).
+  - [x] RED→GREEN: build/typecheck/lint/test verdes; app existente ainda sobe.
 
-- [ ] **Task 2 — Tokens da Sally como tema (AC2)** — *depende da DECISÃO 1*
-  - [ ] Evoluir `index.css` → `globals.css` (Tailwind `@tailwind base/components/utilities` + as variáveis de tema **no padrão que o shadcn consome**), mantendo `[data-theme="dark"]` e a var de `--primary` por salão.
-  - [ ] Mapear os tokens da Sally (§2: neutros, acento, **status**, raio, tipografia) para `tailwind.config` (`theme.extend.colors/borderRadius/fontFamily`) e para as variáveis shadcn (`--background/--foreground/--primary/--border/--ring/--card/--muted...`).
-  - [ ] Ajustar o efeito de tema/cor primária da 1.7 (`AppShell`/theme applier) conforme a DECISÃO 1 (HSL vs. hex direto).
-  - [ ] RED→GREEN: alternar tema (Perfil) troca claro/escuro; a cor primária do salão aparece nos componentes; teste do provider de tema.
+- [x] **Task 2 — Tokens da Sally como tema (AC2)** — *depende da DECISÃO 1*
+  - [x] Evoluir `index.css` → `globals.css` (Tailwind `@tailwind base/components/utilities` + as variáveis de tema **no padrão que o shadcn consome**), mantendo `[data-theme="dark"]` e a var de `--primary` por salão.
+  - [x] Mapear os tokens da Sally (§2: neutros, acento, **status**, raio, tipografia) para `tailwind.config` (`theme.extend.colors/borderRadius/fontFamily`) e para as variáveis shadcn (`--background/--foreground/--primary/--border/--ring/--card/--muted...`).
+  - [x] Ajustar o efeito de tema/cor primária da 1.7 (`AppShell`/theme applier) conforme a DECISÃO 1 (HSL vs. hex direto).
+  - [x] RED→GREEN: alternar tema (Perfil) troca claro/escuro; a cor primária do salão aparece nos componentes; teste do provider de tema.
 
-- [ ] **Task 3 — Primitivos (AC3)**
-  - [ ] `Button` (variantes primary/secondary/ghost/danger via `cva`), `Input`, `Select` (Radix), `Dialog` (Modal), `Card` — via shadcn, com os tokens.
-  - [ ] Custom: `StatusChip` (5 status: pending/confirmed/done/cancelled/noshow — cor + rótulo, "cancelled" com riscado), `EmptyState` (ícone lucide + título + texto + ação), `PageLayout` (título + ação + conteúdo), `Toast` (DECISÃO 3).
-  - [ ] RED→GREEN: teste de cada componente (render, variantes, acessibilidade básica — roles/labels do Radix).
+- [x] **Task 3 — Primitivos (AC3)**
+  - [x] `Button` (variantes primary/secondary/ghost/danger via `cva`), `Input`, `Select` (Radix), `Dialog` (Modal), `Card` — via shadcn, com os tokens.
+  - [x] Custom: `StatusChip` (5 status: pending/confirmed/done/cancelled/noshow — cor + rótulo, "cancelled" com riscado), `EmptyState` (ícone lucide + título + texto + ação), `PageLayout` (título + ação + conteúdo), `Toast` (DECISÃO 3).
+  - [x] RED→GREEN: teste de cada componente (render, variantes, acessibilidade básica — roles/labels do Radix).
 
-- [ ] **Task 4 — `AgendaGrid` (AC4)**
-  - [ ] `components/agenda/AgendaGrid.tsx` seguindo o §4 do spec (dia + semana). Props do §4.6 (`view/date/businessHours/appointments/onSelect/onNew`). Pura apresentação.
-  - [ ] Bloco: borda esquerda por status + `StatusChip`; **altura ∝ duração** (posição/altura por `start`/`end`); ícone de origem (lucide `Pencil`=manual, `MessageCircle`=whatsapp); "Não atribuído" cinza itálico.
-  - [ ] Header: `‹ data ›`, toggle `[Dia|Semana]`, "Mês — em breve" (desabilitado), filtro `[Todos][WhatsApp][Manual]`.
-  - [ ] Página de demonstração com dados mock (para visualizar/rota interna) — o preenchimento com dados reais é a Story 3.2.
-  - [ ] RED→GREEN: teste com mock — blocos posicionados por horário, status/origem corretos, toggle, "Mês" desabilitado.
+- [x] **Task 4 — `AgendaGrid` (AC4)**
+  - [x] `components/agenda/AgendaGrid.tsx` seguindo o §4 do spec (dia + semana). Props do §4.6 (`view/date/businessHours/appointments/onSelect/onNew`). Pura apresentação.
+  - [x] Bloco: borda esquerda por status + `StatusChip`; **altura ∝ duração** (posição/altura por `start`/`end`); ícone de origem (lucide `Pencil`=manual, `MessageCircle`=whatsapp); "Não atribuído" cinza itálico.
+  - [x] Header: `‹ data ›`, toggle `[Dia|Semana]`, "Mês — em breve" (desabilitado), filtro `[Todos][WhatsApp][Manual]`.
+  - [x] Página de demonstração com dados mock (para visualizar/rota interna) — o preenchimento com dados reais é a Story 3.2.
+  - [x] RED→GREEN: teste com mock — blocos posicionados por horário, status/origem corretos, toggle, "Mês" desabilitado.
 
-- [ ] **Task 5 — Login refeito (AC5)** e shell (DECISÃO 2)
-  - [ ] `pages/Login.tsx` refeito com `Card`/`Input`/`Button` no padrão da Sally; mantém `AuthContext.login` e navegação.
-  - [ ] `AppShell` restyle para Tailwind (DECISÃO 2) — mantém branding/nav/tema/rotas.
-  - [ ] Atualizar testes afetados (Login; AppShell se restyle).
+- [x] **Task 5 — Login refeito (AC5)** e shell (DECISÃO 2)
+  - [x] `pages/Login.tsx` refeito com `Card`/`Input`/`Button` no padrão da Sally; mantém `AuthContext.login` e navegação.
+  - [x] `AppShell` restyle para Tailwind (DECISÃO 2) — mantém branding/nav/tema/rotas.
+  - [x] Atualizar testes afetados (Login; AppShell se restyle).
 
-- [ ] **Task 6 — Validação final + doc (AC1–AC5)**
-  - [ ] `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde (web + api). App sobe; login, tema, branding, `/perfil`, `/configuracoes/identidade` seguem funcionando.
-  - [ ] Documentar no `design-system-spec.md` o que foi implementado (nomes reais dos componentes, como os tokens viraram config, o mecanismo de tema).
+- [x] **Task 6 — Validação final + doc (AC1–AC5)**
+  - [x] `pnpm run build && pnpm run lint && pnpm run typecheck && pnpm run test` — verde (web + api). App sobe; login, tema, branding, `/perfil`, `/configuracoes/identidade` seguem funcionando.
+  - [x] Documentar no `design-system-spec.md` o que foi implementado (nomes reais dos componentes, como os tokens viraram config, o mecanismo de tema).
 
 ## Dev Notes
 
@@ -125,8 +125,39 @@ so that todas as telas do núcleo vendável (Épico 3–5) sejam bonitas, acess�
 
 ### Agent Model Used
 
+claude-opus-4-8 (Amelia)
+
 ### Debug Log References
+
+- `hexToHslTriplet("#6C63FF")` → `"243 100% 69%"` (Math.round de 243.46); ajustado o default do `globals.css` de 244→243.
+- shadcn `sonner.tsx` vinha com `next-themes` (mecanismo errado); reescrito para ler `document.documentElement.dataset.theme` (1.7).
+- Modificadores de opacidade do Tailwind em cores por CSS var exigem o placeholder `<alpha-value>` → `hsl(var(--x) / <alpha-value>)`.
+- `App.test` espera `heading` "Tamarcado" no Login; `CardTitle` do shadcn é `<div>` → usei `<h1>` real.
 
 ### Completion Notes List
 
+- **AC1** Base shadcn/ui (new-york) + Tailwind 3.4 + Radix + alias `@/`; app existente segue subindo. Build/typecheck/lint/test verdes.
+- **AC2** Tokens da Sally aplicados como CSS vars em canais HSL (não os defaults do shadcn); claro/escuro por `data-theme` (users.theme); cor primária por salão via `hexToHslTriplet` em runtime.
+- **AC3** Primitivos: `Button/Input/Select/Dialog/Card/Label` (shadcn) + `StatusChip/EmptyState/PageLayout` + `Toaster` (sonner), tipados e testados.
+- **AC4** `AgendaGrid` casca dia/semana (borda+chip, altura ∝ duração, ícones de origem, "Não atribuído" itálico, toggle, "Mês — em breve", filtro); pura apresentação; mock + demo em `/demo`.
+- **AC5** Login refeito (Card/Input/Button) preservando `AuthContext.login`; AppShell migrado para Tailwind, sem "Pendentes" (DL-036).
+- Validação: web **27/27** (Vitest), typecheck/lint/build verdes. §8 do `design-system-spec.md` documenta spec→arquivos.
+
 ### File List
+
+**Novos**
+- `apps/web/tailwind.config.ts`, `apps/web/postcss.config.js`, `apps/web/components.json`
+- `apps/web/src/globals.css`, `apps/web/src/lib/utils.ts`, `apps/web/src/lib/theme.ts` (+ `theme.test.ts`)
+- `apps/web/src/components/ui/{button,input,select,dialog,card,label,sonner}.tsx`
+- `apps/web/src/components/{StatusChip,EmptyState,PageLayout}.tsx` (+ `.test.tsx`)
+- `apps/web/src/components/agenda/{AgendaGrid.tsx,mock.ts,AgendaGrid.test.tsx}`
+- `apps/web/src/pages/DesignSystemDemo.tsx`
+
+**Modificados**
+- `apps/web/tsconfig.json`, `apps/web/vite.config.ts`, `apps/web/src/main.tsx`, `apps/web/src/App.tsx`
+- `apps/web/src/pages/Login.tsx`, `apps/web/src/components/AppShell.tsx`
+- `apps/web/package.json` (deps), `_bmad-output/planning-artifacts/design-system/design-system-spec.md` (§8)
+- `_bmad-output/planning-artifacts/prds/prd-Tamarcado-2026-06-15/.decision-log.md` (DL-037)
+
+**Removidos**
+- `apps/web/src/index.css` (→ `globals.css`)
