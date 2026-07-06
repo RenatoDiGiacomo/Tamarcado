@@ -146,7 +146,30 @@ interface AgendaGridProps {
 3. **Mês:** desabilitado "em breve" (honesto) vs. escondido até `3.2.NN`. *(Recomendo "em breve".)*
 4. **Estados vazios:** ilustração leve (charme, mais trabalho) vs. ícone simples + texto (rápido). *(Recomendo ícone + texto no MVP.)*
 
-## 6. Referências
+## 6. Protótipo no Figma e inventário de telas
+
+**Arquivo Figma:** `Tamarcado — Design System` — https://www.figma.com/design/MwcRbRwteTxofX7MRt966J
+- Página **Design System**: tokens de cor, botões, StatusChips, card de agendamento.
+- Página **AgendaGrid**: visão Dia (estudo do componente).
+- Página **Protótipo — Painel**: telas da aplicação (em construção).
+
+**Estado (2026-07-06):** construídos — tokens/botões/chips/card, AgendaGrid Dia, tela Login, e o shell da Agenda—Dia (sidebar + header). **Pendente (limite do plano Figma Starter):** conteúdo da grade na Agenda—Dia, e as telas Semana / Agendamento manual / Clientes / Perfil da cliente / Configurações. Segunda leva: Pagamentos e estados vazios.
+
+**Shell do painel (comum às telas autenticadas):** sidebar (marca = logo + nome da instalação; nav **Agenda · Clientes · Pagamentos · Configurações** — **sem "Pendentes"** no manual-first, DL-036; rodapé com usuário) + área principal (header com título da tela + ação primária à direita).
+
+### Inventário — núcleo vendável (manual-first)
+
+1. **Login** — card central: marca + campos E-mail/Senha + botão **Entrar** (primary, full-width) + "Esqueceu a senha?". Sem shell.
+2. **Agenda — Dia** — shell + controles (`‹ data ›`, toggle `[Dia|Semana]`, "Mês — em breve", filtro `[Todos][WhatsApp][Manual]`) + `AgendaGrid` view=dia. Header: "Agenda" + `[+ Novo agendamento]`.
+3. **Agenda — Semana** — mesmo shell/controles; `AgendaGrid` view=semana (7 colunas seg–dom, cards compactos, "hoje" com realce na cor primária).
+4. **Agendamento manual** — `Modal` sobre a Agenda: **Profissional** (Select, só dono/gestão), **Serviço** (Select), **Data**, **Horário**, **Cliente** (busca em tempo real + "+ Nova" inline; WhatsApp opcional), texto fixo "Entra como: Confirmado (sem aprovação)", aviso (não bloqueio) de slot ocupado, ações `[Cancelar] [Criar]`.
+5. **Lista de Clientes** — shell; header "Clientes" + `[+ Nova cliente]`; campo de busca; lista (linhas: nome · WhatsApp · data do 1º agendamento); `EmptyState` quando vazio.
+6. **Perfil da Cliente** — shell; cabeçalho (nome + WhatsApp) + **Observações** (texto editável) + **Histórico** (lista: serviço · data · `StatusChip` · profissional) + atalho "Novo agendamento para esta cliente".
+7. **Configurações** — shell; subseções: **Serviços** (CRUD nome/duração/preço), **Horários** (por profissional: dias + faixa + intervalo), **Equipe** (convite por link + papel), **Identidade visual** (nome, URL do logo, cor primária). *(As APIs já existem — 1.4/1.5/1.6/1.7; aqui é a tela.)*
+
+> Consistência: todas as telas usam os mesmos tokens (§2) e componentes (§3). A Amelia implementa a partir daqui; o Figma é a referência visual pareada.
+
+## 7. Referências
 
 - [ux-spec.md §4.2 Tela: Agenda] — status/cores, card, dia/semana/mês, FAB, filtro de origem.
 - [ux-spec.md §1] — tom "parece a própria profissional".
