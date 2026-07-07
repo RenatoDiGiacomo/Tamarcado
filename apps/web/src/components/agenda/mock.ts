@@ -58,3 +58,22 @@ export const MOCK_APPOINTMENTS: AgendaAppointment[] = [
     weekday: 4,
   },
 ];
+
+/**
+ * Dia LOTADO (08h–20h) para validar o scroll vertical da agenda com o
+ * cabeçalho fixo. Só demo/visual — dados reais chegam na Story 3.2.
+ */
+export const MOCK_APPOINTMENTS_FULL_DAY: AgendaAppointment[] = [
+  { id: "f1", clientName: "Paula Nunes", serviceName: "Corte", start: "08:00", end: "08:45", status: "done", origin: "manual", professionalName: "Fernanda" },
+  { id: "f2", clientName: "Carla Menezes", serviceName: "Escova", start: "08:45", end: "09:30", status: "done", origin: "whatsapp", professionalName: "Ana" },
+  { id: "f3", clientName: "Maria das Dores", serviceName: "Coloração", start: "09:30", end: "11:00", status: "confirmed", origin: "manual", professionalName: "Fernanda" },
+  { id: "f4", clientName: "Joana Silva", serviceName: "Corte", start: "11:00", end: "11:45", status: "confirmed", origin: "whatsapp", professionalName: "Ana" },
+  { id: "f5", clientName: "Bianca Reis", serviceName: "Manicure", start: "11:45", end: "12:30", status: "confirmed", origin: "manual", professionalName: null },
+  { id: "f6", clientName: "Letícia Prado", serviceName: "Corte + Escova", start: "13:00", end: "14:15", status: "confirmed", origin: "whatsapp", professionalName: "Fernanda" },
+  { id: "f7", clientName: "Sônia Braga", serviceName: "Hidratação", start: "14:15", end: "15:00", status: "pending", origin: "whatsapp", professionalName: null },
+  { id: "f8", clientName: "Rita Alves", serviceName: "Escova", start: "15:00", end: "15:45", status: "confirmed", origin: "manual", professionalName: "Ana" },
+  { id: "f9", clientName: "Débora Lima", serviceName: "Coloração", start: "15:45", end: "17:15", status: "confirmed", origin: "manual", professionalName: "Fernanda" },
+  { id: "f10", clientName: "Vanessa Rocha", serviceName: "Corte", start: "17:15", end: "18:00", status: "cancelled", origin: "whatsapp", professionalName: "Ana" },
+  { id: "f11", clientName: "Amanda Souza", serviceName: "Manicure", start: "18:00", end: "18:45", status: "pending", origin: "whatsapp", professionalName: null },
+  { id: "f12", clientName: "Priscila Gomes", serviceName: "Escova", start: "19:00", end: "20:00", status: "confirmed", origin: "manual", professionalName: "Ana" },
+];

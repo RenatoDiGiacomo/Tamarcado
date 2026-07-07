@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { CalendarDays, CreditCard, Settings, Users } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
@@ -11,13 +12,14 @@ interface NavItem {
   key: string;
   label: string;
   to: string;
+  icon: ComponentType<{ className?: string }>;
 }
 
 /** Navegação principal (DL-036 manual-first — sem "Pendentes"). */
 const NAV_ITEMS: NavItem[] = [
-  { key: "agenda", label: "Agenda", to: "/" },
-  { key: "clientes", label: "Clientes", to: "/clientes" },
-  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos" },
+  { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
+  { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
+  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -46,7 +48,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const items: NavItem[] = [
     ...NAV_ITEMS,
     ...(isOwner
-      ? [{ key: "config", label: "Configurações", to: "/configuracoes/identidade" }]
+      ? [
+          {
+            key: "config",
+            label: "Configurações",
+            to: "/configuracoes/identidade",
+            icon: Settings,
+          },
+        ]
       : []),
   ];
 
@@ -74,8 +83,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 <li key={item.key}>
                   <Link
                     to={item.to}
-                    className="block rounded-md px-3 py-2 text-sm font-medium text-foreground no-underline transition-colors hover:bg-accent"
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground no-underline transition-colors hover:bg-accent"
                   >
+                    <item.icon className="size-4 shrink-0 text-muted-foreground" />
                     {item.label}
                   </Link>
                 </li>
@@ -133,8 +143,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <Link
             key={item.key}
             to={item.to}
-            className="text-sm text-foreground no-underline"
+            className="flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
           >
+            <item.icon className="size-5 shrink-0" />
             {item.label}
           </Link>
         ))}
