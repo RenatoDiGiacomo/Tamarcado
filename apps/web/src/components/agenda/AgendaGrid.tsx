@@ -34,6 +34,10 @@ export interface AgendaGridProps {
 }
 
 const HOUR_PX = 56;
+/** Respiro acima do primeiro horário, para o 1º agendamento não colar no topo. */
+const GRID_PAD_TOP = 12;
+/** Altura máxima do corpo rolável; o cabeçalho (controles) fica fixo acima. */
+const BODY_MAX_H = "max-h-[70vh]";
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 const BORDER: Record<AppointmentStatus, string> = {
@@ -70,15 +74,18 @@ function OriginIcon({ origin }: { origin: "whatsapp" | "manual" }) {
 function Block({
   appt,
   dayStartMin,
+  offsetTop = 0,
   compact,
   onSelect,
 }: {
   appt: AgendaAppointment;
   dayStartMin: number;
+  offsetTop?: number;
   compact?: boolean;
   onSelect?: (id: string) => void;
 }) {
-  const top = ((toMin(appt.start) - dayStartMin) / 60) * HOUR_PX;
+  const top =
+    offsetTop + ((toMin(appt.start) - dayStartMin) / 60) * HOUR_PX;
   const height = Math.max(((toMin(appt.end) - toMin(appt.start)) / 60) * HOUR_PX, 24);
   return (
     <button
@@ -234,83 +241,106 @@ export function AgendaGrid({
         />
       </div>
 
-      {/* Grade */}
+      {/* Grade — corpo rolável (o cabeçalho de controles acima fica fixo) */}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
-        {view === "dia" ? (
-          <div className="flex">
-            <div className="w-14 shrink-0 bg-muted/40" style={{ height: gridHeight }}>
-              {hourLabels.map((label, i) => (
-                <div
-                  key={label}
-                  className="px-2 text-[11px] text-muted-foreground"
-                  style={{ height: i < rows ? HOUR_PX : 0 }}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-            <div className="relative flex-1" style={{ height: gridHeight }}>
-              {Array.from({ length: rows + 1 }, (_, i) => (
-                <div
-                  key={i}
-                  className="absolute inset-x-0 border-t border-border/60"
-                  style={{ top: i * HOUR_PX }}
-                />
-              ))}
-              {shown.map((a) => (
-                <Block
-                  key={a.id}
-                  appt={a}
-                  dayStartMin={dayStartMin}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex">
-            <div className="w-14 shrink-0 bg-muted/40 pt-7" style={{ height: gridHeight + 28 }}>
-              {hourLabels.map((label, i) => (
-                <div
-                  key={label}
-                  className="px-2 text-[11px] text-muted-foreground"
-                  style={{ height: i < rows ? HOUR_PX : 0 }}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-1">
-              {WEEKDAYS.map((wd, col) => (
-                <div key={wd} className="flex-1 border-l border-border/60">
-                  <div className="h-7 border-b border-border/60 text-center text-xs font-semibold text-muted-foreground">
-                    {wd}
+        <div className={cn(BODY_MAX_H, "overflow-y-auto")}>
+          {view === "dia" ? (
+            <div className="flex">
+              <div
+                className="w-14 shrink-0 bg-muted/40"
+                style={{ height: gridHeight + GRID_PAD_TOP, paddingTop: GRID_PAD_TOP }}
+              >
+                {hourLabels.map((label, i) => (
+                  <div
+                    key={label}
+                    className="px-2 text-[11px] text-muted-foreground"
+                    style={{ height: i < rows ? HOUR_PX : 0 }}
+                  >
+                    {label}
                   </div>
-                  <div className="relative" style={{ height: gridHeight }}>
-                    {Array.from({ length: rows + 1 }, (_, i) => (
-                      <div
-                        key={i}
-                        className="absolute inset-x-0 border-t border-border/40"
-                        style={{ top: i * HOUR_PX }}
-                      />
-                    ))}
-                    {shown
-                      .filter((a) => a.weekday === col)
-                      .map((a) => (
-                        <Block
-                          key={a.id}
-                          appt={a}
-                          dayStartMin={dayStartMin}
-                          compact
-                          onSelect={onSelect}
+                ))}
+              </div>
+              <div
+                className="relative flex-1"
+                style={{ height: gridHeight + GRID_PAD_TOP }}
+              >
+                {Array.from({ length: rows + 1 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="absolute inset-x-0 border-t border-border/60"
+                    style={{ top: GRID_PAD_TOP + i * HOUR_PX }}
+                  />
+                ))}
+                {shown.map((a) => (
+                  <Block
+                    key={a.id}
+                    appt={a}
+                    dayStartMin={dayStartMin}
+                    offsetTop={GRID_PAD_TOP}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex">
+              <div
+                className="w-14 shrink-0"
+                style={{ height: gridHeight + GRID_PAD_TOP + 28 }}
+              >
+                {/* Faixa que acompanha o cabeçalho de dias (sticky) */}
+                <div className="sticky top-0 z-20 h-7 bg-card" />
+                <div
+                  className="bg-muted/40"
+                  style={{ height: gridHeight + GRID_PAD_TOP, paddingTop: GRID_PAD_TOP }}
+                >
+                  {hourLabels.map((label, i) => (
+                    <div
+                      key={label}
+                      className="px-2 text-[11px] text-muted-foreground"
+                      style={{ height: i < rows ? HOUR_PX : 0 }}
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-1">
+                {WEEKDAYS.map((wd, col) => (
+                  <div key={wd} className="flex-1 border-l border-border/60">
+                    <div className="sticky top-0 z-20 h-7 border-b border-border/60 bg-card text-center text-xs font-semibold text-muted-foreground">
+                      {wd}
+                    </div>
+                    <div
+                      className="relative"
+                      style={{ height: gridHeight + GRID_PAD_TOP }}
+                    >
+                      {Array.from({ length: rows + 1 }, (_, i) => (
+                        <div
+                          key={i}
+                          className="absolute inset-x-0 border-t border-border/40"
+                          style={{ top: GRID_PAD_TOP + i * HOUR_PX }}
                         />
                       ))}
+                      {shown
+                        .filter((a) => a.weekday === col)
+                        .map((a) => (
+                          <Block
+                            key={a.id}
+                            appt={a}
+                            dayStartMin={dayStartMin}
+                            offsetTop={GRID_PAD_TOP}
+                            compact
+                            onSelect={onSelect}
+                          />
+                        ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* FAB */}

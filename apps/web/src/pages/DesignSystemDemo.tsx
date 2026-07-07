@@ -1,6 +1,9 @@
 import { CalendarX } from "lucide-react";
 import { AgendaGrid } from "@/components/agenda/AgendaGrid";
-import { MOCK_APPOINTMENTS } from "@/components/agenda/mock";
+import {
+  MOCK_APPOINTMENTS,
+  MOCK_APPOINTMENTS_FULL_DAY,
+} from "@/components/agenda/mock";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/StatusChip";
 import { EmptyState } from "@/components/EmptyState";
@@ -33,6 +36,19 @@ export function DesignSystemDemo() {
           onSelect={() => {}}
           onNew={() => {}}
         />
+
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Dia lotado (08h–20h) — scroll vertical, cabeçalho fixo
+          </h2>
+          <AgendaGrid
+            dateLabel="Qua, 18/06"
+            businessHours={{ start: "08:00", end: "20:00" }}
+            appointments={MOCK_APPOINTMENTS_FULL_DAY}
+            onSelect={() => {}}
+            onNew={() => {}}
+          />
+        </div>
 
         <EmptyState
           icon={CalendarX}
