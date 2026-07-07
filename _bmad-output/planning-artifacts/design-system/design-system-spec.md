@@ -176,3 +176,23 @@ interface AgendaGridProps {
 - [epics.md — Épico 2 / Story 2.1] — escopo (tokens + primitivos + `AgendaGrid`).
 - [.decision-log.md DL-036] — grade no Design System; DL-034/1.7 — tokens de tema iniciais.
 - [apps/web/src/index.css] — tokens de tema da Story 1.7 (ponto de partida).
+
+## 8. Implementação (Story 2.1 — o que foi construído)
+
+Base: **shadcn/ui (new-york) + Radix + Tailwind 3.4 + lucide-react + sonner** (DL-037). Tokens da Sally aplicados como CSS vars em canais HSL (não os defaults do shadcn); modo claro/escuro reaproveita `data-theme` (users.theme, 1.7) e a cor primária por salão é convertida hex→HSL em runtime.
+
+| Spec | Implementação |
+|------|---------------|
+| §2 Tokens (neutros, acento, status, raio, foco) | `apps/web/src/globals.css` (`:root` claro + `[data-theme="dark"]`), `apps/web/tailwind.config.ts` (cores `hsl(var(--x) / <alpha-value>)`) |
+| Cor primária por salão (hex→HSL) | `apps/web/src/lib/theme.ts` (`hexToHslTriplet`) aplicada em `AppShell` |
+| §3 Button / Input / Select / Modal(Dialog) / Card / Label | `apps/web/src/components/ui/*` (shadcn, variantes: `default`=primary, `destructive`=danger) |
+| §3 Toast | `sonner` — `components/ui/sonner.tsx` (lê `data-theme`), `<Toaster/>` em `main.tsx` |
+| §2.2 / §4 StatusChip (chip + rótulo por status) | `apps/web/src/components/StatusChip.tsx` |
+| §3 EmptyState (ícone + texto) | `apps/web/src/components/EmptyState.tsx` |
+| §3 PageLayout (título + ação + conteúdo) | `apps/web/src/components/PageLayout.tsx` |
+| §4 AgendaGrid (casca Dia/Semana) | `apps/web/src/components/agenda/AgendaGrid.tsx` — borda esq.+chip por status, altura ∝ duração, ícones de origem (lápis=manual, balão=whatsapp), "Não atribuído" cinza itálico, toggle Dia/Semana, "Mês — em breve" desabilitado, filtro de origem. Pura apresentação (contrato §4.6); dados reais na 3.2. Mock em `agenda/mock.ts`. |
+| Inventário #1 Login | `apps/web/src/pages/Login.tsx` (Card + Input + Button) |
+| Shell do painel | `apps/web/src/components/AppShell.tsx` (Tailwind; sem "Pendentes", DL-036) |
+| Demo de revisão | `apps/web/src/pages/DesignSystemDemo.tsx` — rota pública **`/demo`** (primitivos + AgendaGrid) |
+
+**Decisões §5 (resolvidas pelo Renato):** 1 borda+chip · 2 altura ∝ duração · 3 Mês "em breve" · 4 EmptyState ícone+texto — todas conforme recomendado.
