@@ -51,6 +51,20 @@ describe("Login", () => {
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/"));
   });
 
+  it("alterna a visibilidade da senha pelo ícone de olho", () => {
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>,
+    );
+    const senha = screen.getByLabelText("Senha");
+    expect(senha).toHaveAttribute("type", "password");
+    fireEvent.click(screen.getByRole("button", { name: /mostrar senha/i }));
+    expect(senha).toHaveAttribute("type", "text");
+    fireEvent.click(screen.getByRole("button", { name: /ocultar senha/i }));
+    expect(senha).toHaveAttribute("type", "password");
+  });
+
   it("login com erro exibe mensagem", async () => {
     loginMock.mockRejectedValue(new Error("bad"));
     render(
