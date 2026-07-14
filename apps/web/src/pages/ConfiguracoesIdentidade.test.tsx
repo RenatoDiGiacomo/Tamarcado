@@ -53,6 +53,26 @@ describe("ConfiguracoesIdentidade", () => {
     );
   });
 
+  it("preset preenche o hex e marca o preset ativo (AC4)", async () => {
+    apiMock.mockResolvedValueOnce(
+      jsonRes({ name: "Salão", logoUrl: null, primaryColor: "#6c63ff" }),
+    );
+    render(<ConfiguracoesIdentidade />);
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+      ).toBe("Salão"),
+    );
+
+    const preset = screen.getByRole("button", { name: "Cor Terracota" });
+    fireEvent.click(preset);
+
+    expect((screen.getByLabelText("Cor primária") as HTMLInputElement).value).toBe(
+      "#B85C38",
+    );
+    expect(preset).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("exibe erro quando o PATCH falha", async () => {
     apiMock.mockResolvedValueOnce(
       jsonRes({ name: "Salão", logoUrl: null, primaryColor: "#6c63ff" }),
