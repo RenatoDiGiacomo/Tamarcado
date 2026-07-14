@@ -88,20 +88,52 @@ para depois.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 0 — Infra de rede** — adicionar `"PUT"` ao union de método em
-  `lib/api.ts` (hoje só GET/POST/PATCH/DELETE).
-- [ ] **Task 1 — Casca de Configurações (AC1/AC2)** — `pages/Configuracoes.tsx` com
-  Tabs (Radix `ui/tabs`) + roteamento por aba + guard owner-only (redirect). Ajustar
-  `App.tsx` e `AppShell` (rota da aba padrão).
-- [ ] **Task 2 — Identidade visual (AC3/AC4/AC5)** — refazer `ConfiguracoesIdentidade`
-  com DS; presets+hex; prévia ao vivo. Preservar contratos dos testes.
-- [ ] **Task 3 — Serviços (AC6/AC7/AC8)** — `pages/ConfiguracoesServicos.tsx`
-  master-detail + form + chips de vínculo. Hooks de dados (services, attenders).
-- [ ] **Task 4 — Testes** — Vitest para casca (abas/guard), Identidade (presets/prévia
-  + testes existentes verdes) e Serviços (CRUD + vínculo). `typecheck/lint/test/build`
-  verdes.
-- [ ] **Task 5 — Swagger** — revisar anotações dos endpoints consumidos (só se faltar
-  algo; sem novo contrato).
+- [x] **Task 0 — Infra de rede** — `"PUT"` adicionado ao union de método em `lib/api.ts`.
+- [x] **Task 1 — Casca de Configurações (AC1/AC2)** — `pages/Configuracoes.tsx` +
+  `components/ConfiguracoesTabs.tsx` (abas **route-driven** via `NavLink`, estilo do
+  Segmented da Agenda — **sem** nova dependência de `@radix-ui/react-tabs`) + guard
+  owner-only (redirect). Rotas aninhadas em `App.tsx`; `AppShell` → `/configuracoes`.
+- [x] **Task 2 — Identidade visual (AC3/AC4/AC5)** — `ConfiguracoesIdentidade` refeito
+  com DS; 5 presets terrosos + hex + swatch; prévia ao vivo (logo/nome + botão + chip
+  "Hoje"). Contrato do teste existente preservado.
+- [x] **Task 3 — Serviços (AC6/AC7/AC8)** — `pages/ConfiguracoesServicos.tsx`
+  master-detail + form (preço opcional) + chips de vínculo (`/users/attenders` +
+  `GET|PUT /services/:id/professionals`).
+- [x] **Task 4 — Testes** — Vitest: casca (abas/guard, 2), Identidade (presets + 2
+  existentes, 3), Serviços (lista/PATCH+PUT/POST, 3). **34/34** verdes; typecheck/lint/
+  build verdes.
+- [x] **Task 5 — Swagger/guard-rail** — **N/A**: sem novo contrato (endpoints já
+  anotados). `ServicesController` já está em `TENANT_AWARE_CONTROLLERS`;
+  `InstallationController` fica fora de propósito (companies não é tenant-aware).
+
+## Dev Agent Record
+
+### Agent Model Used
+claude-opus-4-8
+
+### Completion Notes
+- **Frontend puro**, backend intacto. Abas **route-driven** (`NavLink`) em vez de Radix
+  Tabs — cada aba tem rota própria e a ativa reflete a URL; evita dependência nova e
+  casa com o Segmented da Agenda.
+- **Identidade:** presets terrosos (Terracota/Mostarda/Oliva/Argila/Café), prévia ao
+  vivo repinta via estado local (sem salvar). Test de contrato (1.7) mantido verde.
+- **Serviços:** `PUT /services/:id/professionals` só existia no backend; faltava `PUT`
+  no cliente HTTP (`lib/api.ts`) — adicionado.
+- Validação: web **34/34** (Vitest), typecheck/lint/build verdes. Visual não capturado
+  aqui (rota protegida owner-only, sem backend semeado no ambiente) — reusa primitivos
+  do DS já validados na 2.1/2.1.02.
+
+### File List
+**Novos**
+- `apps/web/src/components/ConfiguracoesTabs.tsx`
+- `apps/web/src/pages/Configuracoes.tsx` (+ `.test.tsx`)
+- `apps/web/src/pages/ConfiguracoesServicos.tsx` (+ `.test.tsx`)
+
+**Modificados**
+- `apps/web/src/lib/api.ts` (método `PUT`)
+- `apps/web/src/App.tsx` (rotas aninhadas de `/configuracoes`)
+- `apps/web/src/components/AppShell.tsx` (nav → `/configuracoes`)
+- `apps/web/src/pages/ConfiguracoesIdentidade.tsx` (+ `.test.tsx`) — restyle DS
 
 ## Decisões (resolvidas pelo Renato, 2026-07-13)
 
