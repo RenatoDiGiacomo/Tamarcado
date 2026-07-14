@@ -1,9 +1,30 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { CalendarDays } from "lucide-react";
 import { apiRequest } from "../lib/api";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const ACCESS_KEY = "tamarcado.access";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/** Presets de cor primária (tons terrosos) — clicar preenche o hex. */
+const PRESETS: { hex: string; name: string }[] = [
+  { hex: "#B85C38", name: "Terracota" },
+  { hex: "#B07D1F", name: "Mostarda" },
+  { hex: "#6B7A3F", name: "Oliva" },
+  { hex: "#A15A4A", name: "Argila" },
+  { hex: "#6F4A34", name: "Café" },
+];
 
 /** Configurações → Identidade visual (owner-only no backend). Logo por URL (DL-034). */
 export function ConfiguracoesIdentidade() {
@@ -46,52 +67,146 @@ export function ConfiguracoesIdentidade() {
     setStatus(res.ok ? "saved" : "error");
   }
 
+  const isActivePreset = (hex: string) =>
+    hex.toLowerCase() === primaryColor.trim().toLowerCase();
+
   return (
-    <section>
-      <h1>Identidade visual</h1>
-      <form onSubmit={(e) => void save(e)}>
-        <p>
-          <label htmlFor="inst-name">Nome da instalação</label>
-          <input
-            id="inst-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </p>
-        <p>
-          <label htmlFor="inst-logo">URL do logo</label>
-          <input
-            id="inst-logo"
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://..."
-          />
-        </p>
-        <p>
-          <label htmlFor="inst-color">Cor primária</label>
-          <input
-            id="inst-color"
-            value={primaryColor}
-            onChange={(e) => setPrimaryColor(e.target.value)}
-          />
-          <span
-            aria-hidden="true"
-            style={{
-              display: "inline-block",
-              width: 20,
-              height: 20,
-              marginLeft: 8,
-              verticalAlign: "middle",
-              background: primaryColor,
-              border: "1px solid var(--border)",
-            }}
-          />
-        </p>
-        <button type="submit">Salvar</button>
-        {status === "saved" && <p role="status">Identidade salva.</p>}
-        {status === "error" && <p role="alert">Erro ao salvar.</p>}
-      </form>
-    </section>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      {/* Formulário */}
+      <Card className="w-full lg:max-w-xl">
+        <CardHeader>
+          <CardTitle className="text-lg">Identidade visual</CardTitle>
+          <CardDescription>
+            Como o painel aparece para você e sua equipe.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => void save(e)} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="inst-name">Nome da instalação</Label>
+              <Input
+                id="inst-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="inst-logo">URL do logo</Label>
+              <Input
+                id="inst-logo"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload próprio fica para versão futura — por enquanto, cole a URL da
+                imagem.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="inst-color">Cor primária</Label>
+              <div className="flex items-center gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.hex}
+                    type="button"
+                    onClick={() => setPrimaryColor(p.hex)}
+                    aria-label={`Cor ${p.name}`}
+                    aria-pressed={isActivePreset(p.hex)}
+                    title={p.name}
+                    className={cn(
+                      "size-8 rounded-full border-2 transition-transform",
+                      isActivePreset(p.hex)
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105",
+                    )}
+                    style={{ backgroundColor: p.hex }}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="inst-color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="max-w-[160px] font-mono"
+                />
+                <span
+                  aria-hidden="true"
+                  className="size-9 shrink-0 rounded-md border border-border"
+                  style={{ backgroundColor: primaryColor }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={status === "saving"}>
+                Salvar
+              </Button>
+              {status === "saved" && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Identidade salva.
+                </p>
+              )}
+              {status === "error" && (
+                <p role="alert" className="text-sm text-destructive">
+                  Erro ao salvar.
+                </p>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Prévia ao vivo */}
+      <Card className="w-full lg:max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-sm text-muted-foreground">
+            Prévia ao vivo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={name || "Logo"}
+                  className="h-6 max-w-[140px] object-contain"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-foreground">
+                  {name || "Sua marca"}
+                </span>
+              )}
+              <span
+                className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Hoje
+              </span>
+            </div>
+            <div className="flex flex-col gap-3 px-4 py-4">
+              <div className="h-2.5 w-3/4 rounded-full bg-muted" />
+              <div className="h-2.5 w-1/2 rounded-full bg-muted" />
+              <button
+                type="button"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <CalendarDays className="size-4" aria-hidden="true" />
+                Novo agendamento
+              </button>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Muda cor e nome e repinta na hora — é o seu salão.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

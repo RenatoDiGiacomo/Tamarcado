@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { useAuth } from "./auth/AuthContext";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
+import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
+import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
 
@@ -39,10 +41,11 @@ export function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/perfil" element={<Perfil />} />
-        <Route
-          path="/configuracoes/identidade"
-          element={<ConfiguracoesIdentidade />}
-        />
+        <Route path="/configuracoes" element={<Configuracoes />}>
+          <Route index element={<Navigate to="identidade" replace />} />
+          <Route path="identidade" element={<ConfiguracoesIdentidade />} />
+          <Route path="servicos" element={<ConfiguracoesServicos />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
