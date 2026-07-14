@@ -52,7 +52,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           {
             key: "config",
             label: "Configurações",
-            to: "/configuracoes/identidade",
+            to: "/configuracoes",
             icon: Settings,
           },
         ]
