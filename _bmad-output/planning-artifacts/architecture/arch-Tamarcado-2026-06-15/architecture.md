@@ -315,7 +315,7 @@ CREATE TABLE appointments (
   professional_id       BIGINT          NULL,         -- nullable; MVP: bot não atribui
   scheduled_at          DATETIME        NOT NULL,
   duration_minutes      INT             NOT NULL,     -- snapshot do serviço
-  price_snapshot        DECIMAL(10,2)   NOT NULL,     -- snapshot do preço no momento
+  price_snapshot        DECIMAL(10,2)   NULL,         -- snapshot do preço; NULL quando serviço sem preço (DL-030/DL-038 D1)
   status                ENUM('pending', 'confirmed', 'cancelled', 'completed', 'no_show') NOT NULL,
   source                ENUM('whatsapp', 'manual', 'app') NOT NULL,
   created_by_user_id    BIGINT          NULL,         -- NULL quando criado pelo bot
