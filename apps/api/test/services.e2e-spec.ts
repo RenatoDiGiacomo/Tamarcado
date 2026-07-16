@@ -122,6 +122,24 @@ describe("Catálogo de serviços (e2e)", () => {
     );
   });
 
+  it("AC2: PATCH com price null remove o preço (DL-030)", async () => {
+    const owner = await login("dono@sv.dev");
+    const created = await request(ctx.app.getHttpServer())
+      .post("/api/services")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ name: "Hidratação", duration_minutes: 30, price: 70 });
+    expect(created.body.price).toBe(70);
+    const id = created.body.id as string;
+
+    const cleared = await request(ctx.app.getHttpServer())
+      .patch(`/api/services/${id}`)
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ price: null });
+    expect(cleared.status).toBe(200);
+    // Antes da correção isto virava a string "null" no DECIMAL; agora é null.
+    expect(cleared.body.price).toBeNull();
+  });
+
   it("AC3: gestão/básico conseguem listar serviços (leitura liberada)", async () => {
     const recep = await login("recep@sv.dev");
     const res = await request(ctx.app.getHttpServer())

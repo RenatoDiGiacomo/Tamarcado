@@ -48,7 +48,8 @@ export class ServicesService {
       service.duration_minutes = dto.duration_minutes;
     }
     if (dto.price !== undefined) {
-      service.price = String(dto.price);
+      // null limpa o preço (DL-030); número vira a string do DECIMAL.
+      service.price = dto.price === null ? null : String(dto.price);
     }
     if (dto.is_active !== undefined) {
       service.is_active = dto.is_active;
