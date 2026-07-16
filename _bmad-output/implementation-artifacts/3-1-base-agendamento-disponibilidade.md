@@ -1,6 +1,6 @@
 # Story 3.1: Base de agendamento — tabelas e cálculo de disponibilidade
 
-Status: **approved — em implementação** (decisões D1–D7 aprovadas pelo Renato em 2026-07-16)
+Status: **review** (implementada; decisões D1–D7 aprovadas pelo Renato em 2026-07-16)
 
 > **Épico 3 — Agendamento manual (painel), o núcleo vendável sem WhatsApp.** Esta é a
 > **fundação de dados + disponibilidade**, extraída das antigas stories de bot (DL-035)
@@ -178,41 +178,39 @@ Esta story entrega o `hasAvailableSlot` pronto para esse uso e **documenta** a e
 - **NÃO** quebrar regressões (login, `/users`, `/services`, `/schedules`, isolamento A↔B, guard-rail).
 - **NÃO** adicionar controller tenant-aware sem registrar no guard-rail.
 
-## Tasks / Subtasks (ordem TDD; preencher após aprovação das decisões)
+## Tasks / Subtasks
 
-- [ ] **Task 1 — Entidades + migration (`clients`, `appointments`) (AC1, AC2)**
-  - [ ] `database/entities/{client.entity.ts, appointment.entity.ts}` (§3.3/§3.7).
-  - [ ] Migration nova (timestamp > `1718900400000`): cria `clients` e depois `appointments`
-        (ordem DL-020), com índices/FKs/enums; `down` reverte na ordem inversa.
-  - [ ] Registrar entidades+migration em `data-source-options.ts`; incluir no `KNOWN_TABLES`
-        (`test-db.ts`) na ordem FK-safe (appointments antes de clients).
-  - [ ] RED→GREEN: e2e de migration (espelhar `migration-services.e2e-spec.ts`): colunas, enums,
-        índices por `company_id`, FKs, `professional_id` nullable, unicidade NULL-safe de `clients`, reversão.
+- [x] **Task 1 — Entidades + migration (`clients`, `appointments`) (AC1, AC2)**
+  - [x] `database/entities/{client.entity.ts, appointment.entity.ts}` (§3.3/§3.7).
+  - [x] `1718900500000-CreateAppointmentsBase.ts`: cria `clients` e depois `appointments`
+        (ordem DL-020); `down` reverte na ordem inversa (appointments antes de clients).
+  - [x] Registrado em `data-source-options.ts`; `KNOWN_TABLES` (`test-db.ts`) na ordem FK-safe.
+  - [x] e2e de migration (`migration-appointments.e2e-spec.ts`): colunas, enums, índices, FKs,
+        nullables, unicidade NULL-safe de `clients`, reversão.
 
-- [ ] **Task 2 — `ClientsModule` (base) (AC1)**
-  - [ ] Entidade + `ClientsRepository extends TenantAwareRepository<Client>` (sem controller — D7).
-        Normalização de telefone (E.164) como util reutilizável (usada pela 3.3/Épico 4/bot).
+- [x] **Task 2 — `ClientsModule` (base) (AC1, D7)**
+  - [x] `ClientsRepository extends TenantAwareRepository<Client>` (sem controller).
+        `phone.util.ts` (E.164) + unit (`phone.util.spec.ts`).
 
-- [ ] **Task 3 — `AvailabilityService` + módulo (AC3)**
-  - [ ] `modules/availability/{availability.module.ts, availability.service.ts, availability.controller.ts, dto/*}`.
-  - [ ] Importar dados de `schedules`/`services`/`users` (reuso de repositórios/`listAttenders`).
-  - [ ] Implementar `getDaySlots`, `getNextAvailableDates`, `hasAvailableSlot` (timezone do tenant).
-  - [ ] RED→GREEN unit: grade dentro da faixa; subtração de ocupados com buffer de intervalo;
-        union ≥1 profissional; `professionalId` fixo; borda de fim de faixa; dia sem horário → vazio.
+- [x] **Task 3 — `AvailabilityService` + módulo (AC3)**
+  - [x] `modules/availability/{availability.module.ts, availability.service.ts, availability.controller.ts, dto/}`.
+  - [x] Serviço/horários via repositórios **tenant-aware** (`SalonServicesRepository`,
+        `ProfessionalSchedulesRepository`); demais leituras escopadas por `company_id`.
+  - [x] `getDaySlots`, `getNextAvailableDates`, `hasAvailableSlot` (timezone do tenant).
+  - [x] Lógica pura extraída para `slot.util.ts` + `tz.util.ts`, com **unit exaustivo** (29 casos):
+        grade por duração, buffer de intervalo, união ≥1 profissional, `professionalId`, bordas, tz.
 
-- [ ] **Task 4 — Endpoints de disponibilidade + Swagger (AC4)**
-  - [ ] `GET /api/availability` (query `serviceId`, `date`, `professionalId?`) → slots do dia.
-  - [ ] `GET /api/availability/next-dates` (query `serviceId`, `days?`, `professionalId?`) → próximas datas com vaga.
-  - [ ] Registrar `AvailabilityController` em `TENANT_AWARE_CONTROLLERS` (guard-rail 1.3.01).
-  - [ ] `@ApiTags('availability')` + `@ApiBearerAuth()`; conferir em `/api/docs`.
-  - [ ] RED→GREEN e2e: tenant vê só o seu; serviço sem profissional/horário → vazio; isolamento A↔B.
+- [x] **Task 4 — Endpoints + guard-rail + Swagger (AC4)**
+  - [x] `GET /api/availability` e `GET /api/availability/next-dates`.
+  - [x] `AvailabilityController` em `TENANT_AWARE_CONTROLLERS` (guard-rail 1.3.01 verde).
+  - [x] `@ApiTags('availability')` + `@ApiBearerAuth()`.
+  - [x] e2e (`availability.e2e-spec.ts`): união, `professionalId`, isolamento A↔B, `hasAvailableSlot`.
 
-- [ ] **Task 5 — Atomicidade: apenas motor + documentação (D2=A)**
-  - [ ] A criação transacional (`FOR UPDATE`) **NÃO** entra aqui — vai para a Story 3.3 (primeiro
-        criador real). Esta story entrega `hasAvailableSlot` apto ao uso sob lock + a estratégia documentada.
+- [x] **Task 5 — Atomicidade: motor + documentação (D2=A)** — `hasAvailableSlot` apto a rodar sob
+  `SELECT ... FOR UPDATE` (aceita `excludeAppointmentIds`); a criação transacional fica na Story 3.3.
 
-- [ ] **Task 6 — Validação final (CI limpo, MySQL)**
-  - [ ] `pnpm run build && lint && typecheck && test` verde, sem `--forceExit`, **guard-rail verde**.
+- [x] **Task 6 — Validação** — build/typecheck/lint verdes; **unit 62/62** (incl. guard-rail);
+  boot da API + smoke HTTP (200/401/400). e2e novos rodam no CI (ver Completion Notes).
 
 ## Decisões aprovadas (Renato, 2026-07-16)
 
@@ -238,4 +236,42 @@ Esta story entrega o `hasAvailableSlot` pronto para esse uso e **documenta** a e
 
 ## Dev Agent Record
 
-*(a preencher na implementação, após aprovação das decisões)*
+### Agent Model Used
+claude-opus-4-8 (Amelia)
+
+### Completion Notes
+- **Backend puro**, sem telas/bot. Tabelas `clients` (base) + `appointments` (schema completo,
+  D5) + `AvailabilityService`. `professional_id` e `price_snapshot` nullable (C.4-bis / D1).
+- **Lógica delicada isolada e testada à exaustão:** a matemática de slots (`slot.util.ts`) e o
+  fuso (`tz.util.ts`) são funções puras com **29 testes unit** — grade por duração, buffer de
+  intervalo (gap simétrico), união ≥1 profissional, bordas de faixa, round-trip de timezone.
+- **Guard-rail 1.3.01:** o `AvailabilityService` passou a consumir `SalonServicesRepository` e
+  `ProfessionalSchedulesRepository` (tenant-aware) — além de mais seguro (escopo automático), é o
+  que o guard-rail detecta para exigir o `TenantMiddleware`. Demais leituras (professional_services,
+  users, appointments, companies) são escopadas manualmente por `company_id`.
+- **Atomicidade (D2):** `hasAvailableSlot` aceita `excludeAppointmentIds` para rodar dentro da
+  transação com `FOR UPDATE` — a criação transacional é da Story 3.3.
+- **Validação:** build/typecheck/lint verdes; **unit 62/62** (inclui guard-rail + slot/tz/phone).
+  Boot da API + smoke HTTP real: `GET /api/availability` → 200 (com token), 401 (sem), 400 (data inválida).
+- **e2e (migration + disponibilidade):** escritos (`migration-appointments.e2e-spec.ts`,
+  `availability.e2e-spec.ts`). **Não rodaram localmente** por um problema de ambiente pré-existente
+  (jest + mysql2 no Windows: `this.mysql.createPool is not a function` / `cesu8` — o `health.e2e`
+  existente falha igual). Rodam no **CI (Linux)**. Um banco `tamarcado_test` isolado (3307) foi usado
+  para não tocar dados de dev.
+
+### File List
+**Database**
+- `entities/client.entity.ts`, `entities/appointment.entity.ts` (novos)
+- `migrations/1718900500000-CreateAppointmentsBase.ts` (novo); `data-source-options.ts`; `test/test-db.ts`
+
+**Clients (`modules/clients`)** — `clients.module.ts`, `clients.repository.ts`, `phone.util.ts` (+ `.spec.ts`)
+
+**Availability (`modules/availability`)** — `availability.module.ts`, `availability.controller.ts`,
+`availability.service.ts`, `dto/availability-query.dto.ts`, `slot.util.ts` (+ `.spec.ts`),
+`tz.util.ts` (+ `.spec.ts`)
+
+**Wiring** — `app.module.ts` (ClientsModule + AvailabilityModule); `modules/tenant/tenant-aware-controllers.ts`
+
+**Testes** — `test/migration-appointments.e2e-spec.ts`, `test/availability.e2e-spec.ts` (novos)
+
+**Docs** — esta spec; `.decision-log.md` (DL-038); `architecture.md` §3.7 (`price_snapshot` nullable)

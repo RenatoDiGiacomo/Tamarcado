@@ -12,6 +12,8 @@ import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ServicesModule } from "./modules/services/services.module";
 import { SchedulesModule } from "./modules/schedules/schedules.module";
+import { ClientsModule } from "./modules/clients/clients.module";
+import { AvailabilityModule } from "./modules/availability/availability.module";
 import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
 
@@ -28,6 +30,8 @@ import { InstallationController } from "./modules/installation/installation.cont
     AuthModule,
     ServicesModule,
     SchedulesModule,
+    ClientsModule,
+    AvailabilityModule,
     InstallationModule,
   ],
 })
