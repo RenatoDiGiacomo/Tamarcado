@@ -22,10 +22,11 @@ export class UpdateServiceDto {
   @Min(1)
   duration_minutes?: number;
 
+  // null limpa o preço (DL-030); IsOptional aceita null e pula as demais regras.
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  price?: number;
+  price?: number | null;
 
   @IsOptional()
   @IsBoolean()

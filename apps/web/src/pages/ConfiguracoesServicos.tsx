@@ -27,6 +27,23 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const token = () => localStorage.getItem(ACCESS_KEY);
 
+/** Só dígitos (para as máscaras de duração e preço). */
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+/** Centavos (string de dígitos) → "80,50" para exibir no input de preço. */
+function centsToInput(digits: string): string {
+  if (digits === "") return "";
+  return (Number(digits) / 100).toFixed(2).replace(".", ",");
+}
+
+/** Preço numérico (ex.: 80.5) → dígitos de centavos ("8050") para prefill. */
+function priceToCents(price: number | null): string {
+  if (price == null) return "";
+  return String(Math.round(price * 100));
+}
+
 function formatDuration(min: number): string {
   if (!min) return "";
   const h = Math.floor(min / 60);
@@ -47,11 +64,13 @@ export function ConfiguracoesServicos() {
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<SaveStatus>("idle");
 
-  // Formulário (strings nos inputs; preço opcional).
+  // Formulário. `duration`/`price` guardam SÓ DÍGITOS (price em centavos);
+  // o valor enviado à API é o número puro, não o texto com máscara.
   const [name, setName] = useState("");
   const [duration, setDuration] = useState("");
   const [price, setPrice] = useState("");
   const [profIds, setProfIds] = useState<Set<string>>(new Set());
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isNew = selected === NEW;
 
@@ -81,6 +100,7 @@ export function ConfiguracoesServicos() {
   // Preenche o formulário ao trocar a seleção.
   useEffect(() => {
     if (selected === null) return;
+    setValidationError(null);
     if (selected === NEW) {
       setName("");
       setDuration("");
@@ -92,7 +112,7 @@ export function ConfiguracoesServicos() {
     if (svc) {
       setName(svc.name);
       setDuration(String(svc.durationMinutes));
-      setPrice(svc.price == null ? "" : String(svc.price).replace(".", ","));
+      setPrice(priceToCents(svc.price));
     }
     void apiRequest(`/services/${selected}/professionals`, { token: token() })
       .then(async (res) => {
@@ -120,12 +140,35 @@ export function ConfiguracoesServicos() {
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault();
+
+    // Converte a máscara para os números puros que a API espera (snake_case,
+    // duração INTEIRA, preço DECIMAL ou null quando vazio — DL-030).
+    const trimmedName = name.trim();
+    const durationMinutes = duration === "" ? NaN : Number(duration);
+    const priceValue = price === "" ? null : Number(price) / 100;
+
+    // Validação client-side: mensagem clara em vez do "Erro ao salvar" genérico.
+    if (trimmedName === "") {
+      setValidationError("Informe o nome do serviço.");
+      setStatus("idle");
+      return;
+    }
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 1) {
+      setValidationError("Informe uma duração em minutos maior que zero.");
+      setStatus("idle");
+      return;
+    }
+    setValidationError(null);
     setStatus("saving");
-    const parsedPrice = price.trim() === "" ? null : Number(price.replace(",", "."));
-    const body = {
-      name: name.trim(),
-      durationMinutes: Number(duration),
-      price: parsedPrice,
+
+    const body: {
+      name: string;
+      duration_minutes: number;
+      price: number | null;
+    } = {
+      name: trimmedName,
+      duration_minutes: durationMinutes,
+      price: priceValue,
     };
 
     try {
@@ -230,7 +273,6 @@ export function ConfiguracoesServicos() {
                 id="svc-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required
               />
             </div>
 
@@ -239,25 +281,39 @@ export function ConfiguracoesServicos() {
                 <Label htmlFor="svc-duration">Duração (min)</Label>
                 <Input
                   id="svc-duration"
-                  type="number"
-                  min={1}
+                  inputMode="numeric"
+                  placeholder="0"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  required
+                  onChange={(e) => setDuration(onlyDigits(e.target.value))}
                 />
+                <span className="min-h-4 text-xs text-muted-foreground">
+                  {formatDuration(Number(duration))}
+                </span>
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="svc-price">
                   Preço{" "}
                   <span className="font-normal text-muted-foreground">(opcional)</span>
                 </Label>
-                <Input
-                  id="svc-price"
-                  inputMode="decimal"
-                  placeholder="—"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
+                <div className="relative">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                  >
+                    R$
+                  </span>
+                  <Input
+                    id="svc-price"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    className="pl-9"
+                    value={centsToInput(price)}
+                    onChange={(e) => setPrice(onlyDigits(e.target.value))}
+                  />
+                </div>
+                <span className="min-h-4 text-xs text-muted-foreground">
+                  {price === "" ? "Sem preço" : ""}
+                </span>
               </div>
             </div>
 
@@ -303,14 +359,19 @@ export function ConfiguracoesServicos() {
 
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={status === "saving"}>
-                Salvar
+                {isNew ? "Salvar" : "Alterar"}
               </Button>
-              {status === "saved" && (
+              {validationError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {validationError}
+                </p>
+              )}
+              {!validationError && status === "saved" && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Serviço salvo.
                 </p>
               )}
-              {status === "error" && (
+              {!validationError && status === "error" && (
                 <p role="alert" className="text-sm text-destructive">
                   Erro ao salvar.
                 </p>
