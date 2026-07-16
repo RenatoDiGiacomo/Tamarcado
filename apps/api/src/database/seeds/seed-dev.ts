@@ -1,4 +1,8 @@
 import "reflect-metadata";
+// Carrega apps/api/.env (mesma porta/credenciais da API) antes de montar a
+// conexão — sem isto o seed cairia nos defaults do código (ex.: porta 3306) e
+// divergiria do fluxo dev. Ver load-env.ts.
+import "../../load-env";
 import { DataSource } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { buildDataSourceOptions } from "../data-source-options";

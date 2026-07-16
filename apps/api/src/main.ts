@@ -1,4 +1,7 @@
 import "reflect-metadata";
+// PRIMEIRO import: popula process.env com apps/api/.env antes de qualquer
+// módulo (o DatabaseModule lê as DATABASE_* no import-time). Ver load-env.ts.
+import "./load-env";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { configureApp } from "./app-setup";

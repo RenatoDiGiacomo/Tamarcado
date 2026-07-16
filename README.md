@@ -31,14 +31,24 @@ infra/
 
 ```bash
 pnpm install
-docker compose -f infra/compose/docker-compose.yml up
+pnpm dev
 ```
+
+`pnpm dev` sobe a infra (MySQL/Redis) em Docker e liga a **API** e o **Web**
+nativos no host, com **hot-reload** — edite o código e veja atualizar sem
+`--build`. `Ctrl+C` encerra; a infra segue no ar.
 
 - API: <http://localhost:3000/health> → `{ "status": "ok" }`
 - Painel web: <http://localhost:5173>
-- MySQL em `localhost:3306`, Redis em `localhost:6379`, Evolution API em `localhost:8080`
+- MySQL em `localhost:3307` (evita colisão com outros MySQL na 3306), Redis em `localhost:6379`
+- Evolution API (WhatsApp) só entra no Épico 2 — sobe sob demanda com `--profile whatsapp`
 
-Migrations: `pnpm --filter api run migration:run`
+Guia completo de manutenção (ciclo editar → ver funcionar, seed, troubleshooting)
+em [`DEV.md`](DEV.md).
+
+> Alternativa — **tudo em container** (valida a imagem, sem hot-reload nativo):
+> `docker compose -f infra/compose/docker-compose.yml up`.
+> Migrations manuais: `pnpm --filter api run migration:run`.
 
 ### Documentação da API (Swagger)
 
