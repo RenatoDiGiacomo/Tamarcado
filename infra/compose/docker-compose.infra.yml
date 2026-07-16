@@ -1,0 +1,45 @@
+# Infra de DEV (modo híbrido) — só os serviços de apoio em container.
+# A API e o Web rodam NATIVOS no host (via `pnpm dev`), com hot-reload direto.
+# Uso normal: `pnpm dev` (na raiz) sobe isto automaticamente. Manual:
+#   docker compose -f infra/compose/docker-compose.infra.yml up -d
+name: tamarcado-dev-infra
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: ["--default-time-zone=+00:00"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tamarcado_dev
+    ports:
+      # Publicado em 3307 no host (dentro do container segue 3306) para NÃO
+      # conflitar com outros MySQL locais na 3306 (ex.: projeto Ponte Jurídica).
+      # A API nativa conecta em 127.0.0.1:3307 (ver apps/api/.env).
+      - "3307:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+    ports:
+      - "8080:8080"
+    # NÃO sobe no `pnpm dev` padrão: sem a config de banco (Épico 2) o
+    # container sai com Exit 1 e derrubaria o `--wait`. Fica atrás de um
+    # profile — ative com `--profile whatsapp` quando o Épico 2 chegar.
+    profiles: ["whatsapp"]
+
+volumes:
+  # Volume próprio deste fluxo (o Docker prefixa com o `name:` do projeto, então
+  # é independente do volume do compose full). Dados persistem entre `up`/`down`;
+  # só somem com `docker compose ... down -v`.
+  mysql_dev_data:

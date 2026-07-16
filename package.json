@@ -11,7 +11,10 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "build": "turbo run build",
-    "dev": "turbo run dev"
+    "dev": "node scripts/dev.mjs",
+    "dev:infra": "docker compose -f infra/compose/docker-compose.infra.yml up -d --wait",
+    "dev:down": "docker compose -f infra/compose/docker-compose.infra.yml down",
+    "dev:reset": "docker compose -f infra/compose/docker-compose.infra.yml down -v"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
