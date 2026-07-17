@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MessageCircle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusChip, type AppointmentStatus } from "../StatusChip";
@@ -27,6 +27,11 @@ export interface AgendaGridProps {
   businessHours: { start: string; end: string };
   appointments: AgendaAppointment[];
   defaultView?: AgendaView;
+  /** Visão controlada (Story 3.2/D6): a tela busca 1 dia × 7 dias. Se omitido, a casca controla internamente (demo). */
+  view?: AgendaView;
+  onViewChange?: (view: AgendaView) => void;
+  /** Conteúdo mostrado no corpo quando não há agendamentos (AC6). Se omitido, mostra a grade vazia. */
+  emptyState?: ReactNode;
   onSelect?: (id: string) => void;
   onNew?: () => void;
   onPrev?: () => void;
@@ -111,10 +116,12 @@ function Block({
       </div>
       {!compact && (
         <div className="mt-0.5 flex items-center justify-between gap-1">
-          <span className="truncate text-[11px] text-muted-foreground">
+          {/* min-w-0 permite o texto encolher/truncar, fixando o chip na margem
+              direita (inset-x-1) — badges alinhadas entre os cards. */}
+          <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
             {appt.serviceName} · {appt.start}–{appt.end}
           </span>
-          <StatusChip status={appt.status} />
+          <StatusChip status={appt.status} className="shrink-0" />
         </div>
       )}
       <div
@@ -167,12 +174,21 @@ export function AgendaGrid({
   businessHours,
   appointments,
   defaultView = "dia",
+  view: controlledView,
+  onViewChange,
+  emptyState,
   onSelect,
   onNew,
   onPrev,
   onNext,
 }: AgendaGridProps) {
-  const [view, setView] = useState<AgendaView>(defaultView);
+  // Visão controlada (D6) tem precedência; senão a casca gerencia internamente.
+  const [internalView, setInternalView] = useState<AgendaView>(defaultView);
+  const view = controlledView ?? internalView;
+  const setView = (v: AgendaView): void => {
+    onViewChange?.(v);
+    if (controlledView === undefined) setInternalView(v);
+  };
   const [filter, setFilter] = useState<OriginFilter>("todos");
 
   const dayStartMin = Math.floor(toMin(businessHours.start) / 60) * 60;
@@ -244,7 +260,9 @@ export function AgendaGrid({
       {/* Grade — corpo rolável (o cabeçalho de controles acima fica fixo) */}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className={cn(BODY_MAX_H, "overflow-y-auto")}>
-          {view === "dia" ? (
+          {emptyState && shown.length === 0 ? (
+            <div className="p-6">{emptyState}</div>
+          ) : view === "dia" ? (
             <div className="flex">
               <div
                 className="w-14 shrink-0 bg-muted/40"

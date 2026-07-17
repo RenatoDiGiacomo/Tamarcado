@@ -14,6 +14,7 @@ import { ServicesModule } from "./modules/services/services.module";
 import { SchedulesModule } from "./modules/schedules/schedules.module";
 import { ClientsModule } from "./modules/clients/clients.module";
 import { AvailabilityModule } from "./modules/availability/availability.module";
+import { AppointmentsModule } from "./modules/appointments/appointments.module";
 import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
 
@@ -32,6 +33,7 @@ import { InstallationController } from "./modules/installation/installation.cont
     SchedulesModule,
     ClientsModule,
     AvailabilityModule,
+    AppointmentsModule,
     InstallationModule,
   ],
 })

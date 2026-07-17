@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useAuth } from "./auth/AuthContext";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
+import { Agenda } from "./pages/Agenda";
 import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
@@ -15,10 +16,6 @@ function Protected({ children }: { children: ReactNode }) {
     return <p>Carregando...</p>;
   }
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
-}
-
-function Dashboard() {
-  return <p>Painel do Tamarcado — em construção.</p>;
 }
 
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
@@ -39,7 +36,7 @@ export function App() {
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Agenda />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />

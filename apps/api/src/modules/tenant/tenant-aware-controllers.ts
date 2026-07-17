@@ -4,6 +4,7 @@ import { UsersController } from "../users/users.controller";
 import { ServicesController } from "../services/services.controller";
 import { SchedulesController } from "../schedules/schedules.controller";
 import { AvailabilityController } from "../availability/availability.controller";
+import { AppointmentsController } from "../appointments/appointments.controller";
 
 /**
  * FONTE ÚNICA DE VERDADE dos controllers protegidos pelo TenantMiddleware.
@@ -22,6 +23,7 @@ export const TENANT_AWARE_CONTROLLERS: Type[] = [
   ServicesController,
   SchedulesController,
   AvailabilityController,
+  AppointmentsController,
 ];
 
 /**
