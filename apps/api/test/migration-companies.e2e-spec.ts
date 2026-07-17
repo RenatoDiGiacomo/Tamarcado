@@ -38,13 +38,13 @@ describe("Migration CreateCompanies (e2e)", () => {
   });
 
   it("não cria tabelas de épicos futuros", async () => {
-    // `salon_services`/`professional_services` (1.5) e `professional_schedules`
-    // (1.6) já existem; as demais abaixo são do Épico 2.
+    // Já existem: `salon_services`/`professional_services` (1.5),
+    // `professional_schedules` (1.6), `clients`/`appointments` (3.1). As de
+    // baixo ainda não: `payments` (Épico 5) e `whatsapp_conversations` (Épico 6).
     const tables: Array<{ TABLE_NAME: string }> = await ds.query(
       `SELECT TABLE_NAME FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME IN ('clients','appointments',
-                            'payments','whatsapp_conversations')`,
+         AND TABLE_NAME IN ('payments','whatsapp_conversations')`,
     );
     expect(tables).toHaveLength(0);
   });

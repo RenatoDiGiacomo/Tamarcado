@@ -3,6 +3,8 @@ import { buildDataSourceOptions } from "../src/database/data-source-options";
 
 /** Tabelas conhecidas, em ordem reversa de dependência (para drop). */
 const KNOWN_TABLES = [
+  "appointments",
+  "clients",
   "professional_services",
   "professional_schedules",
   "salon_services",

@@ -5,11 +5,14 @@ import { UserInvite } from "./entities/user-invite.entity";
 import { SalonService } from "./entities/salon-service.entity";
 import { ProfessionalService } from "./entities/professional-service.entity";
 import { ProfessionalSchedule } from "./entities/professional-schedule.entity";
+import { Client } from "./entities/client.entity";
+import { Appointment } from "./entities/appointment.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
 import { CreateServices1718900300000 } from "./migrations/1718900300000-CreateServices";
 import { CreateProfessionalSchedules1718900400000 } from "./migrations/1718900400000-CreateProfessionalSchedules";
+import { CreateAppointmentsBase1718900500000 } from "./migrations/1718900500000-CreateAppointmentsBase";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -32,6 +35,8 @@ export function buildDataSourceOptions(): DataSourceOptions {
       SalonService,
       ProfessionalService,
       ProfessionalSchedule,
+      Client,
+      Appointment,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -39,6 +44,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreateUserInvites1718900200000,
       CreateServices1718900300000,
       CreateProfessionalSchedules1718900400000,
+      CreateAppointmentsBase1718900500000,
     ],
     synchronize: false,
     migrationsRun: false,
