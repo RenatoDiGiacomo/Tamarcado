@@ -116,10 +116,12 @@ function Block({
       </div>
       {!compact && (
         <div className="mt-0.5 flex items-center justify-between gap-1">
-          <span className="truncate text-[11px] text-muted-foreground">
+          {/* min-w-0 permite o texto encolher/truncar, fixando o chip na margem
+              direita (inset-x-1) — badges alinhadas entre os cards. */}
+          <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
             {appt.serviceName} · {appt.start}–{appt.end}
           </span>
-          <StatusChip status={appt.status} />
+          <StatusChip status={appt.status} className="shrink-0" />
         </div>
       )}
       <div
