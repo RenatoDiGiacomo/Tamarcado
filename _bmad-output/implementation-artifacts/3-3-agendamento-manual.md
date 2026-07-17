@@ -98,25 +98,34 @@ so that eu registre clientes que chegam pessoalmente ou por telefone.
 ## Tasks / Subtasks
 
 **Backend — criação atômica:**
-- [ ] `CreateAppointmentDto` (`client_id`, `service_id`, `professional_id?`, `scheduled_at`).
-- [ ] `AppointmentsService.createManual(dto, user)`: transação + `SELECT ... FOR UPDATE` nas linhas do profissional no dia; conflito via `AvailabilityService.hasAvailableSlot` (excludeAppointmentIds das linhas travadas); snapshots; `source=manual`/`status=confirmed`/`created_by_user_id`; `basic`→`self`; retorna `{ appointment, overbooked }`.
-- [ ] Método interno `createAtomic({ ..., enforce })` — `enforce=true` lança conflito (409) para o bot (Épico 6); `createManual` chama com `enforce=false`.
-- [ ] Validações: data hoje-ou-futura (fuso do tenant); serviço ativo; profissional atende+executa; cliente do tenant.
-- [ ] `POST /api/appointments` no `AppointmentsController` (+ Swagger).
+- [x] `CreateAppointmentDto` (`client_id`, `service_id`, `professional_id?`, **`date`+`time` civis** — backend converte para UTC com o fuso; front não precisa saber o fuso).
+- [x] `AppointmentsService.createManual(dto, user)`: resolve `basic`→self; converte date+time→UTC; delega ao `createAtomic`.
+- [x] `createAtomic({ ..., enforce })`: transação + `SELECT ... FOR UPDATE` no **profissional** (serializa concorrência); checagem de **sobreposição real** (não `hasAvailableSlot`, que mistura ocupação com fora-de-horário); snapshots; `source=manual`/`status=confirmed`/`created_by_user_id`; `enforce=true`→409 (bot), `enforce=false`→`overbooked` flag (manual).
+- [x] Validações: data hoje-ou-futura; serviço ativo; profissional atende+executa; cliente do tenant.
+- [x] `POST /api/appointments` no `AppointmentsController` (+ Swagger).
 
 **Backend — `clients` (busca + inline):**
-- [ ] `ClientsService` (search + create) sobre o `ClientsRepository` (3.1); `POST` usa `normalizePhoneBR`.
-- [ ] `ClientsController`: `GET /api/clients?search=`, `POST /api/clients`; DTOs; guards; `@ApiTags('clients')`; registrar em `TENANT_AWARE_CONTROLLERS`.
+- [x] `ClientsService` (search + create) + `ClientsRepository.search`; `POST` usa `normalizePhoneBR` + dedup por telefone.
+- [x] `ClientsController`: `GET /api/clients?search=`, `POST /api/clients`; DTOs; guards; `@ApiTags('clients')`; registrado em `TENANT_AWARE_CONTROLLERS`.
 
 **Frontend — modal Novo agendamento:**
-- [ ] `NovoAgendamento` (dialog) aberto pelo FAB da agenda; campos cliente (autocomplete + "+ Nova"), serviço, profissional (oculto p/ `basic`), data, horário (slots de `/availability` + "outro horário").
-- [ ] Texto fixo "Entra como: Confirmado, sem aprovação"; aviso de overbooking inline; `POST` → volta p/ a agenda no dia criado.
+- [x] `NovoAgendamento` (dialog) aberto pelo FAB da agenda; cliente (autocomplete + "+ Nova"), serviço, profissional (oculto p/ `basic`), data, horário (slots de `/availability` + "outro horário").
+- [x] Texto fixo "Entra como: Confirmado, sem aprovação"; aviso de overbooking inline; `POST` → volta p/ a agenda no dia criado.
 
 **Testes:**
-- [ ] **Concorrência (e2e):** 2 `createAtomic` simultâneos, mesmo slot, `enforce=true` → só um grava, o outro 409.
-- [ ] Unit: `basic`→self; snapshots; validação de data passada; overbooked flag (manual não bloqueia).
-- [ ] e2e: `POST /appointments` (papéis, isolamento); `clients` search + create.
-- [ ] Front: visibilidade do campo profissional por papel; criação inline de cliente; aviso de overbooking; submit.
+- [x] **Concorrência (e2e):** 2 `createAtomic` simultâneos, mesmo slot, `enforce=true` → só um grava, o outro rejeitado (**validado localmente**: resta 1 no slot).
+- [x] Unit: `resolveProfessionalId` (`basic`→self), `isPastCivilDate` (fuso).
+- [x] e2e: `POST /appointments` (source/status/snapshots, `basic`→self, data passada 400, overbooking não bloqueia, isolamento); `clients` (busca/criação/dedup/isolamento).
+- [x] Front: submit (date+time), visibilidade do campo profissional por papel, criação inline, aviso de overbooking. **Suítes: API 79 unit + 34 e2e; web 67.**
+
+## Dev Agent Record — notas de implementação
+
+- **Contrato:** `POST /api/appointments` recebe `date`+`time` civis (fuso do tenant) — não `scheduled_at` ISO — e o backend converte com o `timezone` da empresa. Resposta `{ id, date, overbooked }`.
+- **Atomicidade (NFR-C1/D2):** serialização por `SELECT ... FOR UPDATE` no **registro do profissional**; a T2 só passa após a T1 commitar e então vê a linha gravada (checagem de sobreposição com locking read). Determinístico, sem depender de gap locks. `enforce`: manual=false (avisa via `overbooked`), bot depois=true (409). Provado por teste de concorrência.
+- **Overbooking (D1):** sobreposição real (mesmo profissional, `[início, fim)`), não `hasAvailableSlot` — encaixe fora do horário comercial não é falso "ocupado".
+- **Clients (D3):** busca por nome/telefone + cadastro inline (`normalizePhoneBR`, dedup por telefone normalizado).
+- **Front (D4/D6):** modal sobre a agenda; campo Profissional oculto para `basic`; horário = slots livres (`/availability`) + "outro horário" com aviso de overbooking.
+- **Fora de escopo (confirmado):** caminho do bot (`enforce=true` pronto, sem consumidor — Épico 6), cancelar (3.4), gestão de clientes (Épico 4), notificações, no_show (`3.2.NN`).
 
 ## Decisões — **aprovadas por Renato (2026-07-17, indo nas recomendações)** ✅
 

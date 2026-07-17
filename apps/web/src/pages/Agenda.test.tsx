@@ -8,6 +8,11 @@ vi.mock("../lib/api", () => ({
   apiRequest: (...args: unknown[]) => apiMock(...args),
 }));
 
+// A Agenda renderiza o modal NovoAgendamento, que consome useAuth.
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "u1", accessLevel: "owner" } }),
+}));
+
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
 }
