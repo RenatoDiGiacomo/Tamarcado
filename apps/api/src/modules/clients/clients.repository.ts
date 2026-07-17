@@ -14,4 +14,23 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
   ) {
     super(repo, tenantContext);
   }
+
+  /**
+   * Busca por nome ou telefone (parcial), tenant-scoped, para o autocomplete do
+   * agendamento manual (Story 3.3). Ordena por nome; limite pequeno.
+   */
+  async search(term: string, limit = 10): Promise<Client[]> {
+    const like = `%${term}%`;
+    return this.repo
+      .createQueryBuilder("c")
+      .where("c.company_id = :companyId", { companyId: this.companyId })
+      .andWhere("c.is_deleted = false")
+      .andWhere(
+        "(c.name LIKE :like OR c.phone_whatsapp LIKE :like OR c.phone_whatsapp_normalized LIKE :like)",
+        { like },
+      )
+      .orderBy("c.name", "ASC")
+      .limit(limit)
+      .getMany();
+  }
 }

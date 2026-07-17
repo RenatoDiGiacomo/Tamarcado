@@ -1,12 +1,17 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthUser } from "../auth/auth-user";
-import { AppointmentsService, type AgendaPeriod } from "./appointments.service";
+import {
+  AppointmentsService,
+  type AgendaPeriod,
+  type CreatedAppointment,
+} from "./appointments.service";
 import { ListAppointmentsQueryDto } from "./dto/list-appointments-query.dto";
+import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -28,5 +33,17 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<AgendaPeriod> {
     return this.appointments.listByPeriod(q.from, q.to, user);
+  }
+
+  /**
+   * Cria um agendamento manual (Story 3.3). `source=manual`, `status=confirmed`;
+   * `basic` cria só para si. Slot ocupado NÃO bloqueia (retorna `overbooked`).
+   */
+  @Post()
+  async create(
+    @Body() dto: CreateAppointmentDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<CreatedAppointment> {
+    return this.appointments.createManual(dto, user);
   }
 }

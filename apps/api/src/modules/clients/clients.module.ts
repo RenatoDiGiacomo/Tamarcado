@@ -2,16 +2,25 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Client } from "../../database/entities/client.entity";
 import { TenantModule } from "../tenant/tenant.module";
+import { UsersModule } from "../users/users.module";
+import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { ClientsRepository } from "./clients.repository";
+import { ClientsService } from "./clients.service";
+import { ClientsController } from "./clients.controller";
 
 /**
- * Base de clientes (Story 3.1, D7): entidade + repositório tenant-aware, SEM
- * controller/CRUD. O cadastro inline vem na Story 3.3 e a gestão completa no
- * Épico 4 (que estende a tabela). Exporta o repositório para consumo futuro.
+ * Clientes: base tenant-aware (Story 3.1) + busca/cadastro inline (Story 3.3,
+ * FR-D7). A gestão completa (listar/editar/excluir) fica no Épico 4. Exporta o
+ * repositório para consumo por outros módulos (ex.: agendamento).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Client]), TenantModule],
-  providers: [ClientsRepository],
+  imports: [
+    TypeOrmModule.forFeature([Client]),
+    TenantModule,
+    UsersModule, // ActiveUserGuard depende de UsersService
+  ],
+  controllers: [ClientsController],
+  providers: [ClientsRepository, ClientsService, ActiveUserGuard],
   exports: [ClientsRepository],
 })
 export class ClientsModule {}
