@@ -55,4 +55,23 @@ describe("AgendaGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /novo agendamento/i }));
     expect(onNew).toHaveBeenCalled();
   });
+
+  // Regressão de layout (fix 3.2): as badges de status ficam TODAS na mesma
+  // margem direita do card. Trava as classes que garantem isso para que uma
+  // regeneração da tela não volte a desalinhá-las. Rótulos únicos no mock:
+  // "Concluído" (done) e "Cancelado" (cancelled).
+  it("mantém as badges de status alinhadas na margem direita do card", () => {
+    renderGrid();
+    for (const label of ["Concluído", "Cancelado"]) {
+      const chip = screen.getByText(label);
+      // Chip não encolhe → cola na direita.
+      expect(chip.className).toContain("shrink-0");
+      const row = chip.parentElement as HTMLElement;
+      // A linha empurra o chip para a direita.
+      expect(row.className).toContain("justify-between");
+      // O texto do serviço encolhe/trunca (min-w-0) em vez de deslocar o chip.
+      const serviceText = row.firstElementChild as HTMLElement;
+      expect(serviceText.className).toContain("min-w-0");
+    }
+  });
 });
