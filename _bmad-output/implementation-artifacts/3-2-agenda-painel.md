@@ -101,21 +101,31 @@ não sabe qual dia isolar. Recomendo controlar `view` na tela.
 ## Tasks / Subtasks
 
 **Backend — `AppointmentsModule` (listagem):**
-- [ ] `AppointmentsRepository` tenant-aware (estende `TenantAwareRepository<Appointment>`).
-- [ ] `AppointmentsService.listByPeriod(from, to, user)`: converte datas civis (fuso do tenant) → range UTC; join `clients`/`salon_services`/`users`; filtro por papel (DL-022); ordena por `scheduled_at`.
-- [ ] `ListAppointmentsQueryDto` (`from`, `to` — `YYYY-MM-DD`, validados).
-- [ ] `AppointmentsController` `GET /api/appointments` com guards + `@ApiTags('appointments')`; registrar em `TENANT_AWARE_CONTROLLERS`.
-- [ ] `AppointmentsModule` (forFeature + TenantModule + UsersModule) no `AppModule`.
+- [x] `AppointmentsRepository` tenant-aware (estende `TenantAwareRepository<Appointment>`); `findForPeriod` com join `company_id`-safe + recorte por papel.
+- [x] `AppointmentsService.listByPeriod(from, to, user)`: converte datas civis (fuso do tenant) → range UTC; nomes resolvidos; filtro por papel (DL-022); ordena por `scheduled_at`; devolve `businessHours` (D4).
+- [x] `ListAppointmentsQueryDto` (`from`, `to` — `YYYY-MM-DD`, validados).
+- [x] `AppointmentsController` `GET /api/appointments` com guards + `@ApiTags('appointments')`; registrado em `TENANT_AWARE_CONTROLLERS`.
+- [x] `AppointmentsModule` (forFeature + TenantModule + UsersModule) no `AppModule`.
+- [x] Funções puras `toAppointmentView`/`roleScope` (`appointments.mapper.ts`) — núcleo testável do fuso/papel.
 
 **Frontend — tela Agenda:**
-- [ ] Elevar `view`/`onViewChange` no `AgendaGrid` (D6) — props controladas, default interno preservado.
-- [ ] `agendaApi.list(from, to)` + hook de fetch por período.
-- [ ] Página `Agenda` (rota no shell): mapeia resposta → `AgendaAppointment` (status→StatusChip, `weekday` no fuso); `dateLabel`; `onPrev`/`onNext`; empty state (AC6); `onSelect` → drawer read-only (D3).
-- [ ] Faixa horária via `business_hours_start/end` do tenant (D4).
+- [x] Elevado `view`/`onViewChange` no `AgendaGrid` (D6) — props controladas, default interno preservado; `emptyState?` no corpo (AC6).
+- [x] `agendaMap.ts` (puro): `toAgendaAppointment` (status→StatusChip, origem, `weekday`), `periodRange`/`shiftAnchor`/`formatDateLabel`.
+- [x] Página `Agenda` (rota `/`): fetch por período, empty state (AC6), navegação ‹ ›, `onSelect` → drawer read-only (D3).
+- [x] Faixa horária via `business_hours_start/end` do tenant (D4).
 
-**Seed:** agendamentos de exemplo (variados: status, origem, com/sem profissional) para a agenda ter dados realistas.
+**Seed:** [x] agendamentos de exemplo ancorados na semana atual (variados: status, origem, com/sem profissional; hoje populado) — idempotente.
 
-**Testes:** unit do filtro por papel + mapeamento de datas/fuso (backend); e2e da listagem (isolamento tenant, papéis, período); unit do mapeamento status/weekday e empty state (frontend).
+**Testes:** [x] unit do mapper (fuso + papel, 10) + e2e da listagem (isolamento, papéis, período, deletados, 400/401) no backend; unit do `agendaMap` (17) + tela `Agenda` (fetch, empty, D6, drawer, erro, 5) no frontend. Suítes: API 72 unit + web 61.
+
+## Dev Agent Record — notas de implementação
+
+- **Endpoint:** `GET /api/appointments?from&to` → `{ appointments: AppointmentView[], businessHours }`. `AppointmentView` traz `status`/`source` **crus**; a tela mapeia (`completed→done`, `no_show→noshow`; `weekday` de `date`).
+- **Fuso:** reaproveita `tz.util` da 3.1 (`utcToZonedParts`/`zonedWallTimeToUtc`). `to` é inclusivo (range vai até o início do dia seguinte).
+- **Guard-rail 1.3.01:** `AppointmentsController` detectado como tenant-aware via `AppointmentsRepository` (suíte `tenant-coverage` verde).
+- **Casca `AgendaGrid`:** só duas extensões pequenas (D6 `view` controlado + `emptyState?`), sem reconstruir — a demo/mock segue no modo não-controlado.
+- **Validado ponta a ponta** contra o banco de dev: login do dono lista 10 agendamentos da semana (hoje populado, `businessHours` 08:00–19:00); login `basic` (Ana) vê 6 (próprios + não atribuídos), nunca os do dono.
+- **Fora de escopo (confirmado):** disponibilidade na grade (3.3), no_show/FR-D9 (`3.2.NN`), criar/cancelar (3.3/3.4), visão Mês (`3.2.NN`), status `pending` (Épico 6).
 
 ## Decisões — **aprovadas por Renato (2026-07-17)** ✅
 
