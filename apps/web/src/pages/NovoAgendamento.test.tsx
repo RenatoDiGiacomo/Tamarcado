@@ -33,7 +33,8 @@ function routeApi(path: string, opts: Opts = {}): Response {
   const method = opts.method ?? "GET";
   if (path === "/services") return jsonRes({ services });
   if (path === "/users/attenders") return jsonRes({ users: attenders });
-  if (path.startsWith("/availability")) return jsonRes({ slots });
+  if (path.startsWith("/availability"))
+    return jsonRes({ slots, reason: slots.length > 0 ? null : "full" });
   if (path.startsWith("/clients?search")) {
     return jsonRes({ clients: [{ id: "c1", name: "Maria Souza", phone_whatsapp: null }] });
   }
@@ -78,12 +79,9 @@ describe("NovoAgendamento", () => {
     fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Maria" } });
     fireEvent.click(await screen.findByRole("button", { name: /Maria Souza/ }));
 
-    // Serviço + horário (slot livre).
+    // Serviço + horário (chip do slot livre).
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: "10:00" })).toBeInTheDocument(),
-    );
-    fireEvent.change(screen.getByLabelText("Horário"), { target: { value: "10:00" } });
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Agendar" }));
 
@@ -128,33 +126,45 @@ describe("NovoAgendamento", () => {
     expect(screen.getByRole("button", { name: "trocar" })).toBeInTheDocument();
   });
 
-  it("Horário fica desabilitado com dica enquanto não há serviço", async () => {
+  it("sem serviço, o Horário mostra a dica (não um campo vazio)", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
-    const time = screen.getByLabelText("Horário") as HTMLSelectElement;
-    expect(time).toBeDisabled();
-    expect(screen.getByText("Escolha o serviço primeiro")).toBeInTheDocument();
+    expect(screen.getByText("Escolha o serviço primeiro.")).toBeInTheDocument();
+    // Sem serviço, não há chips de horário.
+    expect(screen.queryByRole("button", { name: "09:00" })).toBeNull();
   });
 
-  it("lista os horários livres da disponibilidade ao escolher o serviço", async () => {
+  it("mostra os horários livres como CHIPS clicáveis ao escolher o serviço", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
-    // Slots do /availability viram opções; "Outro horário" fica por último.
-    expect(await screen.findByRole("option", { name: "09:00" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "10:00" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /outro horário/i })).toBeInTheDocument();
+    // Slots viram botões (chips) visíveis; "Outro horário" fica discreto abaixo.
+    expect(await screen.findByRole("button", { name: "09:00" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "10:00" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /outro horário/i })).toBeInTheDocument();
   });
 
-  it("avisa overbooking ao escolher 'outro horário' fora dos slots livres (D1)", async () => {
+  it("mensagem diferenciada por motivo quando não há horários (day_off)", async () => {
+    apiMock.mockImplementation((path: string, opts: Opts) => {
+      if (path.startsWith("/availability"))
+        return Promise.resolve(jsonRes({ slots: [], reason: "day_off" }));
+      return Promise.resolve(routeApi(path, opts));
+    });
     setup("owner");
     await screen.findByText("Novo agendamento");
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: "10:00" })).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByText("Não há atendimento neste dia."),
+    ).toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByLabelText("Horário"), { target: { value: "__outro__" } });
+  it("avisa overbooking ao usar 'Outro horário' fora dos slots livres (D1)", async () => {
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    await screen.findByRole("button", { name: "10:00" });
+
+    fireEvent.click(screen.getByRole("button", { name: /outro horário/i }));
     fireEvent.change(screen.getByLabelText("Outro horário"), {
       target: { value: "13:30" }, // fora dos slots livres (09/10)
     });

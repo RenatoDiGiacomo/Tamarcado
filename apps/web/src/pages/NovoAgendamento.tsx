@@ -14,7 +14,6 @@ import {
 
 const ACCESS_KEY = "tamarcado.access";
 const token = (): string | null => localStorage.getItem(ACCESS_KEY);
-const OUTRO = "__outro__";
 
 interface ServiceDto {
   id: string;
@@ -33,9 +32,19 @@ interface ClientView {
 interface Slot {
   time: string;
 }
+type NoSlotsReason = "day_off" | "full" | "no_schedule_config";
 
 const inputCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50";
+
+/** Mensagem por motivo de não haver horários — diferencia "não atende" × "lotado"
+ *  × "sem configuração" (em vez de um genérico "sem horários"). */
+const NO_SLOTS_MSG: Record<NoSlotsReason, string> = {
+  day_off: "Não há atendimento neste dia.",
+  full: "Todos os horários estão ocupados neste dia.",
+  no_schedule_config:
+    "Configure os horários de atendimento em Configurações → Horários.",
+};
 
 /**
  * Novo agendamento manual (Story 3.3, D4 = modal sobre a agenda). Cliente com
@@ -63,8 +72,10 @@ export function NovoAgendamento({
   const [professionalId, setProfessionalId] = useState(""); // "" = não atribuído
   const [formDate, setFormDate] = useState(date);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotsReason, setSlotsReason] = useState<NoSlotsReason | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(""); // chip selecionado
+  const [customMode, setCustomMode] = useState(false); // "Outro horário"
   const [customTime, setCustomTime] = useState("");
 
   const [clientQuery, setClientQuery] = useState("");
@@ -84,7 +95,10 @@ export function NovoAgendamento({
     setServiceId("");
     setProfessionalId("");
     setTime("");
+    setCustomMode(false);
     setCustomTime("");
+    setSlots([]);
+    setSlotsReason(null);
     setClientQuery("");
     setClientResults([]);
     setSelectedClient(null);
@@ -106,10 +120,11 @@ export function NovoAgendamento({
     })();
   }, [open, date]);
 
-  // Slots livres para serviço + data (+ profissional).
+  // Slots livres (+ motivo do vazio) para serviço + data (+ profissional).
   useEffect(() => {
     if (!open || !serviceId || !formDate) {
       setSlots([]);
+      setSlotsReason(null);
       return;
     }
     setLoadingSlots(true);
@@ -120,7 +135,17 @@ export function NovoAgendamento({
         const res = await apiRequest(`/availability?${q.toString()}`, {
           token: token(),
         });
-        setSlots(res.ok ? ((await res.json()) as { slots: Slot[] }).slots : []);
+        if (res.ok) {
+          const data = (await res.json()) as {
+            slots: Slot[];
+            reason: NoSlotsReason | null;
+          };
+          setSlots(data.slots);
+          setSlotsReason(data.reason);
+        } else {
+          setSlots([]);
+          setSlotsReason(null);
+        }
       } finally {
         setLoadingSlots(false);
       }
@@ -146,7 +171,7 @@ export function NovoAgendamento({
     return () => clearTimeout(h);
   }, [clientQuery, selectedClient]);
 
-  const chosenTime = time === OUTRO ? customTime : time;
+  const chosenTime = customMode ? customTime : time;
   const freeTimes = new Set(slots.map((s) => s.time));
   const overbookWarn = chosenTime !== "" && !freeTimes.has(chosenTime);
 
@@ -306,6 +331,7 @@ export function NovoAgendamento({
               onChange={(e) => {
                 setServiceId(e.target.value);
                 setTime("");
+                setCustomMode(false);
               }}
             >
               <option value="">Selecione…</option>
@@ -342,67 +368,89 @@ export function NovoAgendamento({
             </div>
           )}
 
-          {/* Data + horário */}
-          <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="date">Data</Label>
-              <input
-                id="date"
-                type="date"
-                className={inputCls}
-                value={formDate}
-                onChange={(e) => {
-                  setFormDate(e.target.value);
-                  setTime("");
-                }}
-              />
-            </div>
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="time">Horário</Label>
-              <select
-                id="time"
-                className={inputCls}
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                disabled={!serviceId || loadingSlots}
-              >
-                {/* O horário depende do serviço (e do profissional, se escolhido):
-                    a disponibilidade é calculada a partir deles. Deixa o motivo
-                    explícito em vez de um select vazio. */}
-                {!serviceId ? (
-                  <option value="">Escolha o serviço primeiro</option>
-                ) : loadingSlots ? (
-                  <option value="">Carregando horários…</option>
-                ) : (
-                  <>
-                    <option value="">
-                      {slots.length > 0 ? "Horários livres…" : "Sem horários livres"}
-                    </option>
-                    {slots.map((s) => (
-                      <option key={s.time} value={s.time}>
-                        {s.time}
-                      </option>
-                    ))}
-                    {/* Encaixe: última opção, para marcar fora da disponibilidade. */}
-                    <option value={OUTRO}>Outro horário…</option>
-                  </>
-                )}
-              </select>
-              {serviceId && !loadingSlots && slots.length === 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Nenhum horário livre nesse dia. Use “Outro horário” para encaixar.
-                </span>
-              )}
-            </div>
-          </div>
-          {time === OUTRO && (
-            <Input
-              aria-label="Outro horário"
-              type="time"
-              value={customTime}
-              onChange={(e) => setCustomTime(e.target.value)}
+          {/* Data */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="date">Data</Label>
+            <input
+              id="date"
+              type="date"
+              className={cn(inputCls, "sm:w-48")}
+              value={formDate}
+              onChange={(e) => {
+                setFormDate(e.target.value);
+                setTime("");
+                setCustomMode(false);
+              }}
             />
-          )}
+          </div>
+
+          {/* Horário — grade de chips visíveis (o padrão de agendamento: bate o
+              olho e vê o que tem). "Outro horário" fica discreto abaixo, p/ encaixe. */}
+          <div className="flex flex-col gap-2">
+            <Label>Horário</Label>
+            {!serviceId ? (
+              <p className="text-sm text-muted-foreground">
+                Escolha o serviço primeiro.
+              </p>
+            ) : loadingSlots ? (
+              <p className="text-sm text-muted-foreground">Carregando horários…</p>
+            ) : slots.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {slots.map((s) => {
+                  const active = !customMode && time === s.time;
+                  return (
+                    <button
+                      key={s.time}
+                      type="button"
+                      onClick={() => {
+                        setTime(s.time);
+                        setCustomMode(false);
+                      }}
+                      className={cn(
+                        "rounded-md border px-2 py-1.5 text-sm tabular-nums transition-colors",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:bg-accent",
+                      )}
+                    >
+                      {s.time}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {slotsReason ? NO_SLOTS_MSG[slotsReason] : "Sem horários livres."}
+              </p>
+            )}
+
+            {serviceId && !loadingSlots && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomMode((v) => !v);
+                    setTime("");
+                  }}
+                  className={cn(
+                    "text-sm hover:underline",
+                    customMode ? "font-medium text-foreground" : "text-primary",
+                  )}
+                >
+                  {customMode ? "Escolher da grade" : "Outro horário…"}
+                </button>
+                {customMode && (
+                  <Input
+                    aria-label="Outro horário"
+                    type="time"
+                    className="h-8 w-32"
+                    value={customTime}
+                    onChange={(e) => setCustomTime(e.target.value)}
+                  />
+                )}
+              </div>
+            )}
+          </div>
 
           {overbookWarn && (
             <p role="alert" className="text-sm text-status-noshow">

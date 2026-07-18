@@ -45,6 +45,9 @@ export function Agenda() {
   const [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
+  // Bump para forçar recarga mesmo quando o período não muda (ex.: criar um
+  // agendamento no dia já aberto — senão a agenda manteria a lista antiga).
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,7 +65,7 @@ export function Agenda() {
     } finally {
       setLoading(false);
     }
-  }, [anchor, view]);
+  }, [anchor, view, refreshKey]);
 
   useEffect(() => {
     void load();
@@ -113,7 +116,9 @@ export function Agenda() {
         date={anchor}
         onCreated={(created) => {
           setView("dia");
-          setAnchor(created); // dispara o refetch do período
+          setAnchor(created);
+          // Recarrega sempre — mesmo criando no dia já aberto (anchor igual).
+          setRefreshKey((k) => k + 1);
         }}
       />
 

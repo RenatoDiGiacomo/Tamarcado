@@ -31,6 +31,29 @@ export interface DateWithSlots {
   slots: TimeSlot[];
 }
 
+/**
+ * Por que não há horários livres num dia — para a UI diferenciar a mensagem:
+ * `day_off` (o profissional não atende nesse dia), `full` (atende, mas lotado),
+ * `no_schedule_config` (não há horários de atendimento configurados).
+ */
+export type NoSlotsReason = "day_off" | "full" | "no_schedule_config";
+
+export interface DayAvailability {
+  slots: TimeSlot[];
+  /** `null` quando há slots; senão o motivo (para a mensagem da UI). */
+  reason: NoSlotsReason | null;
+}
+
+/** Deriva o motivo de não haver slots a partir do estado de configuração/ocupação. */
+export function noSlotsReason(flags: {
+  hasAnySchedule: boolean;
+  hasTodaySchedule: boolean;
+}): NoSlotsReason {
+  if (!flags.hasAnySchedule) return "no_schedule_config";
+  if (!flags.hasTodaySchedule) return "day_off";
+  return "full";
+}
+
 interface Candidate {
   id: string;
   interval: number; // slot_interval_minutes
@@ -68,42 +91,74 @@ export class AvailabilityService {
     date: string;
     professionalId?: string;
   }): Promise<TimeSlot[]> {
+    return (await this.getDayAvailability(params)).slots;
+  }
+
+  /**
+   * Como `getDaySlots`, mas também informa o MOTIVO quando não há slots (para a UI
+   * diferenciar "não atende nesse dia" × "lotado" × "sem horários configurados").
+   */
+  async getDayAvailability(params: {
+    serviceId: string;
+    date: string;
+    professionalId?: string;
+  }): Promise<DayAvailability> {
     const companyId = this.tenant.getCompanyId();
     const service = await this.activeService(params.serviceId);
-    if (!service) return [];
+    if (!service) return { slots: [], reason: "no_schedule_config" };
     const tz = await this.timezone(companyId);
     const candidates = await this.candidates(
       companyId,
       params.serviceId,
       params.professionalId,
     );
-    if (candidates.length === 0) return [];
 
     const dow = dayOfWeekOfLocalDate(params.date);
     const duration = service.duration_minutes;
 
     // União: um minuto de início está disponível se ≥1 candidato está livre.
+    // Enquanto isso, apura se algum candidato tem horário configurado (qualquer
+    // dia) e horário para HOJE — para explicar o vazio quando não houver slots.
     const freeMinutes = new Set<number>();
+    let hasAnySchedule = false;
+    let hasTodaySchedule = false;
     for (const prof of candidates) {
-      const schedules = await this.workingIntervals(prof.id, dow);
-      if (schedules.length === 0) continue;
+      const rows = await this.schedulesRepo.findAll({
+        where: { professional_id: prof.id, is_active: true },
+      });
+      if (rows.length > 0) hasAnySchedule = true;
+      const today = rows.filter((r) => r.day_of_week === dow);
+      if (today.length === 0) continue;
+      hasTodaySchedule = true;
+      const intervals: Interval[] = today.map((r) => ({
+        start: timeToMinutes(r.start_time),
+        end: timeToMinutes(r.end_time),
+      }));
       const occupied = await this.occupiedIntervals(
         companyId,
         prof.id,
         params.date,
         tz,
       );
-      for (const m of freeStarts(schedules, occupied, duration, prof.interval)) {
+      for (const m of freeStarts(intervals, occupied, duration, prof.interval)) {
         freeMinutes.add(m);
       }
     }
 
-    return [...freeMinutes]
+    const slots = [...freeMinutes]
       .sort((a, b) => a - b)
       .map((m) => ({
         time: minutesToTime(m),
         startUtc: zonedWallTimeToUtc(params.date, m, tz).toISOString(),
       }));
+
+    return {
+      slots,
+      reason:
+        slots.length > 0
+          ? null
+          : noSlotsReason({ hasAnySchedule, hasTodaySchedule }),
+    };
   }
 
   /**
