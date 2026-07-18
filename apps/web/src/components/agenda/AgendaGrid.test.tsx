@@ -63,14 +63,15 @@ describe("AgendaGrid", () => {
   it("mantém as badges de status numa coluna fixa centralizada (H e V)", () => {
     renderGrid(); // visão dia (não-compact)
     for (const label of ["Concluído", "Cancelado", "Não compareceu"]) {
-      const chip = screen.getByText(label);
-      const col = chip.parentElement as HTMLElement;
-      // Coluna de largura fixa (não a borda direita coincidindo).
-      expect(col.className).toMatch(/w-\[\d+px\]/);
-      expect(col.className).toContain("shrink-0");
-      // Centralizada dentro da coluna (H) e no card (V).
-      expect(col.className).toContain("justify-center");
-      expect(col.className).toContain("items-center");
+      for (const chip of screen.getAllByText(label)) {
+        const col = chip.parentElement as HTMLElement;
+        // Coluna de largura fixa (não a borda direita coincidindo).
+        expect(col.className).toMatch(/w-\[\d+px\]/);
+        expect(col.className).toContain("shrink-0");
+        // Centralizada dentro da coluna (H) e no card (V).
+        expect(col.className).toContain("justify-center");
+        expect(col.className).toContain("items-center");
+      }
     }
   });
 });

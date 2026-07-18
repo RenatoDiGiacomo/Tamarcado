@@ -68,6 +68,30 @@ export const MOCK_APPOINTMENTS: AgendaAppointment[] = [
     professionalName: "Fernanda",
     weekday: 5,
   },
+  // Sobreposições (overbooking/encaixe, D1) — colidem com "Maria das Dores"
+  // (09:00–12:00) para exercitar o layout de colisão em colunas lado a lado.
+  {
+    id: "7",
+    clientName: "Larissa Prado",
+    serviceName: "Coloração",
+    start: "09:30",
+    end: "11:00",
+    status: "confirmed",
+    origin: "manual",
+    professionalName: "Ana",
+    weekday: 1,
+  },
+  {
+    id: "8",
+    clientName: "Teste Encaixe",
+    serviceName: "Corte",
+    start: "10:00",
+    end: "10:45",
+    status: "done",
+    origin: "manual",
+    professionalName: "Fernanda",
+    weekday: 1,
+  },
 ];
 
 /**

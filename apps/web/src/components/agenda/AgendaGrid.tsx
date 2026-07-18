@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { MessageCircle, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusChip, type AppointmentStatus } from "../StatusChip";
+import { packColumns } from "./layout";
 
 export type AgendaView = "dia" | "semana";
 export type OriginFilter = "todos" | "whatsapp" | "manual";
@@ -43,10 +44,8 @@ const HOUR_PX = 56;
  *  nela → status de larguras diferentes alinham entre si. Semana é mais estreita
  *  para caber na trilha do dia. */
 const CHIP_COL = "w-[140px]";
-/** Altura mínima do card. Dia: 1 linha + badge lateral. Semana: 2 linhas empilhadas
- *  (nome + badge). Garante que nada corte mesmo num serviço de 15min. */
+/** Altura mínima do card — garante que 1 linha (ex.: serviço de 15min) não corte. */
 const MIN_BLOCK_H = 34;
-const MIN_BLOCK_H_COMPACT = 48;
 /** Respiro acima do primeiro horário, para o 1º agendamento não colar no topo. */
 const GRID_PAD_TOP = 12;
 /** Altura máxima do corpo rolável; o cabeçalho (controles) fica fixo acima. */
@@ -89,20 +88,29 @@ function Block({
   dayStartMin,
   offsetTop = 0,
   compact,
+  col = 0,
+  cols = 1,
   onSelect,
 }: {
   appt: AgendaAppointment;
   dayStartMin: number;
   offsetTop?: number;
   compact?: boolean;
+  /** Coluna/total de colunas quando há sobreposição (layout de colisão). */
+  col?: number;
+  cols?: number;
   onSelect?: (id: string) => void;
 }) {
   const top =
     offsetTop + ((toMin(appt.start) - dayStartMin) / 60) * HOUR_PX;
   const durationMin = toMin(appt.end) - toMin(appt.start);
   // Proporcional à duração, com ALTURA MÍNIMA para nada cortar (serviço de 15min).
-  const minH = compact ? MIN_BLOCK_H_COMPACT : MIN_BLOCK_H;
-  const height = Math.max((durationMin / 60) * HOUR_PX, minH);
+  const height = Math.max((durationMin / 60) * HOUR_PX, MIN_BLOCK_H);
+  // Colisão (D1/overbooking): cards sobrepostos dividem a largura em colunas
+  // lado a lado (padrão Google Calendar). Sem sobreposição → largura total.
+  const wPct = 100 / cols;
+  const left = `calc(${col * wPct}% + 2px)`;
+  const width = `calc(${wPct}% - 4px)`;
   // Layout adaptativo por duração (visão Dia): ≥60min → 3 linhas; 30–59 → 2; <30 → 1.
   const showService = durationMin >= 30;
   const showProfessional = durationMin >= 60;
@@ -125,23 +133,22 @@ function Block({
     </div>
   );
 
-  // Semana: a trilha do dia é estreita — uma coluna lateral de badge não cabe (ela
-  // engoliria o nome). Empilha nome + badge; badges alinham entre si (mesma origem
-  // à esquerda em cada coluna). Altura mínima maior para as duas linhas caberem.
+  // Semana: a trilha do dia é estreita (ainda mais com colisão). O status é
+  // comunicado APENAS pela cor do card (borda + fundo); nada de badge, que
+  // roubaria o espaço do nome. Só o nome do cliente (trunca).
   if (compact) {
     return (
       <button
         type="button"
         onClick={() => onSelect?.(appt.id)}
-        style={{ top, height }}
+        style={{ top, height, left, width }}
         className={cn(
-          "absolute inset-x-1 flex flex-col justify-center gap-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left",
+          "absolute flex flex-col justify-center overflow-hidden rounded-md border-l-4 px-2 py-1 text-left",
           BORDER[appt.status],
           TINT[appt.status],
         )}
       >
         {clientLine}
-        <StatusChip status={appt.status} />
       </button>
     );
   }
@@ -153,9 +160,9 @@ function Block({
     <button
       type="button"
       onClick={() => onSelect?.(appt.id)}
-      style={{ top, height }}
+      style={{ top, height, left, width }}
       className={cn(
-        "absolute inset-x-1 flex items-stretch overflow-hidden rounded-md border-l-4 py-1 pl-2 pr-1 text-left",
+        "absolute flex items-stretch overflow-hidden rounded-md border-l-4 py-1 pl-2 pr-1 text-left",
         BORDER[appt.status],
         TINT[appt.status],
       )}
@@ -339,12 +346,14 @@ export function AgendaGrid({
                     style={{ top: GRID_PAD_TOP + i * HOUR_PX }}
                   />
                 ))}
-                {shown.map((a) => (
+                {packColumns(shown).map((p) => (
                   <Block
-                    key={a.id}
-                    appt={a}
+                    key={p.item.id}
+                    appt={p.item}
                     dayStartMin={dayStartMin}
                     offsetTop={GRID_PAD_TOP}
+                    col={p.col}
+                    cols={p.cols}
                     onSelect={onSelect}
                   />
                 ))}
@@ -374,7 +383,7 @@ export function AgendaGrid({
                 </div>
               </div>
               <div className="flex flex-1">
-                {WEEKDAYS.map((wd, col) => (
+                {WEEKDAYS.map((wd, dayIdx) => (
                   <div key={wd} className="flex-1 border-l border-border/60">
                     <div className="sticky top-0 z-20 h-7 border-b border-border/60 bg-card text-center text-xs font-semibold text-muted-foreground">
                       {wd}
@@ -390,18 +399,20 @@ export function AgendaGrid({
                           style={{ top: GRID_PAD_TOP + i * HOUR_PX }}
                         />
                       ))}
-                      {shown
-                        .filter((a) => a.weekday === col)
-                        .map((a) => (
-                          <Block
-                            key={a.id}
-                            appt={a}
-                            dayStartMin={dayStartMin}
-                            offsetTop={GRID_PAD_TOP}
-                            compact
-                            onSelect={onSelect}
-                          />
-                        ))}
+                      {packColumns(
+                        shown.filter((a) => a.weekday === dayIdx),
+                      ).map((p) => (
+                        <Block
+                          key={p.item.id}
+                          appt={p.item}
+                          dayStartMin={dayStartMin}
+                          offsetTop={GRID_PAD_TOP}
+                          compact
+                          col={p.col}
+                          cols={p.cols}
+                          onSelect={onSelect}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}

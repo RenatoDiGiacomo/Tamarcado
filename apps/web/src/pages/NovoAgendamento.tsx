@@ -63,6 +63,7 @@ export function NovoAgendamento({
   const [professionalId, setProfessionalId] = useState(""); // "" = não atribuído
   const [formDate, setFormDate] = useState(date);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [time, setTime] = useState("");
   const [customTime, setCustomTime] = useState("");
 
@@ -111,16 +112,17 @@ export function NovoAgendamento({
       setSlots([]);
       return;
     }
+    setLoadingSlots(true);
     void (async () => {
       const q = new URLSearchParams({ serviceId, date: formDate });
       if (professionalId) q.set("professionalId", professionalId);
-      const res = await apiRequest(`/availability?${q.toString()}`, {
-        token: token(),
-      });
-      if (res.ok) {
-        setSlots(((await res.json()) as { slots: Slot[] }).slots);
-      } else {
-        setSlots([]);
+      try {
+        const res = await apiRequest(`/availability?${q.toString()}`, {
+          token: token(),
+        });
+        setSlots(res.ok ? ((await res.json()) as { slots: Slot[] }).slots : []);
+      } finally {
+        setLoadingSlots(false);
       }
     })();
   }, [open, serviceId, formDate, professionalId]);
@@ -362,16 +364,35 @@ export function NovoAgendamento({
                 className={inputCls}
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                disabled={!serviceId}
+                disabled={!serviceId || loadingSlots}
               >
-                <option value="">Selecione…</option>
-                {slots.map((s) => (
-                  <option key={s.time} value={s.time}>
-                    {s.time}
-                  </option>
-                ))}
-                <option value={OUTRO}>Outro horário…</option>
+                {/* O horário depende do serviço (e do profissional, se escolhido):
+                    a disponibilidade é calculada a partir deles. Deixa o motivo
+                    explícito em vez de um select vazio. */}
+                {!serviceId ? (
+                  <option value="">Escolha o serviço primeiro</option>
+                ) : loadingSlots ? (
+                  <option value="">Carregando horários…</option>
+                ) : (
+                  <>
+                    <option value="">
+                      {slots.length > 0 ? "Horários livres…" : "Sem horários livres"}
+                    </option>
+                    {slots.map((s) => (
+                      <option key={s.time} value={s.time}>
+                        {s.time}
+                      </option>
+                    ))}
+                    {/* Encaixe: última opção, para marcar fora da disponibilidade. */}
+                    <option value={OUTRO}>Outro horário…</option>
+                  </>
+                )}
               </select>
+              {serviceId && !loadingSlots && slots.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Nenhum horário livre nesse dia. Use “Outro horário” para encaixar.
+                </span>
+              )}
             </div>
           </div>
           {time === OUTRO && (

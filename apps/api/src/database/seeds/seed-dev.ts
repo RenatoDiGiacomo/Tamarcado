@@ -9,6 +9,8 @@ import { buildDataSourceOptions } from "../data-source-options";
 import { Company } from "../entities/company.entity";
 import { User } from "../entities/user.entity";
 import { SalonService } from "../entities/salon-service.entity";
+import { ProfessionalService } from "../entities/professional-service.entity";
+import { ProfessionalSchedule } from "../entities/professional-schedule.entity";
 import { Client } from "../entities/client.entity";
 import { Appointment } from "../entities/appointment.entity";
 import type {
@@ -129,6 +131,38 @@ async function seedAgenda(
   const escova = await mkService("Escova", 45, "40.00");
   const coloracao = await mkService("Coloração", 90, "180.00");
 
+  // Vínculo prof↔serviço + horários de atendimento — SEM eles o AvailabilityService
+  // devolve vazio (o modal de novo agendamento não teria horários para listar).
+  // Owner e Ana executam os 3 serviços e atendem seg–sáb, 09:00–18:00.
+  const profServices = dataSource.getRepository(ProfessionalService);
+  const schedules = dataSource.getRepository(ProfessionalSchedule);
+  const staff = [owner, ana];
+  const catalog = [corte, escova, coloracao];
+  for (const person of staff) {
+    for (const svc of catalog) {
+      await profServices.save(
+        profServices.create({
+          company_id: company.id,
+          professional_id: person.id,
+          service_id: svc.id,
+        }),
+      );
+    }
+    // day_of_week: 0=domingo..6=sábado (getUTCDay). Seg–sáb = 1..6.
+    for (let dow = 1; dow <= 6; dow++) {
+      await schedules.save(
+        schedules.create({
+          company_id: company.id,
+          professional_id: person.id,
+          day_of_week: dow,
+          start_time: "09:00:00",
+          end_time: "18:00:00",
+          is_active: true,
+        }),
+      );
+    }
+  }
+
   const mkClient = async (name: string): Promise<Client> =>
     clients.save(clients.create({ company_id: company.id, name }));
   const [paula, maria, joana, bianca, rita] = await Promise.all([
@@ -156,6 +190,8 @@ async function seedAgenda(
     // Hoje — garante a visão Dia populada (independe do dia da semana).
     { dayOffset: todayOffset, time: "09:00", service: corte, client: paula, professional: owner, status: "confirmed", source: "whatsapp" },
     { dayOffset: todayOffset, time: "10:30", service: coloracao, client: maria, professional: ana, status: "confirmed", source: "manual" },
+    // Sobreposição proposital com a de cima (10:30) — exercita o layout de colisão.
+    { dayOffset: todayOffset, time: "10:30", service: corte, client: joana, professional: owner, status: "confirmed", source: "manual" },
     { dayOffset: todayOffset, time: "14:00", service: escova, client: joana, professional: null, status: "confirmed", source: "whatsapp" },
     { dayOffset: todayOffset, time: "16:00", service: corte, client: bianca, professional: owner, status: "completed", source: "manual" },
     // Resto da semana — visão Semana.

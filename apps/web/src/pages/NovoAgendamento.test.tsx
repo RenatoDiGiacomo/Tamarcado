@@ -128,6 +128,24 @@ describe("NovoAgendamento", () => {
     expect(screen.getByRole("button", { name: "trocar" })).toBeInTheDocument();
   });
 
+  it("Horário fica desabilitado com dica enquanto não há serviço", async () => {
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    const time = screen.getByLabelText("Horário") as HTMLSelectElement;
+    expect(time).toBeDisabled();
+    expect(screen.getByText("Escolha o serviço primeiro")).toBeInTheDocument();
+  });
+
+  it("lista os horários livres da disponibilidade ao escolher o serviço", async () => {
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    // Slots do /availability viram opções; "Outro horário" fica por último.
+    expect(await screen.findByRole("option", { name: "09:00" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "10:00" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /outro horário/i })).toBeInTheDocument();
+  });
+
   it("avisa overbooking ao escolher 'outro horário' fora dos slots livres (D1)", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
