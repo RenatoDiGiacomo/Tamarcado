@@ -51,11 +51,22 @@ export const MOCK_APPOINTMENTS: AgendaAppointment[] = [
     clientName: "Rita Alves",
     serviceName: "Escova",
     start: "15:30",
-    end: "16:15",
+    end: "16:30",
     status: "pending",
     origin: "whatsapp",
     professionalName: null,
     weekday: 4,
+  },
+  {
+    id: "6",
+    clientName: "Sônia Braga",
+    serviceName: "Sobrancelha",
+    start: "16:30",
+    end: "16:45",
+    status: "noshow",
+    origin: "manual",
+    professionalName: "Fernanda",
+    weekday: 5,
   },
 ];
 

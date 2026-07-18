@@ -56,22 +56,21 @@ describe("AgendaGrid", () => {
     expect(onNew).toHaveBeenCalled();
   });
 
-  // Regressão de layout (fix 3.2): as badges de status ficam TODAS na mesma
-  // margem direita do card. Trava as classes que garantem isso para que uma
-  // regeneração da tela não volte a desalinhá-las. Rótulos únicos no mock:
-  // "Concluído" (done) e "Cancelado" (cancelled).
-  it("mantém as badges de status alinhadas na margem direita do card", () => {
-    renderGrid();
-    for (const label of ["Concluído", "Cancelado"]) {
+  // Regressão de layout: cada badge de status vive numa COLUNA DE LARGURA FIXA
+  // à direita do card, centralizada nela (H) e no card (V) — assim status de
+  // larguras diferentes ("Concluído", "Cancelado", "Não compareceu") alinham
+  // entre si. Trava as classes para que uma regeneração da tela não desalinhe.
+  it("mantém as badges de status numa coluna fixa centralizada (H e V)", () => {
+    renderGrid(); // visão dia (não-compact)
+    for (const label of ["Concluído", "Cancelado", "Não compareceu"]) {
       const chip = screen.getByText(label);
-      // Chip não encolhe → cola na direita.
-      expect(chip.className).toContain("shrink-0");
-      const row = chip.parentElement as HTMLElement;
-      // A linha empurra o chip para a direita.
-      expect(row.className).toContain("justify-between");
-      // O texto do serviço encolhe/trunca (min-w-0) em vez de deslocar o chip.
-      const serviceText = row.firstElementChild as HTMLElement;
-      expect(serviceText.className).toContain("min-w-0");
+      const col = chip.parentElement as HTMLElement;
+      // Coluna de largura fixa (não a borda direita coincidindo).
+      expect(col.className).toMatch(/w-\[\d+px\]/);
+      expect(col.className).toContain("shrink-0");
+      // Centralizada dentro da coluna (H) e no card (V).
+      expect(col.className).toContain("justify-center");
+      expect(col.className).toContain("items-center");
     }
   });
 });

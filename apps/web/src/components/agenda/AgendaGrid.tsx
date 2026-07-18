@@ -39,6 +39,14 @@ export interface AgendaGridProps {
 }
 
 const HOUR_PX = 56;
+/** Largura fixa da coluna da badge de status (dia / semana). Badge centralizada
+ *  nela → status de larguras diferentes alinham entre si. Semana é mais estreita
+ *  para caber na trilha do dia. */
+const CHIP_COL = "w-[140px]";
+/** Altura mínima do card. Dia: 1 linha + badge lateral. Semana: 2 linhas empilhadas
+ *  (nome + badge). Garante que nada corte mesmo num serviço de 15min. */
+const MIN_BLOCK_H = 34;
+const MIN_BLOCK_H_COMPACT = 48;
 /** Respiro acima do primeiro horário, para o 1º agendamento não colar no topo. */
 const GRID_PAD_TOP = 12;
 /** Altura máxima do corpo rolável; o cabeçalho (controles) fica fixo acima. */
@@ -91,48 +99,90 @@ function Block({
 }) {
   const top =
     offsetTop + ((toMin(appt.start) - dayStartMin) / 60) * HOUR_PX;
-  const height = Math.max(((toMin(appt.end) - toMin(appt.start)) / 60) * HOUR_PX, 24);
+  const durationMin = toMin(appt.end) - toMin(appt.start);
+  // Proporcional à duração, com ALTURA MÍNIMA para nada cortar (serviço de 15min).
+  const minH = compact ? MIN_BLOCK_H_COMPACT : MIN_BLOCK_H;
+  const height = Math.max((durationMin / 60) * HOUR_PX, minH);
+  // Layout adaptativo por duração (visão Dia): ≥60min → 3 linhas; 30–59 → 2; <30 → 1.
+  const showService = durationMin >= 30;
+  const showProfessional = durationMin >= 60;
+
+  const clientLine = (
+    <div className="flex items-center gap-1.5">
+      <OriginIcon origin={appt.origin} />
+      <span
+        className={cn(
+          "truncate text-xs font-semibold text-foreground",
+          appt.status === "cancelled" && "line-through",
+        )}
+      >
+        {appt.clientName}
+        {/* <30min (Dia): horário na própria linha do nome (layout de 1 linha). */}
+        {!compact && !showService && (
+          <span className="font-normal text-muted-foreground"> · {appt.start}</span>
+        )}
+      </span>
+    </div>
+  );
+
+  // Semana: a trilha do dia é estreita — uma coluna lateral de badge não cabe (ela
+  // engoliria o nome). Empilha nome + badge; badges alinham entre si (mesma origem
+  // à esquerda em cada coluna). Altura mínima maior para as duas linhas caberem.
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect?.(appt.id)}
+        style={{ top, height }}
+        className={cn(
+          "absolute inset-x-1 flex flex-col justify-center gap-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left",
+          BORDER[appt.status],
+          TINT[appt.status],
+        )}
+      >
+        {clientLine}
+        <StatusChip status={appt.status} />
+      </button>
+    );
+  }
+
+  // Dia: coluna de texto adaptativa (esquerda) + badge numa COLUNA DE LARGURA FIXA
+  // à direita, centralizada nela (H) e no card (V) — status de larguras diferentes
+  // ("Confirmado", "Não compareceu") ficam alinhados entre si, não só a borda direita.
   return (
     <button
       type="button"
       onClick={() => onSelect?.(appt.id)}
       style={{ top, height }}
       className={cn(
-        "absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left",
+        "absolute inset-x-1 flex items-stretch overflow-hidden rounded-md border-l-4 py-1 pl-2 pr-1 text-left",
         BORDER[appt.status],
         TINT[appt.status],
       )}
     >
-      <div className="flex items-center gap-1.5">
-        <OriginIcon origin={appt.origin} />
-        <span
-          className={cn(
-            "truncate text-xs font-semibold text-foreground",
-            appt.status === "cancelled" && "line-through",
-          )}
-        >
-          {appt.clientName}
-        </span>
-      </div>
-      {!compact && (
-        <div className="mt-0.5 flex items-center justify-between gap-1">
-          {/* min-w-0 permite o texto encolher/truncar, fixando o chip na margem
-              direita (inset-x-1) — badges alinhadas entre os cards. */}
-          <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+        {clientLine}
+        {showService && (
+          <span className="truncate text-[11px] text-muted-foreground">
             {appt.serviceName} · {appt.start}–{appt.end}
           </span>
-          <StatusChip status={appt.status} className="shrink-0" />
-        </div>
-      )}
-      <div
-        className={cn(
-          "truncate text-[11px]",
-          appt.professionalName
-            ? "text-muted-foreground"
-            : "italic text-muted-foreground/70",
         )}
-      >
-        {appt.professionalName ?? "Não atribuído"}
+        {showProfessional && (
+          <span
+            className={cn(
+              "truncate text-[11px]",
+              appt.professionalName
+                ? "text-muted-foreground"
+                : "italic text-muted-foreground/70",
+            )}
+          >
+            {appt.professionalName ?? "Não atribuído"}
+          </span>
+        )}
+      </div>
+
+      <div className={cn("flex shrink-0 items-center justify-center", CHIP_COL)}>
+        <StatusChip status={appt.status} />
       </div>
     </button>
   );
