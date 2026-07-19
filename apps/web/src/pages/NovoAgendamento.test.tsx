@@ -98,6 +98,31 @@ describe("NovoAgendamento", () => {
     });
   });
 
+  it("mostra a mensagem REAL da API quando a criação falha (não a genérica)", async () => {
+    apiMock.mockImplementation((path: string, opts: Opts) => {
+      if (path === "/appointments" && opts.method === "POST") {
+        return Promise.resolve(
+          jsonRes(
+            { message: "A data deve ser hoje ou futura.", statusCode: 400 },
+            false,
+          ),
+        );
+      }
+      return Promise.resolve(routeApi(path, opts));
+    });
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Maria" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Maria Souza/ }));
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agendar" }));
+
+    expect(
+      await screen.findByText("A data deve ser hoje ou futura."),
+    ).toBeInTheDocument();
+  });
+
   it("oculta o campo Profissional para basic (D6)", async () => {
     setup("basic");
     await screen.findByText("Novo agendamento");

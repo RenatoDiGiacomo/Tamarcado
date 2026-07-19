@@ -159,6 +159,28 @@ describe("Agendamento manual — criação (e2e)", () => {
     expect(saved?.professional_id).toBe(profId);
   });
 
+  it("D1: profissional sem vínculo ao serviço NÃO bloqueia o manual (cria)", async () => {
+    // Atende clientes e ativo, mas sem professional_services p/ o serviço.
+    const solo = await seedUser(companyId, "solo@cr.dev", "basic", true);
+    const tok = await login("dono@cr.dev");
+    const res = await request(ctx.app.getHttpServer())
+      .post("/api/appointments")
+      .set("Authorization", `Bearer ${tok}`)
+      .send({
+        client_id: clientId,
+        service_id: serviceId,
+        professional_id: solo.id,
+        date: SLOT_DATE,
+        time: SLOT_TIME,
+      });
+    // Manual é permissivo (D1): o dono escolhe o profissional deliberadamente.
+    expect(res.status).toBe(201);
+    const saved = await ctx.dataSource
+      .getRepository(Appointment)
+      .findOne({ where: { id: res.body.id } });
+    expect(saved?.professional_id).toBe(solo.id);
+  });
+
   it("AC4: data passada → 400", async () => {
     const tok = await login("dono@cr.dev");
     const res = await request(ctx.app.getHttpServer())

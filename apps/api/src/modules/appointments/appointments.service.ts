@@ -9,7 +9,6 @@ import { Company } from "../../database/entities/company.entity";
 import { User } from "../../database/entities/user.entity";
 import { Client } from "../../database/entities/client.entity";
 import { SalonService } from "../../database/entities/salon-service.entity";
-import { ProfessionalService } from "../../database/entities/professional-service.entity";
 import { Appointment } from "../../database/entities/appointment.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import type { AuthUser } from "../auth/auth-user";
@@ -167,7 +166,7 @@ export class AppointmentsService {
       // definido (não atribuído não disputa a agenda de ninguém).
       let overbooked = false;
       if (params.professionalId) {
-        await this.assertAttends(manager, companyId, params.professionalId, service.id);
+        await this.assertProfessional(manager, companyId, params.professionalId);
         // FOR UPDATE no profissional: serializa criações concorrentes para ele.
         await manager
           .getRepository(User)
@@ -226,12 +225,17 @@ export class AppointmentsService {
     return c?.timezone ?? "America/Sao_Paulo";
   }
 
-  /** Valida que o profissional atende clientes, está ativo e executa o serviço. */
-  private async assertAttends(
+  /**
+   * Valida que o profissional é um atendente válido do tenant (existe, atende
+   * clientes, ativo). NÃO exige o vínculo `professional_services`: no manual o
+   * dono escolhe o profissional deliberadamente (encaixe/walk-in), e a D1 diz que
+   * o manual nunca bloqueia (4xx) — o vínculo governa só a SUGESTÃO de horários
+   * (AvailabilityService), não a criação manual.
+   */
+  private async assertProfessional(
     manager: EntityManager,
     companyId: string,
     professionalId: string,
-    serviceId: string,
   ): Promise<void> {
     const prof = await manager.getRepository(User).findOne({
       where: {
@@ -243,18 +247,6 @@ export class AppointmentsService {
     });
     if (!prof) {
       throw new BadRequestException("Profissional inválido.");
-    }
-    const link = await manager.getRepository(ProfessionalService).findOne({
-      where: {
-        company_id: companyId,
-        professional_id: professionalId,
-        service_id: serviceId,
-      },
-    });
-    if (!link) {
-      throw new BadRequestException(
-        "O profissional não executa este serviço.",
-      );
     }
   }
 
