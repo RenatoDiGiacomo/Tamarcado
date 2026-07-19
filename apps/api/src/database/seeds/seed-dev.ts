@@ -84,11 +84,6 @@ async function seedAgenda(
   const clients = dataSource.getRepository(Client);
   const appts = dataSource.getRepository(Appointment);
 
-  if ((await appts.count({ where: { company_id: company.id } })) > 0) {
-    console.log("Agendamentos de dev já existem, nada a fazer.");
-    return;
-  }
-
   // Uma segunda profissional (basic, atende) para contrastar com o dono.
   const findOrCreateUser = async (
     email: string,
@@ -113,12 +108,17 @@ async function seedAgenda(
   };
   const ana = await findOrCreateUser("ana@tamarcado.dev", "Ana Prof");
 
-  const mkService = async (
+  // Idempotente: acha ou cria o serviço por nome (não duplica em re-runs).
+  const findOrCreateService = async (
     name: string,
     duration: number,
     price: string | null,
-  ): Promise<SalonService> =>
-    services.save(
+  ): Promise<SalonService> => {
+    const found = await services.findOne({
+      where: { company_id: company.id, name },
+    });
+    if (found) return found;
+    return services.save(
       services.create({
         company_id: company.id,
         name,
@@ -127,40 +127,22 @@ async function seedAgenda(
         is_active: true,
       }),
     );
-  const corte = await mkService("Corte", 60, "50.00");
-  const escova = await mkService("Escova", 45, "40.00");
-  const coloracao = await mkService("Coloração", 90, "180.00");
+  };
+  const corte = await findOrCreateService("Corte", 60, "50.00");
+  const escova = await findOrCreateService("Escova", 45, "40.00");
+  const coloracao = await findOrCreateService("Coloração", 90, "180.00");
 
-  // Vínculo prof↔serviço + horários de atendimento — SEM eles o AvailabilityService
-  // devolve vazio (o modal de novo agendamento não teria horários para listar).
-  // Owner e Ana executam os 3 serviços e atendem seg–sáb, 09:00–18:00.
-  const profServices = dataSource.getRepository(ProfessionalService);
-  const schedules = dataSource.getRepository(ProfessionalSchedule);
-  const staff = [owner, ana];
-  const catalog = [corte, escova, coloracao];
-  for (const person of staff) {
-    for (const svc of catalog) {
-      await profServices.save(
-        profServices.create({
-          company_id: company.id,
-          professional_id: person.id,
-          service_id: svc.id,
-        }),
-      );
-    }
-    // day_of_week: 0=domingo..6=sábado (getUTCDay). Seg–sáb = 1..6.
-    for (let dow = 1; dow <= 6; dow++) {
-      await schedules.save(
-        schedules.create({
-          company_id: company.id,
-          professional_id: person.id,
-          day_of_week: dow,
-          start_time: "09:00:00",
-          end_time: "18:00:00",
-          is_active: true,
-        }),
-      );
-    }
+  // Vínculo prof↔serviço + horários (idempotente, SEMPRE — mesmo em banco já
+  // povoado). Sem eles o AvailabilityService devolve vazio e o modal não lista
+  // horários. Opera sobre TODO atendente ativo × serviço ativo, cobrindo bancos
+  // criados antes desta correção. Rodar `pnpm --filter api run seed:dev` conserta.
+  await ensureLinksAndSchedules(dataSource, company.id);
+  console.log("Vínculos e horários garantidos (seg–sáb 09–18h).");
+
+  // Agendamentos de exemplo — só na primeira vez (idempotência).
+  if ((await appts.count({ where: { company_id: company.id } })) > 0) {
+    console.log("Agendamentos de dev já existem, nada a fazer.");
+    return;
   }
 
   const mkClient = async (name: string): Promise<Client> =>
@@ -220,6 +202,72 @@ async function seedAgenda(
     );
   }
   console.log(`Agenda de dev populada: ${rows.length} agendamentos.`);
+}
+
+/**
+ * Garante (idempotente) o vínculo prof↔serviço e os horários de atendimento
+ * (seg–sáb 09–18h) para TODO atendente ativo × serviço ativo do tenant. Só
+ * insere o que falta — seguro rodar quantas vezes quiser. É o que faz o
+ * `seed:dev` consertar um banco antigo (sem horários) sem apagar nada.
+ */
+async function ensureLinksAndSchedules(
+  dataSource: DataSource,
+  companyId: string,
+): Promise<void> {
+  const users = dataSource.getRepository(User);
+  const services = dataSource.getRepository(SalonService);
+  const profServices = dataSource.getRepository(ProfessionalService);
+  const schedules = dataSource.getRepository(ProfessionalSchedule);
+
+  const staff = await users.find({
+    where: { company_id: companyId, attends_clients: true, is_active: true },
+  });
+  const catalog = await services.find({
+    where: { company_id: companyId, is_active: true },
+  });
+
+  for (const person of staff) {
+    for (const svc of catalog) {
+      const link = await profServices.findOne({
+        where: {
+          company_id: companyId,
+          professional_id: person.id,
+          service_id: svc.id,
+        },
+      });
+      if (!link) {
+        await profServices.save(
+          profServices.create({
+            company_id: companyId,
+            professional_id: person.id,
+            service_id: svc.id,
+          }),
+        );
+      }
+    }
+    // day_of_week: 0=domingo..6=sábado (getUTCDay). Seg–sáb = 1..6.
+    for (let dow = 1; dow <= 6; dow++) {
+      const sched = await schedules.findOne({
+        where: {
+          company_id: companyId,
+          professional_id: person.id,
+          day_of_week: dow,
+        },
+      });
+      if (!sched) {
+        await schedules.save(
+          schedules.create({
+            company_id: companyId,
+            professional_id: person.id,
+            day_of_week: dow,
+            start_time: "09:00:00",
+            end_time: "18:00:00",
+            is_active: true,
+          }),
+        );
+      }
+    }
+  }
 }
 
 /** Data (UTC 00:00) da segunda-feira da semana civil atual no fuso SP. */

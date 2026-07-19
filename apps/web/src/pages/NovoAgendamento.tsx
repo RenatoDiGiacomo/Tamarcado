@@ -15,6 +15,20 @@ import {
 const ACCESS_KEY = "tamarcado.access";
 const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
+/** Extrai a mensagem real de erro da API (Nest: `{ message: string | string[] }`)
+ *  para não esconder a causa atrás de um texto genérico. */
+async function apiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string | string[] };
+    const m = body?.message;
+    if (Array.isArray(m) && m.length > 0) return m.join(" · ");
+    if (typeof m === "string" && m.trim() !== "") return m;
+  } catch {
+    /* sem corpo JSON — usa o fallback */
+  }
+  return fallback;
+}
+
 interface ServiceDto {
   id: string;
   name: string;
@@ -42,8 +56,10 @@ const inputCls =
 const NO_SLOTS_MSG: Record<NoSlotsReason, string> = {
   day_off: "Não há atendimento neste dia.",
   full: "Todos os horários estão ocupados neste dia.",
+  // Sem horários configurados ainda: aponta para o caminho que EXISTE (encaixe),
+  // não para uma aba de Configurações → Horários que ainda não foi construída.
   no_schedule_config:
-    "Configure os horários de atendimento em Configurações → Horários.",
+    "Ainda não há horários de atendimento configurados. Use “Outro horário” para encaixar.",
 };
 
 /**
@@ -192,7 +208,7 @@ export function NovoAgendamento({
       setClientQuery(c.name);
       setError(null);
     } else {
-      setError("Não foi possível cadastrar a cliente.");
+      setError(await apiErrorMessage(res, "Não foi possível cadastrar a cliente."));
     }
   }, [newName, newPhone]);
 
@@ -215,12 +231,18 @@ export function NovoAgendamento({
         },
         token: token(),
       });
-      if (!res.ok) throw new Error("create");
+      if (!res.ok) {
+        // Mostra a causa real (ex.: "A data deve ser hoje ou futura.").
+        setError(
+          await apiErrorMessage(res, "Não foi possível criar o agendamento."),
+        );
+        return;
+      }
       const created = (await res.json()) as { date: string };
       onCreated(created.date);
       onOpenChange(false);
     } catch {
-      setError("Não foi possível criar o agendamento.");
+      setError("Não foi possível criar o agendamento. Verifique sua conexão.");
     } finally {
       setSubmitting(false);
     }

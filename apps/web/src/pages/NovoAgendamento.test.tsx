@@ -98,6 +98,31 @@ describe("NovoAgendamento", () => {
     });
   });
 
+  it("mostra a mensagem REAL da API quando a criação falha (não a genérica)", async () => {
+    apiMock.mockImplementation((path: string, opts: Opts) => {
+      if (path === "/appointments" && opts.method === "POST") {
+        return Promise.resolve(
+          jsonRes(
+            { message: "A data deve ser hoje ou futura.", statusCode: 400 },
+            false,
+          ),
+        );
+      }
+      return Promise.resolve(routeApi(path, opts));
+    });
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Maria" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Maria Souza/ }));
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agendar" }));
+
+    expect(
+      await screen.findByText("A data deve ser hoje ou futura."),
+    ).toBeInTheDocument();
+  });
+
   it("oculta o campo Profissional para basic (D6)", async () => {
     setup("basic");
     await screen.findByText("Novo agendamento");
@@ -137,6 +162,7 @@ describe("NovoAgendamento", () => {
   it("mostra os horários livres como CHIPS clicáveis ao escolher o serviço", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     // Slots viram botões (chips) visíveis; "Outro horário" fica discreto abaixo.
     expect(await screen.findByRole("button", { name: "09:00" })).toBeInTheDocument();
@@ -152,6 +178,7 @@ describe("NovoAgendamento", () => {
     });
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     expect(
       await screen.findByText("Não há atendimento neste dia."),
@@ -161,6 +188,7 @@ describe("NovoAgendamento", () => {
   it("avisa overbooking ao usar 'Outro horário' fora dos slots livres (D1)", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     await screen.findByRole("button", { name: "10:00" });
 
