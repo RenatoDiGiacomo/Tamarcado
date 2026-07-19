@@ -7,6 +7,7 @@ import { Agenda } from "./pages/Agenda";
 import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
+import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
 
@@ -42,6 +43,7 @@ export function App() {
           <Route index element={<Navigate to="identidade" replace />} />
           <Route path="identidade" element={<ConfiguracoesIdentidade />} />
           <Route path="servicos" element={<ConfiguracoesServicos />} />
+          <Route path="horarios" element={<ConfiguracoesHorarios />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
