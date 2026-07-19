@@ -3,7 +3,11 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { AvailabilityService, type TimeSlot, type DateWithSlots } from "./availability.service";
+import {
+  AvailabilityService,
+  type DateWithSlots,
+  type DayAvailability,
+} from "./availability.service";
 import {
   GetDaySlotsQueryDto,
   GetNextDatesQueryDto,
@@ -21,18 +25,15 @@ import {
 export class AvailabilityController {
   constructor(private readonly availability: AvailabilityService) {}
 
-  /** Horários livres de um serviço num dia (`?serviceId&date&professionalId?`). */
+  /** Horários livres de um serviço num dia (`?serviceId&date&professionalId?`).
+   *  Inclui `reason` quando não há slots (para a UI diferenciar a mensagem). */
   @Get()
-  async daySlots(
-    @Query() q: GetDaySlotsQueryDto,
-  ): Promise<{ slots: TimeSlot[] }> {
-    return {
-      slots: await this.availability.getDaySlots({
-        serviceId: q.serviceId,
-        date: q.date,
-        professionalId: q.professionalId,
-      }),
-    };
+  async daySlots(@Query() q: GetDaySlotsQueryDto): Promise<DayAvailability> {
+    return this.availability.getDayAvailability({
+      serviceId: q.serviceId,
+      date: q.date,
+      professionalId: q.professionalId,
+    });
   }
 
   /** Próximas datas com vaga (`?serviceId&fromDate&days?&professionalId?`). */

@@ -55,4 +55,23 @@ describe("AgendaGrid", () => {
     fireEvent.click(screen.getByRole("button", { name: /novo agendamento/i }));
     expect(onNew).toHaveBeenCalled();
   });
+
+  // Regressão de layout: cada badge de status vive numa COLUNA DE LARGURA FIXA
+  // à direita do card, centralizada nela (H) e no card (V) — assim status de
+  // larguras diferentes ("Concluído", "Cancelado", "Não compareceu") alinham
+  // entre si. Trava as classes para que uma regeneração da tela não desalinhe.
+  it("mantém as badges de status numa coluna fixa centralizada (H e V)", () => {
+    renderGrid(); // visão dia (não-compact)
+    for (const label of ["Concluído", "Cancelado", "Não compareceu"]) {
+      for (const chip of screen.getAllByText(label)) {
+        const col = chip.parentElement as HTMLElement;
+        // Coluna de largura fixa (não a borda direita coincidindo).
+        expect(col.className).toMatch(/w-\[\d+px\]/);
+        expect(col.className).toContain("shrink-0");
+        // Centralizada dentro da coluna (H) e no card (V).
+        expect(col.className).toContain("justify-center");
+        expect(col.className).toContain("items-center");
+      }
+    }
+  });
 });

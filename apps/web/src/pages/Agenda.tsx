@@ -14,6 +14,7 @@ import {
   AgendaGrid,
   type AgendaView,
 } from "../components/agenda/AgendaGrid";
+import { NovoAgendamento } from "./NovoAgendamento";
 import {
   formatDateLabel,
   periodRange,
@@ -43,6 +44,10 @@ export function Agenda() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [novoOpen, setNovoOpen] = useState(false);
+  // Bump para forçar recarga mesmo quando o período não muda (ex.: criar um
+  // agendamento no dia já aberto — senão a agenda manteria a lista antiga).
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,7 +65,7 @@ export function Agenda() {
     } finally {
       setLoading(false);
     }
-  }, [anchor, view]);
+  }, [anchor, view, refreshKey]);
 
   useEffect(() => {
     void load();
@@ -100,8 +105,22 @@ export function Agenda() {
           onPrev={() => setAnchor((a) => shiftAnchor(a, view, -1))}
           onNext={() => setAnchor((a) => shiftAnchor(a, view, 1))}
           onSelect={setSelectedId}
+          onNew={() => setNovoOpen(true)}
         />
       )}
+
+      {/* Novo agendamento manual (Story 3.3) — modal sobre a agenda (D4). */}
+      <NovoAgendamento
+        open={novoOpen}
+        onOpenChange={setNovoOpen}
+        date={anchor}
+        onCreated={(created) => {
+          setView("dia");
+          setAnchor(created);
+          // Recarrega sempre — mesmo criando no dia já aberto (anchor igual).
+          setRefreshKey((k) => k + 1);
+        }}
+      />
 
       {/* Detalhe read-only (D3) — mutações vêm nas Stories 3.3/3.4. */}
       <Dialog

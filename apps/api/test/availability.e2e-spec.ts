@@ -196,21 +196,23 @@ describe("Disponibilidade (e2e)", () => {
     ]);
   });
 
-  it("domingo (sem horário configurado) → vazio", async () => {
+  it("domingo (têm horário na segunda, não no domingo) → vazio + reason day_off", async () => {
     const tok = await login("dono@av.dev");
     const res = await request(ctx.app.getHttpServer())
       .get(`/api/availability?serviceId=${serviceId}&date=${SUNDAY}`)
       .set("Authorization", `Bearer ${tok}`);
     expect(res.body.slots).toEqual([]);
+    expect(res.body.reason).toBe("day_off");
   });
 
-  it("isolamento: serviço de OUTRO tenant → vazio (não encontrado sob o tenant)", async () => {
+  it("isolamento: serviço de OUTRO tenant → vazio + reason no_schedule_config", async () => {
     const tok = await login("dono@av.dev");
     const res = await request(ctx.app.getHttpServer())
       .get(`/api/availability?serviceId=${otherServiceId}&date=${MONDAY}`)
       .set("Authorization", `Bearer ${tok}`);
     expect(res.status).toBe(200);
     expect(res.body.slots).toEqual([]);
+    expect(res.body.reason).toBe("no_schedule_config");
   });
 
   it("date inválida → 400", async () => {
