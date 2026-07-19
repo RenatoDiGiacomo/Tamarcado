@@ -162,6 +162,7 @@ describe("NovoAgendamento", () => {
   it("mostra os horários livres como CHIPS clicáveis ao escolher o serviço", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     // Slots viram botões (chips) visíveis; "Outro horário" fica discreto abaixo.
     expect(await screen.findByRole("button", { name: "09:00" })).toBeInTheDocument();
@@ -177,6 +178,7 @@ describe("NovoAgendamento", () => {
     });
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     expect(
       await screen.findByText("Não há atendimento neste dia."),
@@ -186,6 +188,7 @@ describe("NovoAgendamento", () => {
   it("avisa overbooking ao usar 'Outro horário' fora dos slots livres (D1)", async () => {
     setup("owner");
     await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" }); // espera o /services carregar
     fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
     await screen.findByRole("button", { name: "10:00" });
 
