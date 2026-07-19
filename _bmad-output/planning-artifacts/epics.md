@@ -955,6 +955,38 @@ So that eu trate as solicitações rapidamente sem perder o que estou fazendo.
 **When** o polling lê
 **Then** apenas lê o estado já salvo, sem risco de perda; o conflito de slot segue protegido pelo `SELECT ... FOR UPDATE`
 
+### Story 6.10: Lembrete automático de agendamento via WhatsApp
+
+> **Status: PLANEJADA — não construir agora.** Registrada no roadmap (Winston, 2026-07-17)
+> para quando o bot existir. Depende 100% do canal WhatsApp (Story 6.1); sem ele, não há como
+> enviar. Reduz no-show — valor direto para o salão.
+
+As a cliente,
+I want receber um lembrete automático do meu agendamento pelo WhatsApp,
+So that eu não esqueça e o salão reduza as faltas.
+
+**Acceptance Criteria (rascunho — a detalhar na época):**
+
+**Given** um agendamento *confirmado* com WhatsApp da cliente cadastrado
+**When** falta o intervalo configurado para o horário (ver decisão abaixo)
+**Then** o bot envia um lembrete assinado com o nome da instalação (ex.: "você tem [serviço] amanhã às [hora]"), respeitando as regras de copy (UX-DR6) e o `company.timezone` (ADR-008)
+
+**Given** o controle de idempotência
+**When** o lembrete é enviado
+**Then** `appointments.reminder_sent_at` é gravado (campo novo, análogo a `timeout_notified_at`) para nunca enviar em duplicidade; agendamentos cancelados/concluídos antes do disparo não recebem lembrete
+
+**Given** o scheduler
+**When** um agendamento é criado/confirmado
+**Then** um job agendado (BullMQ sobre o Redis já existente) é registrado com delay calculado até o momento do lembrete, e é cancelado se o agendamento mudar de estado antes
+
+**Given** uma cliente sem WhatsApp (FR-D8)
+**When** o lembrete seria enviado
+**Then** nenhuma notificação é disparada
+
+**Decisão a definir na época:** antecedência do lembrete — 24h fixas? Configurável por instalação
+(ex.: 24h/3h/ambos)? Definir com dados dos primeiros salões. (Depende também de `whatsapp_provider`
+ativo e da resiliência da Story 6.8.)
+
 ---
 
 ## Épico 7: App Mobile do Profissional (somente leitura)
