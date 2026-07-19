@@ -258,6 +258,13 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 **FRs:** FR-G1–G6, FR-I1–I4, FR-J1, FR-J3, FR-J4, FR-J5 · **NFRs:** NFR-A2, NFR-S1, NFR-S2, NFR-S3, NFR-O1, NFR-O2 · **UX-DRs:** UX-DR7, UX-DR13, UX-DR14, UX-DR15
 
+> **Status da UI do Painel de Configurações (UX-DR13) — DL-039.** Os backends de config
+> saíram no Épico 1 (Serviços 1.5, Horários+intervalo 1.6, Equipe/permissões 1.4, Identidade 1.7).
+> A **UI** veio em partes: **Identidade + Serviços** na Story **2.1.03**; **Horários** na Story
+> **3.3.2** (rotulada sob agendamento por urgência de desbloqueio — é feature do Painel de
+> Configurações, ver DL-039); **Equipe** ⬜ ainda **sem tela** (aba "em breve") — registrada como
+> **Story 3.3.3** (backend pronto na 1.4). Painel completo = falta só a aba **Equipe (3.3.3)**.
+
 ### Story 1.1: Walking skeleton e pipeline de entrega
 
 As a desenvolvedor (Renato),

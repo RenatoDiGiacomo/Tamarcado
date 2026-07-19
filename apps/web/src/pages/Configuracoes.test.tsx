@@ -34,8 +34,11 @@ describe("Configuracoes (casca)", () => {
       "aria-current",
       "page",
     );
-    // Horários/Equipe entram desabilitadas ("em breve").
-    expect(screen.getByRole("tab", { name: "Horários" })).toHaveAttribute(
+    // Horários é aba ativa (Story 3.3.2); Equipe segue desabilitada (3.3.3).
+    expect(screen.getByRole("tab", { name: "Horários" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    expect(screen.getByRole("tab", { name: "Equipe" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
