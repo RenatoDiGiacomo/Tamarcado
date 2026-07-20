@@ -8,6 +8,8 @@ import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
+import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
+import { AceitarConvite } from "./pages/AceitarConvite";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
 
@@ -34,6 +36,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Aceite de convite (Story 3.3.3, UX-DR14): pública, a pessoa cria a senha. */}
+      <Route path="/aceitar-convite" element={<AceitarConvite />} />
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
@@ -44,6 +48,7 @@ export function App() {
           <Route path="identidade" element={<ConfiguracoesIdentidade />} />
           <Route path="servicos" element={<ConfiguracoesServicos />} />
           <Route path="horarios" element={<ConfiguracoesHorarios />} />
+          <Route path="equipe" element={<ConfiguracoesEquipe />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

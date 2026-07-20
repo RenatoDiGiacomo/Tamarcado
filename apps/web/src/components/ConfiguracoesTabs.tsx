@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * Abas horizontais da seção Configurações — mesmo visual do toggle `[Dia|Semana]`
  * da Agenda (Segmented). São route-driven: a aba ativa reflete a URL (NavLink).
- * Equipe segue como aba desabilitada ("em breve") — Story 3.3.3; Horários entrou na 3.3.2.
+ * Todas as abas ativas: Serviços/Identidade (2.1.03), Horários (3.3.2), Equipe (3.3.3).
  */
 interface Tab {
   label: string;
@@ -14,7 +14,7 @@ interface Tab {
 const TABS: Tab[] = [
   { label: "Serviços", to: "/configuracoes/servicos" },
   { label: "Horários", to: "/configuracoes/horarios" },
-  { label: "Equipe", to: null },
+  { label: "Equipe", to: "/configuracoes/equipe" },
   { label: "Identidade visual", to: "/configuracoes/identidade" },
 ];
 
