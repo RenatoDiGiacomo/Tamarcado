@@ -26,7 +26,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - FR-A5: Sem disponibilidade no dia escolhido → bot apresenta outros dias.
 - FR-A6: Atomicidade na criação — dois clientes concorrendo pelo mesmo slot resultam em 1 pré-agendamento; o outro recebe indisponibilidade imediata (ver NFR-C1).
 - FR-A7: Fallback para entradas não reconhecidas, redirecionando ao passo atual do fluxo.
-- FR-A8: Um agendamento = um único serviço (MVP).
+- FR-A8: Um agendamento = um único serviço (MVP). *(Evolução multi-serviço — DL-040: N agendamentos agrupados por `group_id` (UUID nullable, aditivo), encadeados no tempo; preserva `AvailabilityService`/`price_snapshot`/D4. O bot vira carrinho — ver Stories 6.2/6.3.)*
 - `[ASSUMPTION]` Notificação FR-A4 via WhatsApp: solo → número do profissional; multi → número do dono/gestão configurado.
 
 **FR-B: Confirmação e Recusa pelo Profissional**
@@ -808,6 +808,13 @@ So that eu consiga agendar sem me perder, mesmo se digitar algo inesperado.
 **When** o bot processa
 **Then** a resposta é enviada em até 3 segundos
 
+> **Nota multi-serviço (DL-040) — desenhar a máquina de estados como CARRINHO.** O bot não
+> agenda um serviço por vez: precisa de um estado de **"montando carrinho"** — coleta serviços num
+> loop ("deseja adicionar outro?"), **fecha a lista**, e **só então** (Story 6.3) calcula e oferece
+> os horários do **bloco inteiro**. Não oferecer horário a cada serviço — o início do 2º depende da
+> duração do 1º. Prever no `context_json` a lista de serviços do carrinho + o `group_id` (UUID) que
+> agrupará os N `appointments` encadeados.
+
 ### Story 6.3: Fluxo de agendamento via bot
 
 As a cliente,
@@ -835,6 +842,15 @@ So that eu marque meu atendimento sem ligar para o salão.
 **Given** a primeira mensagem e a confirmação (FR-J2)
 **When** o bot se comunica
 **Then** assina com o nome da instalação; a cliente recebe "solicitação enviada ao salão, pode haver ajuste, você será avisada" (MSG-A06)
+
+> **Nota multi-serviço (DL-040) — disponibilidade ENCADEADA + N appointments com `group_id`.** Ao
+> fechar o carrinho, o bot calcula os horários do **bloco inteiro**: cada serviço é sequencial (o
+> próximo começa ao **fim do anterior + intervalo**, D4/DL-032), **nunca simultâneo**. Ao confirmar,
+> cria **N `appointments` agrupados por `group_id`** (um por serviço), cada um com seu `price_snapshot`
+> e `professional_id`. **Risco técnico:** achar um início onde o profissional A esteja livre e, na
+> sequência, o B (especialistas diferentes). **Simplificação MVP possível (decidir aqui):** encadear
+> **só** quando **um profissional faz todos os serviços**; com especialistas diferentes, marcar **o
+> primeiro** e a **recepção completa** o encadeamento. A criação segue atômica (`SELECT ... FOR UPDATE`).
 
 ### Story 6.4: Notificação ao salão e confirmação/recusa pelo painel
 
