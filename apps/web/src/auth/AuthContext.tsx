@@ -29,6 +29,8 @@ interface AuthContextValue {
   ) => Promise<void>;
   logout: () => void;
   setTheme: (theme: "light" | "dark") => Promise<void>;
+  /** Aplica uma sessão a partir de tokens (ex.: aceite de convite) e carrega o perfil. */
+  applySession: (accessToken: string, refreshToken: string) => Promise<void>;
 }
 
 const ACCESS_KEY = "tamarcado.access";
@@ -102,6 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfile],
   );
 
+  /** Aplica tokens já emitidos (ex.: aceite de convite) e carrega o perfil. */
+  const applySession = useCallback(
+    async (accessToken: string, refreshToken: string) => {
+      localStorage.setItem(ACCESS_KEY, accessToken);
+      localStorage.setItem(REFRESH_KEY, refreshToken);
+      await loadProfile();
+    },
+    [loadProfile],
+  );
+
   /** Grava a preferência de tema do próprio usuário e atualiza o estado. */
   const setTheme = useCallback(async (theme: "light" | "dark") => {
     const access = localStorage.getItem(ACCESS_KEY);
@@ -128,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         setTheme,
+        applySession,
       }}
     >
       {children}
