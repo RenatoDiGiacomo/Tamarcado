@@ -28,4 +28,17 @@ export class UpdateInstallationDto {
     message: "primaryColor deve ser hex #RRGGBB",
   })
   primaryColor?: string;
+
+  // Horário de FUNCIONAMENTO do salão (faixa da grade da agenda) — HH:MM.
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: "businessHoursStart deve ser HH:MM",
+  })
+  businessHoursStart?: string;
+
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: "businessHoursEnd deve ser HH:MM",
+  })
+  businessHoursEnd?: string;
 }

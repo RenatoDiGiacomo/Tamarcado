@@ -60,9 +60,9 @@ export const MOCK_APPOINTMENTS: AgendaAppointment[] = [
   {
     id: "6",
     clientName: "Sônia Braga",
-    serviceName: "Sobrancelha",
+    serviceName: "Cílios",
     start: "16:30",
-    end: "16:45",
+    end: "17:00",
     status: "noshow",
     origin: "manual",
     professionalName: "Fernanda",

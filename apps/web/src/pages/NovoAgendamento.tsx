@@ -188,8 +188,23 @@ export function NovoAgendamento({
   }, [clientQuery, selectedClient]);
 
   const chosenTime = customMode ? customTime : time;
-  const freeTimes = new Set(slots.map((s) => s.time));
+  const slotTimes = slots.map((s) => s.time);
+  const freeTimes = new Set(slotTimes);
   const overbookWarn = chosenTime !== "" && !freeTimes.has(chosenTime);
+  // Profissional específico + o horário escolhido cai DENTRO da janela de trabalho
+  // dele (entre o primeiro e o último slot do dia) mas não está livre → ele já está
+  // OCUPADO ali (não pode estar em dois lugares ao mesmo tempo). Nomeia explicitamente.
+  // Fora dessa janela (após o fechamento, folga, sem config) é encaixe fora da
+  // disponibilidade — não há conflito com outro atendimento, então cai no genérico.
+  const selectedProfName = attenders.find((a) => a.id === professionalId)?.name;
+  const withinWorkWindow =
+    slotTimes.length > 0 &&
+    chosenTime >= slotTimes[0] &&
+    chosenTime <= slotTimes[slotTimes.length - 1];
+  const overbookMsg =
+    professionalId && selectedProfName && withinWorkWindow
+      ? `${selectedProfName} já tem atendimento neste horário — deseja encaixar mesmo assim?`
+      : "Esse horário está fora da disponibilidade — deseja encaixar mesmo assim?";
 
   const createClient = useCallback(async () => {
     if (newName.trim() === "") {
@@ -476,7 +491,7 @@ export function NovoAgendamento({
 
           {overbookWarn && (
             <p role="alert" className="text-sm text-status-noshow">
-              Esse horário está fora da disponibilidade — deseja encaixar mesmo assim?
+              {overbookMsg}
             </p>
           )}
 

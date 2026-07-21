@@ -75,7 +75,19 @@ export function Agenda() {
     () => (data?.appointments ?? []).map(toAgendaAppointment),
     [data],
   );
-  const businessHours = data?.businessHours ?? { start: "08:00", end: "19:00" };
+  // Faixa da grade = horário de funcionamento do salão, ESTENDIDO para cobrir
+  // qualquer agendamento fora dele (encaixe às 20:15 com salão fechando 19:00
+  // não pode ficar invisível). O funcionamento é configurável em Identidade.
+  const businessHours = useMemo(() => {
+    const base = data?.businessHours ?? { start: "08:00", end: "19:00" };
+    let start = base.start;
+    let end = base.end;
+    for (const a of appointments) {
+      if (a.start < start) start = a.start;
+      if (a.end > end) end = a.end;
+    }
+    return { start, end };
+  }, [data, appointments]);
   const selected = data?.appointments.find((a) => a.id === selectedId) ?? null;
 
   const emptyState = (

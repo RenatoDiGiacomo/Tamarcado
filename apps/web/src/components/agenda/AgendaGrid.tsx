@@ -111,9 +111,12 @@ function Block({
   const wPct = 100 / cols;
   const left = `calc(${col * wPct}% + 2px)`;
   const width = `calc(${wPct}% - 4px)`;
-  // Layout adaptativo por duração (visão Dia): ≥60min → 3 linhas; 30–59 → 2; <30 → 1.
-  const showService = durationMin >= 30;
+  // Layout adaptativo por ALTURA (a duração define a altura): 3 linhas só cabem
+  // em ≥60min; 2 linhas em ≥45min; abaixo disso vai tudo numa LINHA ÚNICA
+  // "nome · serviço · início–fim" (senão o texto empilhado corta em serviços curtos).
+  const showService = durationMin >= 45; // linha própria de serviço·horário
   const showProfessional = durationMin >= 60;
+  const oneLine = !compact && !showService;
 
   const clientLine = (
     <div className="flex items-center gap-1.5">
@@ -125,9 +128,12 @@ function Block({
         )}
       >
         {appt.clientName}
-        {/* <30min (Dia): horário na própria linha do nome (layout de 1 linha). */}
-        {!compact && !showService && (
-          <span className="font-normal text-muted-foreground"> · {appt.start}</span>
+        {/* Card curto (Dia): nome · serviço · horário na mesma linha. */}
+        {oneLine && (
+          <span className="font-normal text-muted-foreground">
+            {" · "}
+            {appt.serviceName} · {appt.start}–{appt.end}
+          </span>
         )}
       </span>
     </div>

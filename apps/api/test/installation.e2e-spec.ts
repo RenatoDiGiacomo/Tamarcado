@@ -102,6 +102,39 @@ describe("Identidade visual da instalação (e2e)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("horário de funcionamento: GET expõe, PATCH atualiza e valida fechamento>abertura", async () => {
+    const owner = await login("dono@id.dev");
+    // GET expõe a faixa (defaults do schema).
+    const g0 = await request(ctx.app.getHttpServer())
+      .get("/api/installation")
+      .set("Authorization", `Bearer ${owner}`);
+    expect(g0.body).toHaveProperty("businessHoursStart");
+    expect(g0.body).toHaveProperty("businessHoursEnd");
+
+    // PATCH válido (salão 10:00–21:00) e o GET reflete.
+    const ok = await request(ctx.app.getHttpServer())
+      .patch("/api/installation")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ businessHoursStart: "10:00", businessHoursEnd: "21:00" });
+    expect(ok.status).toBe(200);
+    expect(ok.body.businessHoursStart).toBe("10:00");
+    expect(ok.body.businessHoursEnd).toBe("21:00");
+
+    // Fechamento <= abertura → 400.
+    const bad = await request(ctx.app.getHttpServer())
+      .patch("/api/installation")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ businessHoursStart: "10:00", businessHoursEnd: "09:00" });
+    expect(bad.status).toBe(400);
+
+    // Formato inválido → 400.
+    const badFmt = await request(ctx.app.getHttpServer())
+      .patch("/api/installation")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ businessHoursStart: "25:00" });
+    expect(badFmt.status).toBe(400);
+  });
+
   it("cor hex inválida → 400; URL de logo inválida → 400", async () => {
     const owner = await login("dono@id.dev");
     const badColor = await request(ctx.app.getHttpServer())

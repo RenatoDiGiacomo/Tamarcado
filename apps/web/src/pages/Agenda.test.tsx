@@ -121,4 +121,17 @@ describe("Agenda", () => {
       await screen.findByText(/não foi possível carregar a agenda/i),
     ).toBeInTheDocument();
   });
+
+  it("estende a grade para cobrir agendamento após o fechamento (não some)", async () => {
+    // Salão fecha 19:00, mas há um encaixe às 20:00 → a grade tem que ir além.
+    apiMock.mockResolvedValue(
+      jsonRes({
+        appointments: [{ ...seg, id: "z", start: "20:00", end: "20:15" }],
+        businessHours: BUSINESS, // 08:00–19:00
+      }),
+    );
+    render(<Agenda />);
+    // O rótulo de hora "20:00" na trilha só existe se a grade foi estendida.
+    expect(await screen.findByText("20:00")).toBeInTheDocument();
+  });
 });

@@ -198,4 +198,37 @@ describe("NovoAgendamento", () => {
     });
     expect(await screen.findByText(/fora da disponibilidade/i)).toBeInTheDocument();
   });
+
+  it("com profissional escolhido, o aviso NOMEIA quem já está ocupado (dentro do expediente)", async () => {
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p1" } }); // Ana
+    await screen.findByRole("button", { name: "10:00" });
+
+    fireEvent.click(screen.getByRole("button", { name: /outro horário/i }));
+    // 09:30 cai DENTRO da janela dela (09:00–10:00) mas não é um slot livre →
+    // ela já está atendendo ali (dois lugares ao mesmo tempo).
+    fireEvent.change(screen.getByLabelText("Outro horário"), { target: { value: "09:30" } });
+    expect(
+      await screen.findByText(/Ana já tem atendimento neste horário/i),
+    ).toBeInTheDocument();
+  });
+
+  it("profissional escolhido mas horário APÓS o expediente → aviso genérico (não é conflito)", async () => {
+    setup("owner");
+    await screen.findByText("Novo agendamento");
+    await screen.findByRole("option", { name: "Corte" });
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s1" } });
+    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p1" } }); // Ana
+    await screen.findByRole("button", { name: "10:00" });
+
+    fireEvent.click(screen.getByRole("button", { name: /outro horário/i }));
+    // 20:00 está DEPOIS do último slot (10:00): encaixe fora da faixa, sem
+    // conflito com outro atendimento → não nomeia, cai no genérico.
+    fireEvent.change(screen.getByLabelText("Outro horário"), { target: { value: "20:00" } });
+    expect(await screen.findByText(/fora da disponibilidade/i)).toBeInTheDocument();
+    expect(screen.queryByText(/já tem atendimento/i)).toBeNull();
+  });
 });
