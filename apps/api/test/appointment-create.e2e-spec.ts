@@ -16,13 +16,21 @@ import { bootstrapE2E, teardownE2E, type E2EContext } from "./e2e-app";
  * Story 3.3 — criação manual + atomicidade. Cobre: source/status/snapshots,
  * `basic`→self, data passada (400), overbooking no manual (aviso, não bloqueia),
  * e o CRÍTICO: duas criações simultâneas no mesmo slot com `enforce=true` →
- * só uma grava (SELECT ... FOR UPDATE). Slot base: 2026-07-20 10:00 SP (13:00Z).
+ * só uma grava (SELECT ... FOR UPDATE). Slot base: 10:00 SP (13:00Z).
  */
 jest.setTimeout(60000);
 
-const SLOT_UTC = "2026-07-20T13:00:00.000Z"; // 10:00 SP (usado no createAtomic direto)
-const SLOT_DATE = "2026-07-20";
+// Data SEMPRE futura (hoje+3), senão a validação "hoje ou futura" derruba com 400
+// quando o calendário passa da data — não pode fixar um dia no código. SP é UTC-3
+// fixo (sem horário de verão desde 2019), então 10:00 SP = 13:00Z o ano todo.
+function isoDatePlus(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+const SLOT_DATE = isoDatePlus(3);
 const SLOT_TIME = "10:00";
+const SLOT_UTC = `${SLOT_DATE}T13:00:00.000Z`; // 10:00 SP (usado no createAtomic direto)
 const PAST_DATE = "2020-01-01";
 
 describe("Agendamento manual — criação (e2e)", () => {
