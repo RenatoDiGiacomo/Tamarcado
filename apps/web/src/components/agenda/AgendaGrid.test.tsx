@@ -16,6 +16,26 @@ function renderGrid(props?: Partial<ComponentProps<typeof AgendaGrid>>) {
 }
 
 describe("AgendaGrid", () => {
+  it("card curto (<45min) mostra nome · serviço · horário em uma linha só", () => {
+    renderGrid({
+      businessHours: { start: "08:00", end: "19:00" },
+      appointments: [
+        {
+          id: "curto",
+          clientName: "Fulana",
+          serviceName: "Cílios",
+          start: "15:00",
+          end: "15:30", // 30min → linha única
+          status: "confirmed",
+          origin: "manual",
+          professionalName: "Ana",
+        },
+      ],
+    });
+    // Serviço e horário na MESMA linha do nome (não empilhados/cortados).
+    expect(screen.getByText(/Cílios · 15:00–15:30/)).toBeInTheDocument();
+  });
+
   it("mostra os agendamentos e o status/origem no dia", () => {
     renderGrid();
     expect(screen.getByText("Maria das Dores")).toBeInTheDocument();

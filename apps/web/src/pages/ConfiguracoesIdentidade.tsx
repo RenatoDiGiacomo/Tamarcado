@@ -31,7 +31,10 @@ export function ConfiguracoesIdentidade() {
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#6c63ff");
+  const [openTime, setOpenTime] = useState("08:00");
+  const [closeTime, setCloseTime] = useState("19:00");
   const [status, setStatus] = useState<SaveStatus>("idle");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem(ACCESS_KEY);
@@ -42,20 +45,40 @@ export function ConfiguracoesIdentidade() {
             name: string;
             logoUrl: string | null;
             primaryColor: string | null;
+            businessHoursStart?: string;
+            businessHoursEnd?: string;
           };
           setName(data.name ?? "");
           setLogoUrl(data.logoUrl ?? "");
           setPrimaryColor(data.primaryColor ?? "#6c63ff");
+          setOpenTime(data.businessHoursStart ?? "08:00");
+          setCloseTime(data.businessHoursEnd ?? "19:00");
         }
       })
       .catch(() => setStatus("error"));
   }, []);
 
+  const toMin = (t: string): number => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault();
+    if (toMin(closeTime) <= toMin(openTime)) {
+      setValidationError("O horário de fechamento deve ser após a abertura.");
+      setStatus("idle");
+      return;
+    }
+    setValidationError(null);
     setStatus("saving");
     const token = localStorage.getItem(ACCESS_KEY);
-    const body: Record<string, unknown> = { name, primaryColor };
+    const body: Record<string, unknown> = {
+      name,
+      primaryColor,
+      businessHoursStart: openTime,
+      businessHoursEnd: closeTime,
+    };
     if (logoUrl) {
       body.logoUrl = logoUrl;
     }
@@ -142,16 +165,52 @@ export function ConfiguracoesIdentidade() {
               </div>
             </div>
 
+            {/* Horário de FUNCIONAMENTO do salão — define a faixa da grade da agenda
+                (distinto de "Horários", que é o atendimento por profissional). */}
+            <div className="flex flex-col gap-2 border-t border-border pt-5">
+              <Label>Horário de funcionamento</Label>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Abre</span>
+                  <Input
+                    type="time"
+                    aria-label="Abertura"
+                    className="w-32"
+                    value={openTime}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Fecha</span>
+                  <Input
+                    type="time"
+                    aria-label="Fechamento"
+                    className="w-32"
+                    value={closeTime}
+                    onChange={(e) => setCloseTime(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                É a faixa que a agenda mostra (ex.: 10:00–21:00).
+              </p>
+            </div>
+
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={status === "saving"}>
                 Salvar
               </Button>
-              {status === "saved" && (
-                <p role="status" className="text-sm text-muted-foreground">
-                  Identidade salva.
+              {validationError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {validationError}
                 </p>
               )}
-              {status === "error" && (
+              {!validationError && status === "saved" && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Salvo.
+                </p>
+              )}
+              {!validationError && status === "error" && (
                 <p role="alert" className="text-sm text-destructive">
                   Erro ao salvar.
                 </p>

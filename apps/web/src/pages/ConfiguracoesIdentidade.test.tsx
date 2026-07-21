@@ -73,6 +73,59 @@ describe("ConfiguracoesIdentidade", () => {
     expect(preset).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("prefill do horário de funcionamento e envia no PATCH", async () => {
+    apiMock.mockResolvedValueOnce(
+      jsonRes({
+        name: "Salão",
+        logoUrl: null,
+        primaryColor: "#6c63ff",
+        businessHoursStart: "10:00",
+        businessHoursEnd: "21:00",
+      }),
+    );
+    render(<ConfiguracoesIdentidade />);
+    await waitFor(() =>
+      expect((screen.getByLabelText("Abertura") as HTMLInputElement).value).toBe("10:00"),
+    );
+    expect((screen.getByLabelText("Fechamento") as HTMLInputElement).value).toBe("21:00");
+
+    apiMock.mockResolvedValueOnce(jsonRes({}, true));
+    fireEvent.click(screen.getByRole("button", { name: /salvar/i }));
+    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    expect(apiMock).toHaveBeenLastCalledWith(
+      "/installation",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          businessHoursStart: "10:00",
+          businessHoursEnd: "21:00",
+        }),
+      }),
+    );
+  });
+
+  it("bloqueia salvar se o fechamento não é após a abertura (não chama a API)", async () => {
+    apiMock.mockResolvedValueOnce(
+      jsonRes({
+        name: "Salão",
+        logoUrl: null,
+        primaryColor: "#6c63ff",
+        businessHoursStart: "10:00",
+        businessHoursEnd: "21:00",
+      }),
+    );
+    render(<ConfiguracoesIdentidade />);
+    await waitFor(() =>
+      expect((screen.getByLabelText("Abertura") as HTMLInputElement).value).toBe("10:00"),
+    );
+    fireEvent.change(screen.getByLabelText("Fechamento"), { target: { value: "09:00" } });
+    fireEvent.click(screen.getByRole("button", { name: /salvar/i }));
+    expect(
+      await screen.findByText(/fechamento deve ser após a abertura/i),
+    ).toBeInTheDocument();
+    // Só houve o GET inicial — nenhum PATCH.
+    expect(apiMock.mock.calls.filter(([, o]) => o?.method === "PATCH")).toHaveLength(0);
+  });
+
   it("exibe erro quando o PATCH falha", async () => {
     apiMock.mockResolvedValueOnce(
       jsonRes({ name: "Salão", logoUrl: null, primaryColor: "#6c63ff" }),

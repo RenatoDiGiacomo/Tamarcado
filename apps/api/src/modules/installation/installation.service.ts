@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Company } from "../../database/entities/company.entity";
@@ -39,6 +43,24 @@ export class InstallationService {
     if (dto.primaryColor !== undefined) {
       company.primary_color = dto.primaryColor;
     }
+    if (dto.businessHoursStart !== undefined) {
+      company.business_hours_start = dto.businessHoursStart;
+    }
+    if (dto.businessHoursEnd !== undefined) {
+      company.business_hours_end = dto.businessHoursEnd;
+    }
+    // Fechamento tem que ser após a abertura (faixa da grade válida).
+    if (hhmmToMin(company.business_hours_end) <= hhmmToMin(company.business_hours_start)) {
+      throw new BadRequestException(
+        "O horário de fechamento deve ser após a abertura.",
+      );
+    }
     return this.companies.save(company);
   }
+}
+
+/** "HH:MM[:SS]" → minutos desde 00:00. */
+function hhmmToMin(time: string): number {
+  const [h, m] = time.split(":");
+  return Number(h) * 60 + Number(m);
 }

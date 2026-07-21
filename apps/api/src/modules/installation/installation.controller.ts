@@ -14,6 +14,8 @@ interface InstallationView {
   name: string;
   logoUrl: string | null;
   primaryColor: string | null;
+  businessHoursStart: string; // HH:MM
+  businessHoursEnd: string;
 }
 
 function toView(company: Company): InstallationView {
@@ -21,6 +23,8 @@ function toView(company: Company): InstallationView {
     name: company.name,
     logoUrl: company.logo_url,
     primaryColor: company.primary_color,
+    businessHoursStart: company.business_hours_start.slice(0, 5),
+    businessHoursEnd: company.business_hours_end.slice(0, 5),
   };
 }
 
