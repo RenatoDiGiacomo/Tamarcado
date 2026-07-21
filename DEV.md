@@ -42,7 +42,9 @@ Isso, em sequência:
 2. sobe a infra em Docker (MySQL na porta **3307**, Redis na 6379) e **espera**
    o MySQL ficar saudável;
 3. aplica as migrations pendentes;
-4. liga a **API** em <http://localhost:3000> e o **Web** em <http://localhost:5173>,
+4. **libera as portas 3000 e 5173** de qualquer sobra de execução anterior (um
+   `pnpm dev` que não morreu direito) — evita o `EADDRINUSE` recorrente;
+5. liga a **API** em <http://localhost:3000> e o **Web** em <http://localhost:5173>,
    ambos com hot-reload.
 
 > **Por que MySQL na 3307?** Para não colidir com outros MySQL locais na porta
@@ -144,6 +146,29 @@ MySQL na 3306. Se ainda aparecer conflito de porta:
    pnpm dev:down    # ou dev:reset para apagar o banco também
    pnpm dev
    ```
+
+### `EADDRINUSE` na 3000 ou 5173 (API/Web já em uso)
+
+Acontece quando um `pnpm dev` anterior não encerrou de verdade (fechou o
+terminal sem `Ctrl+C`, um crash, ou uma sobra de outra ferramenta na porta). O
+`pnpm dev` **já libera 3000 e 5173 automaticamente** antes de subir (passo 4),
+então normalmente basta rodar de novo. Se precisar liberar à mão:
+
+```powershell
+# Windows (PowerShell) — descobre e encerra quem escuta a porta
+Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
+```bash
+# macOS / Linux
+lsof -ti tcp:3000 -sTCP:LISTEN | xargs -r kill -9
+lsof -ti tcp:5173 -sTCP:LISTEN | xargs -r kill -9
+```
+
+> Isso encerra **só o listener daquela porta** — não mexe na infra (MySQL 3307)
+> nem em outros processos. Se a porta continuar presa depois, veja se não há um
+> segundo `pnpm dev`/`vite` órfão: `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*vite*' }`.
 
 - **"Falha ao subir a infra" / Docker fechado** — abra o Docker Desktop; confira
   que as portas `3307` e `6379` não estão em uso.
