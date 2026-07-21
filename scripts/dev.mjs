@@ -12,6 +12,7 @@ import { execSync } from "node:child_process";
 import { existsSync, copyFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { platform } from "node:os";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const COMPOSE = "infra/compose/docker-compose.infra.yml";
@@ -21,6 +22,49 @@ const run = (cmd, opts = {}) =>
 
 function step(msg) {
   console.log(`\n\x1b[36m▶ ${msg}\x1b[0m`);
+}
+
+/**
+ * Encerra o que estiver ESCUTANDO numa porta — só o listener daquela porta, nada
+ * além. Um `pnpm dev` anterior que não morreu direito (ou uma sobra de outra
+ * ferramenta) deixa a 3000/5173 presa e o boot cai em EADDRINUSE; liberar antes
+ * de subir evita esse trava recorrente. Sem listener, é no-op.
+ */
+function freePort(port) {
+  try {
+    let pids = [];
+    if (platform() === "win32") {
+      const out = execSync(
+        `powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`,
+        { cwd: repoRoot, stdio: ["ignore", "pipe", "ignore"] },
+      ).toString();
+      pids = [...new Set(out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean))];
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /PID ${pid} /F /T`, { stdio: "ignore" });
+        } catch {
+          /* já morreu / sem permissão — segue */
+        }
+      }
+    } else {
+      const out = execSync(`lsof -ti tcp:${port} -sTCP:LISTEN`, {
+        stdio: ["ignore", "pipe", "ignore"],
+      }).toString();
+      pids = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      for (const pid of pids) {
+        try {
+          execSync(`kill -9 ${pid}`, { stdio: "ignore" });
+        } catch {
+          /* já morreu — segue */
+        }
+      }
+    }
+    if (pids.length > 0) {
+      console.log(`  \x1b[33m:${port} estava ocupada — encerrado PID ${pids.join(", ")}.\x1b[0m`);
+    }
+  } catch {
+    /* nada escutando na porta, ou a ferramenta de consulta não existe — segue */
+  }
 }
 
 // 1. .env da API (o boot exige JWT_SECRET; sem .env a API não sobe).
@@ -67,6 +111,11 @@ try {
   process.exit(1);
 }
 
-// 5. API + Web nativos, com watch. Fica em foreground; Ctrl+C encerra os dois.
+// 5. Libera 3000/5173 de sobras de execuções anteriores (senão: EADDRINUSE).
+step("Liberando as portas 3000 e 5173 (encerra sobras de execuções anteriores)...");
+freePort(3000);
+freePort(5173);
+
+// 6. API + Web nativos, com watch. Fica em foreground; Ctrl+C encerra os dois.
 step("Ligando API (:3000) e Web (:5173) com hot-reload. Ctrl+C para parar.");
 run("pnpm exec turbo run dev --filter=api --filter=web");
