@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
@@ -10,8 +19,10 @@ import {
   type AgendaPeriod,
   type CreatedAppointment,
 } from "./appointments.service";
+import type { AppointmentView } from "./appointments.mapper";
 import { ListAppointmentsQueryDto } from "./dto/list-appointments-query.dto";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
+import { CancelAppointmentDto } from "./dto/cancel-appointment.dto";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -45,5 +56,19 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<CreatedAppointment> {
     return this.appointments.createManual(dto, user);
+  }
+
+  /**
+   * Cancela um agendamento (Story 3.4). Motivo opcional; grava autoria
+   * (`cancelled_by`=professional + `cancelled_by_user_id`). `basic` só os próprios.
+   * Mantém visível como Cancelado; o slot volta aos disponíveis.
+   */
+  @Patch(":id/cancel")
+  async cancel(
+    @Param("id") id: string,
+    @Body() dto: CancelAppointmentDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AppointmentView> {
+    return this.appointments.cancel(id, dto, user);
   }
 }

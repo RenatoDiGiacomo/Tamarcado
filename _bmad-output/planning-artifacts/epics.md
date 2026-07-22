@@ -252,6 +252,32 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 ---
 
+## Estado de implementação — retrato (2026-07-22)
+
+> Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
+
+**Épico 3 — Agendamento manual (painel):**
+- ✅ **3.1** Base de agendamento + disponibilidade — mergeada
+- ✅ **3.2** Agenda do painel (dia/semana) — mergeada
+- ✅ **3.2.02** Ajustes da agenda (card curto em linha única; aviso ao marcar o mesmo profissional em horário ocupado; **horário de funcionamento configurável** na Identidade) — mergeada (PR #28)
+- ✅ **3.3** Agendamento manual pelo painel — mergeada
+- ✅ **3.3.1** Correções do agendamento manual (encaixe não bloqueia; mensagens de erro reais) — mergeada (PR #24)
+- 🔜 **3.4** Cancelamento pelo painel — spec aprovada, **em implementação** (DL-041)
+
+**Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
+
+## Buracos conhecidos (débito consciente)
+
+> Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
+
+- **Editar/remarcar agendamento (o "U" do CRUD)** — **sem story**, adiado de propósito: remarcar reabre disponibilidade, conflito e re-snapshot de preço/duração (superfície grande demais para embutir no cancelamento). Vira história própria. Enquanto isso, **cancelar + criar** cobre o caso.
+- **No-show (FR-D9)** — marcar *confirmado* → *não compareceu* pelo card (previsto na 3.2 como AC). **Ainda não implementado.** Informativo, sem automação/notificação (DL-023).
+- **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
+- **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
+- **Overbooking do mesmo profissional** — permitido **de propósito** (D1: encaixe deliberado). A 3.2.02 adicionou **aviso nomeando** quem já está ocupado, mas **não há bloqueio duro**. Fica assim no MVP; revisar se algum salão pedir prevenção rígida.
+
+---
+
 ## Épico 1: Fundação, Configuração da Instalação e Controle de Acesso
 
 **Objetivo:** estabelecer o alicerce técnico (monorepo, multi-tenancy, autenticação, ambientes, CI/CD, backup) e entregar ao dono o controle completo da sua instalação — serviços, horários, equipe, permissões e identidade visual. Pré-requisito de todos os épicos seguintes.
@@ -260,10 +286,10 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 > **Status da UI do Painel de Configurações (UX-DR13) — DL-039.** Os backends de config
 > saíram no Épico 1 (Serviços 1.5, Horários+intervalo 1.6, Equipe/permissões 1.4, Identidade 1.7).
-> A **UI** veio em partes: **Identidade + Serviços** na Story **2.1.03**; **Horários** na Story
-> **3.3.2** (rotulada sob agendamento por urgência de desbloqueio — é feature do Painel de
-> Configurações, ver DL-039); **Equipe** ⬜ ainda **sem tela** (aba "em breve") — registrada como
-> **Story 3.3.3** (backend pronto na 1.4). Painel completo = falta só a aba **Equipe (3.3.3)**.
+> A **UI** veio em partes e o painel está **COMPLETO**: **Identidade ✅** (2.1.03) · **Serviços ✅**
+> (2.1.03) · **Horários ✅** (3.3.2) · **Equipe ✅** (**3.3.3**, PR #26 — inclui a página de aceite
+> de convite `/aceitar-convite`, que fecha o fluxo da 1.4). *(3.3.2/3.3.3 foram rotuladas sob o
+> Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
 ### Story 1.1: Walking skeleton e pipeline de entrega
 
@@ -611,6 +637,8 @@ So that eu gerencie a agenda quando algo muda no salão.
 **Then** confirma a ação e um toast padronizado registra o que aconteceu (UX-DR19)
 
 > **Nota (DL-035):** a **notificação à cliente via WhatsApp** no cancelamento pelo painel (FR-C6, UX-DR18 texto condicional) fica no **Épico 6** (bot), pois depende do WhatsApp. Aqui o cancelamento opera sem notificação externa.
+>
+> **Detalhe de implementação (spec aprovada 2026-07-22 — DL-041).** Endpoint `PATCH /api/appointments/:id/cancel` (body `{ reason? }`): `status → cancelled`; `cancelled_by = 'professional'` (o **LADO** — usado pelo bot na 6.6) **+** nova coluna **`cancelled_by_user_id`** (nullable, FK → `users`) = a **PESSOA** que cancelou (D1 — dois campos, propósitos distintos). Motivo opcional → `cancellation_reason`. **Permissões:** owner/gerente cancelam qualquer um; `basic` só o próprio (`professional_id == self`). **Erros:** `409` já cancelado · `400` completed/no_show · `404` fora do tenant. **Disponibilidade sem mudança** — já exclui cancelados, o slot volta sozinho. Continua **visível como Cancelado** (não é `is_deleted`). Grupo multi-serviço não se aplica (`group_id` não existe — DL-040). Edição/remarcação fora (buraco consciente).
 
 ---
 

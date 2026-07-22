@@ -13,6 +13,9 @@ vi.mock("../auth/AuthContext", () => ({
   useAuth: () => ({ user: { id: "u1", accessLevel: "owner" } }),
 }));
 
+// Toast de sucesso (UX-DR19) — sem Toaster montado no teste.
+vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
 }
@@ -133,5 +136,113 @@ describe("Agenda", () => {
     render(<Agenda />);
     // O rótulo de hora "20:00" na trilha só existe se a grade foi estendida.
     expect(await screen.findByText("20:00")).toBeInTheDocument();
+  });
+
+  it("cancela um agendamento: confirmação + motivo → PATCH e recarrega (Story 3.4)", async () => {
+    apiMock.mockImplementation(
+      (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (opts?.method === "PATCH") {
+          return Promise.resolve(jsonRes({ id: "10", status: "cancelled" }));
+        }
+        return Promise.resolve(
+          jsonRes({ appointments: [seg], businessHours: BUSINESS }),
+        );
+      },
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores")); // abre o detalhe
+
+    // Detalhe → confirmação destrutiva.
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Cancelar agendamento" }),
+    );
+    fireEvent.change(screen.getByLabelText("Motivo do cancelamento"), {
+      target: { value: "Cliente remarcou" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar cancelamento" }),
+    );
+
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+      expect(patch?.[0]).toBe("/appointments/10/cancel");
+      expect(patch?.[1].body).toEqual({ reason: "Cliente remarcou" });
+    });
+    // Recarrega o período após cancelar (≥2 GETs de /appointments).
+    const gets = apiMock.mock.calls.filter(
+      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+    );
+    expect(gets.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("motivo é opcional: confirma sem preencher → body sem reason", async () => {
+    apiMock.mockImplementation(
+      (path: string, opts?: { method?: string }) => {
+        if (opts?.method === "PATCH") {
+          return Promise.resolve(jsonRes({ id: "10", status: "cancelled" }));
+        }
+        return Promise.resolve(
+          jsonRes({ appointments: [seg], businessHours: BUSINESS }),
+        );
+      },
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Cancelar agendamento" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar cancelamento" }),
+    );
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+      expect(patch?.[1].body).toEqual({});
+    });
+  });
+
+  it("não oferece cancelar para status não-cancelável (concluído)", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({
+        appointments: [{ ...seg, status: "completed" }],
+        businessHours: BUSINESS,
+      }),
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    await screen.findByRole("dialog");
+    expect(
+      screen.queryByRole("button", { name: "Cancelar agendamento" }),
+    ).toBeNull();
+  });
+
+  it("mostra a mensagem REAL da API quando o cancelamento falha", async () => {
+    apiMock.mockImplementation(
+      (path: string, opts?: { method?: string }) => {
+        if (opts?.method === "PATCH") {
+          return Promise.resolve(
+            jsonRes(
+              { message: "Não é possível cancelar um atendimento já encerrado.", statusCode: 400 },
+              false,
+            ),
+          );
+        }
+        return Promise.resolve(
+          jsonRes({ appointments: [seg], businessHours: BUSINESS }),
+        );
+      },
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Cancelar agendamento" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar cancelamento" }),
+    );
+    expect(
+      await screen.findByText(
+        "Não é possível cancelar um atendimento já encerrado.",
+      ),
+    ).toBeInTheDocument();
   });
 });

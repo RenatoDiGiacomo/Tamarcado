@@ -13,13 +13,20 @@ interface NavItem {
   label: string;
   to: string;
   icon: ComponentType<{ className?: string }>;
+  /** Sem tela ainda — item aparece "em breve", desabilitado (não navegável). */
+  disabled?: boolean;
 }
 
-/** Navegação principal (DL-036 manual-first — sem "Pendentes"). */
+/**
+ * Navegação principal (DL-036 manual-first — sem "Pendentes"). Clientes e
+ * Pagamentos ainda não têm tela: ficam "em breve" (Clientes reativa na 4.1;
+ * Pagamentos vira pacote de venda à parte) — mesmo tratamento das abas de
+ * Configurações, para não prometer o que não existe na demo.
+ */
 const NAV_ITEMS: NavItem[] = [
   { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
-  { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
-  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard },
+  { key: "clientes", label: "Clientes", to: "/clientes", icon: Users, disabled: true },
+  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard, disabled: true },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -79,17 +86,33 @@ export function AppShell({ children }: { children?: ReactNode }) {
               {brand}
             </Link>
             <ul className="flex flex-col gap-1">
-              {items.map((item) => (
-                <li key={item.key}>
-                  <Link
-                    to={item.to}
-                    className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground no-underline transition-colors hover:bg-accent"
-                  >
-                    <item.icon className="size-4 shrink-0 text-muted-foreground" />
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              {items.map((item) =>
+                item.disabled ? (
+                  <li key={item.key}>
+                    <span
+                      aria-disabled="true"
+                      title="Em breve"
+                      className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground opacity-50"
+                    >
+                      <item.icon className="size-4 shrink-0" />
+                      {item.label}
+                      <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide">
+                        em breve
+                      </span>
+                    </span>
+                  </li>
+                ) : (
+                  <li key={item.key}>
+                    <Link
+                      to={item.to}
+                      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground no-underline transition-colors hover:bg-accent"
+                    >
+                      <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                      {item.label}
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-sm">
@@ -139,16 +162,28 @@ export function AppShell({ children }: { children?: ReactNode }) {
         aria-label="Navegação inferior"
         className="fixed inset-x-0 bottom-0 flex items-center justify-around border-t border-border bg-card py-2"
       >
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.key}
-            to={item.to}
-            className="flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
-          >
-            <item.icon className="size-5 shrink-0" />
-            {item.label}
-          </Link>
-        ))}
+        {NAV_ITEMS.map((item) =>
+          item.disabled ? (
+            <span
+              key={item.key}
+              aria-disabled="true"
+              title="Em breve"
+              className="flex cursor-not-allowed flex-col items-center gap-0.5 text-xs text-muted-foreground opacity-50"
+            >
+              <item.icon className="size-5 shrink-0" />
+              {item.label}
+            </span>
+          ) : (
+            <Link
+              key={item.key}
+              to={item.to}
+              className="flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
+            >
+              <item.icon className="size-5 shrink-0" />
+              {item.label}
+            </Link>
+          ),
+        )}
         <button
           type="button"
           aria-label="Ações rápidas"

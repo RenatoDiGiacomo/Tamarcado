@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository } from "typeorm";
@@ -129,6 +131,56 @@ export class AppointmentsService {
       createdByUserId: user.userId,
       enforce: false, // manual: overbooking vira aviso (D1)
     });
+  }
+
+  /**
+   * Cancelamento pelo painel (Story 3.4). Transição de estado + rastro de autoria
+   * (D1: `cancelled_by` = lado do salão; `cancelled_by_user_id` = a pessoa). Mantém
+   * o registro visível (não é `is_deleted`); o slot volta aos livres porque a
+   * availability já exclui `cancelled`. `basic` só cancela os próprios (AC7).
+   */
+  async cancel(
+    id: string,
+    dto: { reason?: string },
+    user: AuthUser,
+  ): Promise<AppointmentView> {
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+
+    // Permissão (AC7): basic só cancela onde é o profissional; owner/gerente, todos.
+    if (user.accessLevel === "basic" && appt.professional_id !== user.userId) {
+      throw new ForbiddenException(
+        "Você só pode cancelar seus próprios atendimentos.",
+      );
+    }
+
+    // Guardas de estado.
+    if (appt.status === "cancelled") {
+      throw new ConflictException("Este agendamento já está cancelado.");
+    }
+    if (appt.status === "completed" || appt.status === "no_show") {
+      throw new BadRequestException(
+        "Não é possível cancelar um atendimento já encerrado.",
+      );
+    }
+
+    const reason = dto.reason?.trim();
+    appt.status = "cancelled";
+    appt.cancellation_reason = reason && reason !== "" ? reason : null;
+    appt.cancelled_by = "professional";
+    appt.cancelled_by_user_id = user.userId;
+    await this.appointmentsRepo.save(appt);
+
+    const companyId = this.tenant.getCompanyId();
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const row = await this.appointmentsRepo.findViewById(id);
+    if (!row) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    return toAppointmentView(row, tz);
   }
 
   /**

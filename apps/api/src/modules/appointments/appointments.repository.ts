@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, SelectQueryBuilder } from "typeorm";
 import { Appointment } from "../../database/entities/appointment.entity";
 import { TenantAwareRepository } from "../../common/repository/tenant-aware.repository";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
@@ -31,7 +31,36 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
     endUtc: Date;
     professionalScope?: { professionalId: string };
   }): Promise<RawAppointmentRow[]> {
-    const qb = this.repo
+    const qb = this.viewQuery()
+      .andWhere("a.scheduled_at >= :startUtc", { startUtc: params.startUtc })
+      .andWhere("a.scheduled_at < :endUtc", { endUtc: params.endUtc })
+      .orderBy("a.scheduled_at", "ASC");
+
+    if (params.professionalScope) {
+      qb.andWhere(
+        "(a.professional_id = :pid OR a.professional_id IS NULL)",
+        { pid: params.professionalScope.professionalId },
+      );
+    }
+
+    return qb.getRawMany<RawAppointmentRow>();
+  }
+
+  /** Um agendamento (do tenant) já na forma da view — usado após o cancelamento. */
+  async findViewById(id: string): Promise<RawAppointmentRow | null> {
+    const row = await this.viewQuery()
+      .andWhere("a.id = :id", { id })
+      .getRawOne<RawAppointmentRow>();
+    return row ?? null;
+  }
+
+  /**
+   * Base da view da agenda: joins tenant-safe + nomes resolvidos, já filtrando o
+   * `company_id` do contexto e `is_deleted = false`. Quem chama adiciona o recorte
+   * (período/id/escopo).
+   */
+  private viewQuery(): SelectQueryBuilder<Appointment> {
+    return this.repo
       .createQueryBuilder("a")
       .leftJoin(
         "clients",
@@ -58,18 +87,6 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
       .addSelect("s.name", "service_name")
       .addSelect("u.name", "professional_name")
       .where("a.company_id = :companyId", { companyId: this.companyId })
-      .andWhere("a.is_deleted = false")
-      .andWhere("a.scheduled_at >= :startUtc", { startUtc: params.startUtc })
-      .andWhere("a.scheduled_at < :endUtc", { endUtc: params.endUtc })
-      .orderBy("a.scheduled_at", "ASC");
-
-    if (params.professionalScope) {
-      qb.andWhere(
-        "(a.professional_id = :pid OR a.professional_id IS NULL)",
-        { pid: params.professionalScope.professionalId },
-      );
-    }
-
-    return qb.getRawMany<RawAppointmentRow>();
+      .andWhere("a.is_deleted = false");
   }
 }
