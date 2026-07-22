@@ -57,19 +57,18 @@ describe("AppShell", () => {
     expect(screen.getByText("Configurações")).toBeInTheDocument();
   });
 
-  it("desktop: Clientes e Pagamentos ficam 'em breve' (desabilitados, não navegáveis)", () => {
+  it("desktop: Clientes navega (4.1); Pagamentos fica 'em breve'", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(true);
     renderShell();
-    // Sem tela ainda → não são links.
-    expect(screen.queryByRole("link", { name: /Clientes/ })).toBeNull();
+    // Clientes agora tem tela (Story 4.1) → é link navegável.
+    expect(screen.getByRole("link", { name: /Clientes/ })).toBeInTheDocument();
+    // Pagamentos ainda sem tela → "em breve", não navegável.
     expect(screen.queryByRole("link", { name: /Pagamentos/ })).toBeNull();
-    // Aparecem rotulados "em breve".
-    expect(screen.getAllByText("em breve").length).toBeGreaterThanOrEqual(2);
-    // Agenda continua navegável.
+    expect(screen.getByText("em breve")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Agenda/ })).toBeInTheDocument();
   });
 
