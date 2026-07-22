@@ -1,6 +1,6 @@
 # Story 4.1: Clientes — cadastro, listagem e busca
 
-Status: **spec aberta — aguardando OK para implementar** (Renato pediu em 2026-07-22; 4.1 é **bônus**, não compromisso — se não fechar com qualidade até sábado, para-se e a aba fica "em breve")
+Status: **aprovada — em implementação** (Renato aprovou D1–D4 em 2026-07-22; + D5 filtro `is_deleted`/LGPD e D6 cliente sem telefone. 4.1 é **bônus** — se não fechar com qualidade até sábado, para-se e a aba fica "em breve")
 
 > **Abre o Épico 4.** A base `clients` (Story 3.1) e o cadastro inline + busca (Story 3.3) já existem; a 4.1 **completa o CRUD** (listar paginado, obter por id, editar) e entrega a **tela de gestão**. Perfil da cliente com histórico/observações é a **4.2 — fora daqui**.
 
@@ -28,11 +28,13 @@ so that eu encontre rápido quem atendo e mantenha os dados certos — inclusive
 
 4. **(AC4 — Editar, FR-E3)** `PATCH /clients/:id` `{ name?, phone_whatsapp? }` atualiza nome/telefone (renormaliza o telefone). Pela tela, editar abre o mesmo formulário **pré-preenchido**. Erro mostra a mensagem real (padrão 3.3.1).
 
-5. **(AC5 — Obter por id)** `GET /clients/:id` → a cliente do tenant; fora do tenant/inexistente → **404**.
+5. **(AC5 — Obter por id)** `GET /clients/:id` → a cliente do tenant; fora do tenant/inexistente/**deletada** → **404**.
 
-6. **(AC6 — Telefone único na edição, D3)** Editar o telefone para um que **já é de outra cliente** → **409** ("Já existe uma cliente com esse WhatsApp."). (Na criação, o dedup do `POST` já resolve retornando a existente — inalterado.)
+6. **(AC6 — Telefone único na edição, D3)** Editar o telefone para um que **já é de outra cliente** (não-deletada) → **409** ("Já existe uma cliente com esse WhatsApp."). **Sem telefone não colide** (D6): a checagem só roda quando o telefone normalizado **não é null**, e ignora o próprio id. (Na criação, o dedup do `POST` já resolve — inalterado.)
 
 7. **(AC7 — Aba reativada)** O item **Clientes** no `AppShell` **deixa de ser "em breve"** e navega para **`/clientes`**. (Pagamentos segue "em breve".)
+
+8. **(AC8 — Soft delete respeitado, D5/LGPD)** A listagem, a busca **e** o `GET /clients/:id` filtram **`is_deleted = false`** — cliente apagado (soft delete da 3.1) **não reaparece** em lugar nenhum, mesmo sem tela de exclusão nesta story.
 
 ## API
 
@@ -67,7 +69,7 @@ so that eu encontre rápido quem atendo e mantenha os dados certos — inclusive
 - [ ] `ClientsService`: `list`, `getById` (404), `update` (renormaliza; 409 em colisão de telefone com **outro** id).
 - [ ] DTOs: `ListClientsQueryDto` (`search?`, `page?`, `pageSize?`), `UpdateClientDto` (`name?`, `phone_whatsapp?`).
 - [ ] `ClientsController`: `GET` modo lista, `GET :id`, `PATCH :id`.
-- [ ] e2e: lista paginada (`total`/`page`), busca filtra, `GET :id` (200/404), update nome/telefone, update com telefone colidindo → 409, isolamento por tenant; **e o e2e "busca vazia → []" segue verde**.
+- [ ] e2e: lista paginada (`total`/`page`), busca filtra, `GET :id` (200/404), update nome/telefone, update com telefone colidindo → 409, **dois sem telefone NÃO colidem** (D6), **cliente `is_deleted=true` some da lista/busca/`GET :id`→404** (D5), busca por telefone com registro sem telefone não quebra, isolamento por tenant; **e o e2e "busca vazia → []" segue verde**.
 - [ ] Front: página `Clientes` (lista + busca debounced + paginação + `EmptyState`), modal de cadastro/edição, toast, erro real.
 - [ ] `App.tsx`: rota `/clientes`. `AppShell`: reativa Clientes (+ teste "Clientes vira link").
 - [ ] Web tests (Vitest): lista + busca; cadastro; edição (prefill→salvar); paginação; aba reativada.
@@ -84,6 +86,8 @@ Pela tela: **cadastrar** um cliente, **buscar** por ele, e **editar** (nome/tele
 | **D2** | UX de cadastro/edição | ✅ **Modal** (form compartilhado create/edit), lista simples com busca+paginação. (vs edição inline). |
 | **D3** | Telefone duplicado | ✅ `POST` **inalterado** (dedup retorna a existente); `PATCH` → **409** ao colidir com **outra** cliente. |
 | **D4** | Escopo | ✅ Sem excluir, sem `notes`/histórico (4.2), sem papéis novos. |
+| **D5** | Soft delete (Renato) | ✅ Listagem, busca e `GET :id` filtram `is_deleted=false` (LGPD) — apagado não reaparece; sem tela de exclusão nesta story. |
+| **D6** | Cliente sem telefone (Renato) | ✅ Colisão 409 só quando o telefone normalizado ≠ `null` (dois sem telefone **não** colidem); busca por telefone robusta a `null` (LIKE em `null` não casa, mas o registro aparece por nome/na lista). |
 
 ## References
 
