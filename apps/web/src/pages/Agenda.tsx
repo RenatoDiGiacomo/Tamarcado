@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { StatusChip } from "../components/StatusChip";
+import { Button } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +50,11 @@ export function Agenda() {
   // Bump para forçar recarga mesmo quando o período não muda (ex.: criar um
   // agendamento no dia já aberto — senão a agenda manteria a lista antiga).
   const [refreshKey, setRefreshKey] = useState(0);
+  // Cancelamento (Story 3.4): o detalhe read-only vira confirmação destrutiva.
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +96,41 @@ export function Agenda() {
     return { start, end };
   }, [data, appointments]);
   const selected = data?.appointments.find((a) => a.id === selectedId) ?? null;
+  const canCancel =
+    selected?.status === "pending" || selected?.status === "confirmed";
+
+  const closeDetail = useCallback(() => {
+    setSelectedId(null);
+    setCancelMode(false);
+    setCancelReason("");
+    setCancelError(null);
+    setCancelSubmitting(false);
+  }, []);
+
+  const cancelAppointment = useCallback(async () => {
+    if (!selectedId) return;
+    setCancelSubmitting(true);
+    setCancelError(null);
+    try {
+      const reason = cancelReason.trim();
+      const res = await apiRequest(`/appointments/${selectedId}/cancel`, {
+        method: "PATCH",
+        body: reason !== "" ? { reason } : {},
+        token: token(),
+      });
+      if (!res.ok) {
+        setCancelError(await cancelErrorMessage(res));
+        return;
+      }
+      closeDetail();
+      setRefreshKey((k) => k + 1); // recarrega: o card vira Cancelado, slot volta
+      toast.success("Agendamento cancelado.");
+    } catch {
+      setCancelError("Não foi possível cancelar. Verifique sua conexão.");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  }, [selectedId, cancelReason, closeDetail]);
 
   const emptyState = (
     <EmptyState
@@ -134,13 +176,13 @@ export function Agenda() {
         }}
       />
 
-      {/* Detalhe read-only (D3) — mutações vêm nas Stories 3.3/3.4. */}
+      {/* Detalhe read-only (D3) → confirmação de cancelamento (Story 3.4). */}
       <Dialog
         open={selected !== null}
-        onOpenChange={(open) => !open && setSelectedId(null)}
+        onOpenChange={(open) => !open && closeDetail()}
       >
         <DialogContent>
-          {selected && (
+          {selected && !cancelMode && (
             <>
               <DialogHeader>
                 <DialogTitle>{selected.clientName}</DialogTitle>
@@ -167,12 +209,91 @@ export function Agenda() {
                   value={selected.source === "whatsapp" ? "WhatsApp" : "Manual"}
                 />
               </dl>
+              {canCancel && (
+                <div className="flex justify-end pt-1">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setCancelMode(true)}
+                  >
+                    Cancelar agendamento
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {selected && cancelMode && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Cancelar agendamento</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-3 text-sm">
+                <p className="text-muted-foreground">
+                  Cancelar o atendimento de{" "}
+                  <strong className="text-foreground">
+                    {selected.clientName}
+                  </strong>{" "}
+                  ({selected.serviceName} · {selected.start}–{selected.end}). O
+                  horário volta a ficar disponível e a ação não pode ser desfeita.
+                </p>
+                <label className="flex flex-col gap-1.5">
+                  <span className="font-medium text-foreground">
+                    Motivo (opcional)
+                  </span>
+                  <textarea
+                    aria-label="Motivo do cancelamento"
+                    rows={3}
+                    maxLength={500}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="Ex.: cliente pediu para remarcar"
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </label>
+                {cancelError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {cancelError}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setCancelMode(false);
+                      setCancelError(null);
+                    }}
+                    disabled={cancelSubmitting}
+                  >
+                    Voltar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => void cancelAppointment()}
+                    disabled={cancelSubmitting}
+                  >
+                    {cancelSubmitting ? "Cancelando…" : "Confirmar cancelamento"}
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </DialogContent>
       </Dialog>
     </PageLayout>
   );
+}
+
+/** Extrai a mensagem real da API (Nest: `{ message }`) — não esconde a causa. */
+async function cancelErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string | string[] };
+    const m = body?.message;
+    if (Array.isArray(m) && m.length > 0) return m.join(" · ");
+    if (typeof m === "string" && m.trim() !== "") return m;
+  } catch {
+    /* sem corpo JSON */
+  }
+  return "Não foi possível cancelar o agendamento.";
 }
 
 function Row({

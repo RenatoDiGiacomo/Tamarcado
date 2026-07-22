@@ -90,6 +90,11 @@ export class Appointment {
   })
   cancelled_by!: CancelledBy | null;
 
+  // QUEM cancelou (a pessoa), distinto de `cancelled_by` (o lado). Story 3.4/D1;
+  // espelha `created_by_user_id`. NULL quando nunca cancelado ou cancelado pelo bot.
+  @Column({ type: "bigint", nullable: true })
+  cancelled_by_user_id!: string | null;
+
   // Só o bot usa (Épico 6): quando a notificação de timeout de 2h foi enviada.
   @Column({ type: "datetime", nullable: true })
   timeout_notified_at!: Date | null;
