@@ -13,6 +13,10 @@ import {
  * 2. O CORS está habilitado para a origem do painel (sem isso o login falha no
  *    navegador, mesmo a API respondendo 200 via curl/supertest).
  */
+// O beforeAll faz resetSchema (todas as migrations) + seedDev (setup pesado);
+// o default de 5s do hook não cobre em MySQL mais lento (Docker/Windows).
+jest.setTimeout(60000);
+
 describe("Login com seed dev + CORS (e2e)", () => {
   let ctx: E2EContext;
 

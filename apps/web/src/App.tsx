@@ -4,6 +4,7 @@ import { useAuth } from "./auth/AuthContext";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
+import { Clientes } from "./pages/Clientes";
 import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
@@ -42,6 +43,7 @@ export function App() {
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Agenda />} />
+        <Route path="/clientes" element={<Clientes />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />

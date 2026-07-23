@@ -18,14 +18,13 @@ interface NavItem {
 }
 
 /**
- * Navegação principal (DL-036 manual-first — sem "Pendentes"). Clientes e
- * Pagamentos ainda não têm tela: ficam "em breve" (Clientes reativa na 4.1;
- * Pagamentos vira pacote de venda à parte) — mesmo tratamento das abas de
- * Configurações, para não prometer o que não existe na demo.
+ * Navegação principal (DL-036 manual-first — sem "Pendentes"). Clientes ativa na
+ * Story 4.1; Pagamentos ainda não tem tela — fica "em breve" (vira pacote de
+ * venda à parte), mesmo tratamento das abas de Configurações.
  */
 const NAV_ITEMS: NavItem[] = [
   { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
-  { key: "clientes", label: "Clientes", to: "/clientes", icon: Users, disabled: true },
+  { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
   { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard, disabled: true },
 ];
 
