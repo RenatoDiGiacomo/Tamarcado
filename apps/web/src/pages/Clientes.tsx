@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
@@ -48,6 +49,7 @@ async function apiError(res: Response, fallback: string): Promise<string> {
  * edição num modal. Reusa o CRUD de `/clients`. Perfil/histórico é a 4.2.
  */
 export function Clientes() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<ClientView[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -59,7 +61,6 @@ export function Clientes() {
 
   // Modal de cadastro/edição (editingId=null → cadastro).
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,20 +107,13 @@ export function Clientes() {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function openCreate(): void {
-    setEditingId(null);
     setFormName("");
     setFormPhone("");
     setFormError(null);
     setFormOpen(true);
   }
-  function openEdit(c: ClientView): void {
-    setEditingId(c.id);
-    setFormName(c.name);
-    setFormPhone(c.phone_whatsapp ?? "");
-    setFormError(null);
-    setFormOpen(true);
-  }
 
+  // Cadastro (a edição migrou para o perfil, Story 4.2).
   const save = useCallback(async () => {
     if (formName.trim() === "") {
       setFormError("Informe o nome da cliente.");
@@ -130,30 +124,24 @@ export function Clientes() {
     const name = formName.trim();
     const phone = formPhone.trim();
     try {
-      const res = editingId
-        ? await apiRequest(`/clients/${editingId}`, {
-            method: "PATCH",
-            body: { name, phone_whatsapp: phone },
-            token: token(),
-          })
-        : await apiRequest("/clients", {
-            method: "POST",
-            body: { name, phone_whatsapp: phone || undefined },
-            token: token(),
-          });
+      const res = await apiRequest("/clients", {
+        method: "POST",
+        body: { name, phone_whatsapp: phone || undefined },
+        token: token(),
+      });
       if (!res.ok) {
         setFormError(await apiError(res, "Não foi possível salvar a cliente."));
         return;
       }
       setFormOpen(false);
       setRefreshKey((k) => k + 1);
-      toast.success(editingId ? "Cliente atualizada." : "Cliente cadastrada.");
+      toast.success("Cliente cadastrada.");
     } catch {
       setFormError("Não foi possível salvar. Verifique sua conexão.");
     } finally {
       setSaving(false);
     }
-  }, [formName, formPhone, editingId]);
+  }, [formName, formPhone]);
 
   return (
     <PageLayout
@@ -198,7 +186,7 @@ export function Clientes() {
               <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => openEdit(c)}
+                  onClick={() => navigate(`/clientes/${c.id}`)}
                   className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
                 >
                   <span className="font-medium text-foreground">{c.name}</span>
@@ -248,9 +236,7 @@ export function Clientes() {
       <Dialog open={formOpen} onOpenChange={(o) => !o && setFormOpen(false)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Editar cliente" : "Nova cliente"}
-            </DialogTitle>
+            <DialogTitle>Nova cliente</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">

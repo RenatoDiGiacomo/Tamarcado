@@ -8,6 +8,9 @@ vi.mock("../lib/api", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
+const navigateMock = vi.fn();
+vi.mock("react-router-dom", () => ({ useNavigate: () => navigateMock }));
+
 interface Opts {
   method?: string;
   body?: Record<string, unknown>;
@@ -34,6 +37,7 @@ function lastGet(): string {
 describe("Clientes", () => {
   beforeEach(() => {
     apiMock.mockReset();
+    navigateMock.mockReset();
     apiMock.mockImplementation((_path: string, opts?: Opts) => {
       if (opts?.method === "POST") {
         return Promise.resolve(
@@ -93,29 +97,18 @@ describe("Clientes", () => {
     expect(gets.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("edita: clica na linha → modal pré-preenchido → PATCH /clients/:id", async () => {
+  it("clicar numa linha navega para o perfil da cliente (Story 4.2)", async () => {
     render(<Clientes />);
     fireEvent.click(await screen.findByRole("button", { name: /Ana Lima/ }));
-    // Modal de edição pré-preenchido.
-    const nome = screen.getByLabelText("Nome") as HTMLInputElement;
-    expect(nome.value).toBe("Ana Lima");
-    fireEvent.change(nome, { target: { value: "Ana Lima Souza" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
-
-    await waitFor(() => {
-      const patch = apiMock.mock.calls.find(
-        ([p, o]) => p === "/clients/1" && (o as Opts)?.method === "PATCH",
-      );
-      expect((patch?.[1] as Opts).body?.name).toBe("Ana Lima Souza");
-    });
+    expect(navigateMock).toHaveBeenCalledWith("/clientes/1");
   });
 
-  it("mostra a mensagem REAL da API ao falhar (ex.: telefone duplicado 409)", async () => {
+  it("mostra a mensagem REAL da API ao falhar o cadastro", async () => {
     apiMock.mockImplementation((_path: string, opts?: Opts) => {
-      if (opts?.method === "PATCH") {
+      if (opts?.method === "POST") {
         return Promise.resolve(
           jsonRes(
-            { message: "Já existe uma cliente com esse WhatsApp.", statusCode: 409 },
+            { message: "Nome muito curto.", statusCode: 400 },
             false,
           ),
         );
@@ -123,11 +116,11 @@ describe("Clientes", () => {
       return Promise.resolve(listRes());
     });
     render(<Clientes />);
-    fireEvent.click(await screen.findByRole("button", { name: /Ana Lima/ }));
+    await screen.findByText("Ana Lima");
+    fireEvent.click(screen.getByRole("button", { name: /Nova cliente/ }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "X" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
-    expect(
-      await screen.findByText("Já existe uma cliente com esse WhatsApp."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Nome muito curto.")).toBeInTheDocument();
   });
 
   it("empty state quando não há clientes", async () => {

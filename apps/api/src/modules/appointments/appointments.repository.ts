@@ -55,6 +55,26 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
   }
 
   /**
+   * Histórico de uma cliente (Story 4.2) — todos os agendamentos dela no tenant,
+   * mais recente primeiro. `professionalScope` aplica o recorte por papel (DL-022):
+   * `basic` vê só os próprios + não atribuídos.
+   */
+  async findByClient(
+    clientId: string,
+    professionalScope?: { professionalId: string },
+  ): Promise<RawAppointmentRow[]> {
+    const qb = this.viewQuery()
+      .andWhere("a.client_id = :clientId", { clientId })
+      .orderBy("a.scheduled_at", "DESC");
+    if (professionalScope) {
+      qb.andWhere("(a.professional_id = :pid OR a.professional_id IS NULL)", {
+        pid: professionalScope.professionalId,
+      });
+    }
+    return qb.getRawMany<RawAppointmentRow>();
+  }
+
+  /**
    * Base da view da agenda: joins tenant-safe + nomes resolvidos, já filtrando o
    * `company_id` do contexto e `is_deleted = false`. Quem chama adiciona o recorte
    * (período/id/escopo).

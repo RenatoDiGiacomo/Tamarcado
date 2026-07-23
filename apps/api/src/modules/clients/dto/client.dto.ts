@@ -46,7 +46,7 @@ export class CreateClientDto {
   phone_whatsapp?: string;
 }
 
-/** `PATCH /clients/:id` — edição (Story 4.1): nome e/ou WhatsApp. Vazio remove o WhatsApp. */
+/** `PATCH /clients/:id` — edição: nome/WhatsApp (4.1) e observações (4.2). Vazio remove. */
 export class UpdateClientDto {
   @IsOptional()
   @IsString()
@@ -58,4 +58,9 @@ export class UpdateClientDto {
   @IsString()
   @MaxLength(20)
   phone_whatsapp?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000, { message: "As observações devem ter no máximo 2000 caracteres." })
+  notes?: string;
 }

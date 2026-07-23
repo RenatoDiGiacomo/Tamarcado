@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Client } from "../../database/entities/client.entity";
 import { TenantModule } from "../tenant/tenant.module";
 import { UsersModule } from "../users/users.module";
+import { AppointmentsModule } from "../appointments/appointments.module";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { ClientsRepository } from "./clients.repository";
 import { ClientsService } from "./clients.service";
@@ -18,6 +19,7 @@ import { ClientsController } from "./clients.controller";
     TypeOrmModule.forFeature([Client]),
     TenantModule,
     UsersModule, // ActiveUserGuard depende de UsersService
+    AppointmentsModule, // histórico da cliente (Story 4.2) — exporta AppointmentsService
   ],
   controllers: [ClientsController],
   providers: [ClientsRepository, ClientsService, ActiveUserGuard],

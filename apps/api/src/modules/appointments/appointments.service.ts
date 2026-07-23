@@ -134,6 +134,25 @@ export class AppointmentsService {
   }
 
   /**
+   * Histórico de agendamentos de uma cliente (Story 4.2). Mais recente primeiro;
+   * `basic` vê só os próprios + não atribuídos (roleScope, FR-D2). Horário no
+   * fuso do tenant. A validação de existência da cliente é do ClientsController.
+   */
+  async listByClient(
+    clientId: string,
+    user: AuthUser,
+  ): Promise<{ appointments: AppointmentView[] }> {
+    const companyId = this.tenant.getCompanyId();
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const rows = await this.appointmentsRepo.findByClient(
+      clientId,
+      roleScope(user),
+    );
+    return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
+  }
+
+  /**
    * Cancelamento pelo painel (Story 3.4). Transição de estado + rastro de autoria
    * (D1: `cancelled_by` = lado do salão; `cancelled_by_user_id` = a pessoa). Mantém
    * o registro visível (não é `is_deleted`); o slot volta aos livres porque a
