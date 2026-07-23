@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { CalendarDays } from "lucide-react";
 import { apiRequest } from "../lib/api";
+import { refreshInstallation } from "../lib/useInstallation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,9 @@ export function ConfiguracoesIdentidade() {
       token,
     });
     setStatus(res.ok ? "saved" : "error");
+    // Revalida o branding compartilhado → AppShell (cor/nome/logo) repinta na
+    // hora, sem reload. Este era o bug: a prévia (estado local) mudava, o resto não.
+    if (res.ok) void refreshInstallation();
   }
 
   const isActivePreset = (hex: string) =>

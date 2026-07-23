@@ -41,14 +41,12 @@ describe("ConfiguracoesIdentidade", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toBeInTheDocument(),
     );
-    expect(apiMock).toHaveBeenLastCalledWith(
-      "/installation",
+    // (o refreshInstallation dispara um GET depois do PATCH — busca a chamada PATCH).
+    const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+    expect(patch?.[1].body).toEqual(
       expect.objectContaining({
-        method: "PATCH",
-        body: expect.objectContaining({
-          name: "Agenda da Fernanda",
-          logoUrl: "https://cdn.exemplo.com/logo.png",
-        }),
+        name: "Agenda da Fernanda",
+        logoUrl: "https://cdn.exemplo.com/logo.png",
       }),
     );
   });
@@ -92,15 +90,36 @@ describe("ConfiguracoesIdentidade", () => {
     apiMock.mockResolvedValueOnce(jsonRes({}, true));
     fireEvent.click(screen.getByRole("button", { name: /salvar/i }));
     await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
-    expect(apiMock).toHaveBeenLastCalledWith(
-      "/installation",
+    const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+    expect(patch?.[1].body).toEqual(
       expect.objectContaining({
-        body: expect.objectContaining({
-          businessHoursStart: "10:00",
-          businessHoursEnd: "21:00",
-        }),
+        businessHoursStart: "10:00",
+        businessHoursEnd: "21:00",
       }),
     );
+  });
+
+  it("ao salvar, revalida a instalação (GET após o PATCH) — corrige repintar sem reload", async () => {
+    apiMock.mockResolvedValueOnce(
+      jsonRes({ name: "Salão", logoUrl: null, primaryColor: "#6c63ff" }),
+    );
+    render(<ConfiguracoesIdentidade />);
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+      ).toBe("Salão"),
+    );
+    apiMock.mockResolvedValueOnce(jsonRes({}, true)); // PATCH
+    fireEvent.click(screen.getByRole("button", { name: /salvar/i }));
+    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    // Há um GET /installation DEPOIS do PATCH (revalidação do branding).
+    await waitFor(() => {
+      const patchIdx = apiMock.mock.calls.findIndex(([, o]) => o?.method === "PATCH");
+      const getAfter = apiMock.mock.calls
+        .slice(patchIdx + 1)
+        .some(([p, o]) => p === "/installation" && o?.method === undefined);
+      expect(getAfter).toBe(true);
+    });
   });
 
   it("bloqueia salvar se o fechamento não é após a abertura (não chama a API)", async () => {
