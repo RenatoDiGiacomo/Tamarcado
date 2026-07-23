@@ -13,6 +13,12 @@ export interface ClientView {
   phone_whatsapp: string | null;
 }
 
+/** Perfil da cliente (Story 4.2) — enriquece a view com observações e cadastro. */
+export interface ClientProfileView extends ClientView {
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface ClientListView {
   clients: ClientView[];
   total: number;
@@ -60,11 +66,15 @@ export class ClientsService {
     return { clients: rows.map(toView), total, page, pageSize };
   }
 
-  /** Obter por id (AC5) — deletada/fora do tenant → 404 (D5). */
-  async getById(id: string): Promise<ClientView> {
+  /** Obter o perfil por id (4.1 AC5 + 4.2) — deletada/fora do tenant → 404 (D5). */
+  async getById(id: string): Promise<ClientProfileView> {
     const client = await this.clients.findActiveById(id);
     if (!client) throw new NotFoundException("Cliente não encontrada.");
-    return toView(client);
+    return {
+      ...toView(client),
+      notes: client.notes,
+      createdAt: client.created_at.toISOString(),
+    };
   }
 
   /**
@@ -74,7 +84,7 @@ export class ClientsService {
    */
   async update(
     id: string,
-    input: { name?: string; phone_whatsapp?: string },
+    input: { name?: string; phone_whatsapp?: string; notes?: string },
   ): Promise<ClientView> {
     const client = await this.clients.findActiveById(id);
     if (!client) throw new NotFoundException("Cliente não encontrada.");
@@ -83,6 +93,12 @@ export class ClientsService {
       const name = input.name.trim();
       if (name === "") throw new BadRequestException("O nome é obrigatório.");
       client.name = name;
+    }
+
+    // Observações livres (Story 4.2); vazio remove.
+    if (input.notes !== undefined) {
+      const notes = input.notes.trim();
+      client.notes = notes !== "" ? notes : null;
     }
 
     if (input.phone_whatsapp !== undefined) {

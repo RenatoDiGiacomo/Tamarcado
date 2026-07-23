@@ -73,11 +73,14 @@ export function NovoAgendamento({
   onOpenChange,
   date,
   onCreated,
+  initialClient,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   date: string;
   onCreated: (date: string) => void;
+  /** Pré-seleciona a cliente (Story 4.2 — atalho do perfil). */
+  initialClient?: ClientView | null;
 }) {
   const { user } = useAuth();
   const isBasic = user?.accessLevel === "basic";
@@ -115,9 +118,9 @@ export function NovoAgendamento({
     setCustomTime("");
     setSlots([]);
     setSlotsReason(null);
-    setClientQuery("");
+    setClientQuery(initialClient?.name ?? "");
     setClientResults([]);
-    setSelectedClient(null);
+    setSelectedClient(initialClient ?? null);
     setAddingClient(false);
     setNewName("");
     setNewPhone("");
@@ -134,7 +137,7 @@ export function NovoAgendamento({
         setAttenders(((await attRes.json()) as { users: Attender[] }).users);
       }
     })();
-  }, [open, date]);
+  }, [open, date, initialClient]);
 
   // Slots livres (+ motivo do vazio) para serviço + data (+ profissional).
   useEffect(() => {

@@ -12,11 +12,16 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type { AuthUser } from "../auth/auth-user";
 import {
   ClientsService,
   type ClientListView,
+  type ClientProfileView,
   type ClientView,
 } from "./clients.service";
+import { AppointmentsService } from "../appointments/appointments.service";
+import type { AppointmentView } from "../appointments/appointments.mapper";
 import {
   CreateClientDto,
   ListClientsQueryDto,
@@ -33,7 +38,10 @@ import {
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
 @Controller("clients")
 export class ClientsController {
-  constructor(private readonly clients: ClientsService) {}
+  constructor(
+    private readonly clients: ClientsService,
+    private readonly appointments: AppointmentsService,
+  ) {}
 
   /**
    * `?search=` → autocomplete (3.3): vazio→[], termo→limitado, `{ clients }`.
@@ -53,10 +61,23 @@ export class ClientsController {
     return { clients: await this.clients.search(q.search) };
   }
 
-  /** Obter uma cliente por id (Story 4.1) — deletada/fora do tenant → 404. */
+  /** Perfil por id (4.1 + 4.2: notes/createdAt) — deletada/fora do tenant → 404. */
   @Get(":id")
-  async getOne(@Param("id") id: string): Promise<ClientView> {
+  async getOne(@Param("id") id: string): Promise<ClientProfileView> {
     return this.clients.getById(id);
+  }
+
+  /**
+   * Histórico de agendamentos da cliente (Story 4.2). Valida a cliente (404) e
+   * reusa o AppointmentsService; `basic` vê só os próprios (roleScope).
+   */
+  @Get(":id/appointments")
+  async history(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<{ appointments: AppointmentView[] }> {
+    await this.clients.getById(id); // 404 se inválida/deletada/fora do tenant
+    return this.appointments.listByClient(id, user);
   }
 
   /** Cadastro inline: nome obrigatório, WhatsApp opcional. */
