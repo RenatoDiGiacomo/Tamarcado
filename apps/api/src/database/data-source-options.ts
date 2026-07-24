@@ -14,6 +14,7 @@ import { CreateServices1718900300000 } from "./migrations/1718900300000-CreateSe
 import { CreateProfessionalSchedules1718900400000 } from "./migrations/1718900400000-CreateProfessionalSchedules";
 import { CreateAppointmentsBase1718900500000 } from "./migrations/1718900500000-CreateAppointmentsBase";
 import { AddCancelledByUserIdToAppointments1718900600000 } from "./migrations/1718900600000-AddCancelledByUserIdToAppointments";
+import { AddAssignmentAuditToAppointments1718900700000 } from "./migrations/1718900700000-AddAssignmentAuditToAppointments";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -47,6 +48,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreateProfessionalSchedules1718900400000,
       CreateAppointmentsBase1718900500000,
       AddCancelledByUserIdToAppointments1718900600000,
+      AddAssignmentAuditToAppointments1718900700000,
     ],
     synchronize: false,
     migrationsRun: false,

@@ -95,6 +95,14 @@ export class Appointment {
   @Column({ type: "bigint", nullable: true })
   cancelled_by_user_id!: string | null;
 
+  // QUEM atribuiu/trocou o profissional e QUANDO. Story 3.5/DL-043; espelha
+  // `cancelled_by_user_id`. NULL quando o profissional nunca foi alterado.
+  @Column({ type: "bigint", nullable: true })
+  assigned_by_user_id!: string | null;
+
+  @Column({ type: "datetime", nullable: true })
+  assigned_at!: Date | null;
+
   // Só o bot usa (Épico 6): quando a notificação de timeout de 2h foi enviada.
   @Column({ type: "datetime", nullable: true })
   timeout_notified_at!: Date | null;

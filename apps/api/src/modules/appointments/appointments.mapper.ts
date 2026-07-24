@@ -12,6 +12,7 @@ export interface RawAppointmentRow {
   duration_minutes: number;
   status: AppointmentStatus;
   source: AppointmentSource;
+  service_id: string;
   professional_id: string | null;
   client_name: string | null;
   service_name: string | null;
@@ -26,7 +27,9 @@ export interface RawAppointmentRow {
 export interface AppointmentView {
   id: string;
   clientName: string;
+  serviceId: string; // 3.5: o modal busca quem executa este serviço (GET /services/:id/professionals)
   serviceName: string;
+  professionalId: string | null; // 3.5: pré-seleciona o profissional atual no select
   professionalName: string | null;
   date: string; // YYYY-MM-DD (fuso do tenant)
   start: string; // HH:MM
@@ -48,7 +51,9 @@ export function toAppointmentView(
   return {
     id: String(row.id),
     clientName: row.client_name ?? "",
+    serviceId: String(row.service_id),
     serviceName: row.service_name ?? "",
+    professionalId: row.professional_id != null ? String(row.professional_id) : null,
     professionalName: row.professional_name ?? null,
     date: dateStr,
     start: minutesToTime(minutesOfDay),

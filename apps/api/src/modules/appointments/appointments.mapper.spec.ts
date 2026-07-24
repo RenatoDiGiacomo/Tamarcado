@@ -15,6 +15,7 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     duration_minutes: 60,
     status: "confirmed",
     source: "whatsapp",
+    service_id: "3",
     professional_id: "7",
     client_name: "Maria",
     service_name: "Corte",
@@ -49,6 +50,13 @@ describe("toAppointmentView", () => {
       TZ,
     );
     expect(v.professionalName).toBeNull();
+    expect(v.professionalId).toBeNull();
+  });
+
+  it("expõe serviceId e professionalId como string (Story 3.5)", () => {
+    const v = toAppointmentView(row(), TZ);
+    expect(v.serviceId).toBe("3");
+    expect(v.professionalId).toBe("7");
   });
 
   it("normaliza nomes ausentes de cliente/serviço para string vazia", () => {

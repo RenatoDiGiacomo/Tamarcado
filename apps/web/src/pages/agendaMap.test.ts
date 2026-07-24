@@ -15,7 +15,9 @@ function item(over: Partial<ApiAppointment> = {}): ApiAppointment {
   return {
     id: "1",
     clientName: "Maria",
+    serviceId: "3",
     serviceName: "Corte",
+    professionalId: "7",
     professionalName: "Ana",
     date: "2026-07-20", // segunda
     start: "09:00",
