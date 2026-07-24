@@ -212,6 +212,7 @@ export function Agenda() {
                     serviceId={selected.serviceId}
                     date={selected.date}
                     start={selected.start}
+                    end={selected.end}
                     currentProfessionalId={selected.professionalId}
                     currentProfessionalName={selected.professionalName}
                     mode={assignMode}

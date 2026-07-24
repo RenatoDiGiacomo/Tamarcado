@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -41,6 +41,7 @@ export function AtribuirProfissional({
   serviceId,
   date,
   start,
+  end,
   currentProfessionalId,
   currentProfessionalName,
   mode,
@@ -51,6 +52,7 @@ export function AtribuirProfissional({
   serviceId: string;
   date: string;
   start: string;
+  end: string;
   currentProfessionalId: string | null;
   currentProfessionalName: string | null;
   mode: "any" | "self";
@@ -61,7 +63,7 @@ export function AtribuirProfissional({
   const [value, setValue] = useState(currentProfessionalId ?? "");
   const [attenders, setAttenders] = useState<Attender[]>([]);
   const [serviceProfIds, setServiceProfIds] = useState<Set<string>>(new Set());
-  const [slotTimes, setSlotTimes] = useState<string[]>([]);
+  const [overbook, setOverbook] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,42 +88,46 @@ export function AtribuirProfissional({
     })();
   }, [editing, serviceId]);
 
-  // Conflito informativo (AC3): o horário do agendamento está livre para o NOVO
-  // profissional? Reusa /availability (mesmo padrão da 3.3). Sem troca = sem busca.
+  // Conflito informativo (AC3/D1): o NOVO profissional já tem atendimento que
+  // sobrepõe [start, end)? Checa a sobreposição REAL contra a agenda do dia (mesma
+  // regra do backend `hasOverlapExcluding`) — não a grade de slots, que dá falso
+  // positivo em horário fora da grade (ex.: agendamento do bot às 14:00). Sem troca
+  // para um profissional específico = sem aviso.
   useEffect(() => {
     if (!editing || value === "" || value === currentProfessionalId) {
-      setSlotTimes([]);
+      setOverbook(false);
       return;
     }
     void (async () => {
-      const q = new URLSearchParams({ serviceId, date, professionalId: value });
-      const res = await apiRequest(`/availability?${q.toString()}`, {
+      const res = await apiRequest(`/appointments?from=${date}&to=${date}`, {
         token: token(),
       });
-      if (res.ok) {
-        const data = (await res.json()) as { slots: { time: string }[] };
-        setSlotTimes(data.slots.map((s) => s.time));
-      } else {
-        setSlotTimes([]);
+      if (!res.ok) {
+        setOverbook(false);
+        return;
       }
+      const { appointments } = (await res.json()) as {
+        appointments: {
+          id: string;
+          professionalId: string | null;
+          start: string;
+          end: string;
+          status: string;
+        }[];
+      };
+      const clash = appointments.some(
+        (a) =>
+          a.id !== appointmentId &&
+          a.professionalId === value &&
+          a.status !== "cancelled" &&
+          a.start < end &&
+          a.end > start,
+      );
+      setOverbook(clash);
     })();
-  }, [editing, value, serviceId, date, currentProfessionalId]);
+  }, [editing, value, currentProfessionalId, appointmentId, date, start, end]);
 
   const changed = value !== (currentProfessionalId ?? "");
-  const freeTimes = useMemo(() => new Set(slotTimes), [slotTimes]);
-  // Dentro da janela de trabalho do profissional (entre 1º e último slot) mas
-  // sem o horário livre → ele já está OCUPADO ali. Fora da janela é encaixe: sem
-  // conflito com outro atendimento (não avisa — mesma lógica do Novo agendamento).
-  const withinWindow =
-    slotTimes.length > 0 &&
-    start >= slotTimes[0] &&
-    start <= slotTimes[slotTimes.length - 1];
-  const overbook =
-    value !== "" &&
-    value !== currentProfessionalId &&
-    slotTimes.length > 0 &&
-    !freeTimes.has(start) &&
-    withinWindow;
   const targetName = attenders.find((a) => a.id === value)?.name ?? "";
 
   const executa = attenders.filter((a) => serviceProfIds.has(a.id));

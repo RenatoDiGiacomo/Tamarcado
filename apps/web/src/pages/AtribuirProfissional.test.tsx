@@ -20,19 +20,27 @@ const ATTENDERS = {
   ],
 };
 
-/** Router padrão: atendentes, vínculos (só 7 executa), disponibilidade e PATCH ok.
- *  `slotsFor` decide os horários livres por profissional (default: 09:00 livre). */
+interface DayAppt {
+  id: string;
+  professionalId: string | null;
+  start: string;
+  end: string;
+  status: string;
+}
+
+/** Router padrão: atendentes, vínculos (só 7 executa), agenda do dia e PATCH ok.
+ *  `dayAppointments` alimenta a checagem de conflito (default: sem colisão). */
 function route(
   opts: {
     professionalIds?: string[];
-    slotsFor?: (pid: string) => string[];
+    dayAppointments?: DayAppt[];
     patchOk?: boolean;
     patchBody?: unknown;
   } = {},
 ) {
   const {
     professionalIds = ["7"],
-    slotsFor = () => ["08:00", "09:00", "10:00"],
+    dayAppointments = [],
     patchOk = true,
     patchBody = { appointment: {}, overbooked: false },
   } = opts;
@@ -42,11 +50,8 @@ function route(
     if (path.startsWith("/services/")) {
       return Promise.resolve(jsonRes({ professionalIds }));
     }
-    if (path.startsWith("/availability")) {
-      const pid = new URL(`http://x/${path}`).searchParams.get("professionalId") ?? "";
-      return Promise.resolve(
-        jsonRes({ slots: slotsFor(pid).map((time) => ({ time })) }),
-      );
+    if (path.startsWith("/appointments?")) {
+      return Promise.resolve(jsonRes({ appointments: dayAppointments }));
     }
     return Promise.resolve(jsonRes({}));
   };
@@ -61,6 +66,7 @@ function renderAny(over: Partial<Parameters<typeof AtribuirProfissional>[0]> = {
         serviceId="3"
         date="2026-07-20"
         start="09:00"
+        end="10:00"
         currentProfessionalId="7"
         currentProfessionalName="Fernanda"
         mode="any"
@@ -81,7 +87,7 @@ describe("AtribuirProfissional", () => {
   });
 
   it("owner: troca o profissional → PATCH com o novo id + toast + onAssigned (AC1)", async () => {
-    apiMock.mockImplementation(route({ slotsFor: () => ["08:00", "09:00", "10:00"] }));
+    apiMock.mockImplementation(route());
     const { onAssigned } = renderAny();
 
     fireEvent.click(screen.getByRole("button", { name: "trocar" }));
@@ -129,9 +135,13 @@ describe("AtribuirProfissional", () => {
   });
 
   it("avisa antes de aplicar quando o novo profissional está ocupado, mas deixa seguir (AC3/D1)", async () => {
-    // Bruno (8) não tem 09:00 livre, mas está dentro da janela (08:00–10:00) → conflito.
+    // Bruno (8) já tem um atendimento 09:00–10:00 que sobrepõe o horário → conflito.
     apiMock.mockImplementation(
-      route({ slotsFor: (pid) => (pid === "8" ? ["08:00", "10:00"] : ["09:00"]) }),
+      route({
+        dayAppointments: [
+          { id: "99", professionalId: "8", start: "09:00", end: "10:00", status: "confirmed" },
+        ],
+      }),
     );
     renderAny();
     fireEvent.click(screen.getByRole("button", { name: "trocar" }));
