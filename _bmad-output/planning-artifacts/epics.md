@@ -252,7 +252,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 ---
 
-## Estado de implementação — retrato (2026-07-22)
+## Estado de implementação — retrato (2026-07-23)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
@@ -262,7 +262,13 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 - ✅ **3.2.02** Ajustes da agenda (card curto em linha única; aviso ao marcar o mesmo profissional em horário ocupado; **horário de funcionamento configurável** na Identidade) — mergeada (PR #28)
 - ✅ **3.3** Agendamento manual pelo painel — mergeada
 - ✅ **3.3.1** Correções do agendamento manual (encaixe não bloqueia; mensagens de erro reais) — mergeada (PR #24)
-- 🔜 **3.4** Cancelamento pelo painel — spec aprovada, **em implementação** (DL-041)
+- ✅ **3.4** Cancelamento pelo painel — mergeada (PR #30, DL-041)
+- 🔜 **3.5** Atribuir/trocar profissional — spec aberta (DL-043); **pré-requisito da 6.4** (bot cria sem profissional, FR-A4)
+- 📋 **3.6** Remarcação (trocar serviço/horário) — planejada (DL-043); a cara (reabre disponibilidade/conflito/re-snapshot)
+
+**Épico 4 — Gestão de Clientes:**
+- ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
+- 🔜 **4.2** Perfil da cliente (histórico + observações) — **em implementação** (PR #32) — fecha o Épico 4
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
@@ -270,7 +276,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 > Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
 
-- **Editar/remarcar agendamento (o "U" do CRUD)** — **sem story**, adiado de propósito: remarcar reabre disponibilidade, conflito e re-snapshot de preço/duração (superfície grande demais para embutir no cancelamento). Vira história própria. Enquanto isso, **cancelar + criar** cobre o caso.
+- **Editar/remarcar agendamento (o "U" do CRUD)** — **fatiado em duas stories (DL-043):** **3.5** atribuir/trocar profissional (mínimo; pré-requisito do Épico 6) e **3.6** remarcação de serviço/horário (a cara). Deixou de ser buraco — tem story.
 - **No-show (FR-D9)** — marcar *confirmado* → *não compareceu* pelo card (previsto na 3.2 como AC). **Ainda não implementado.** Informativo, sem automação/notificação (DL-023).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
@@ -638,7 +644,51 @@ So that eu gerencie a agenda quando algo muda no salão.
 
 > **Nota (DL-035):** a **notificação à cliente via WhatsApp** no cancelamento pelo painel (FR-C6, UX-DR18 texto condicional) fica no **Épico 6** (bot), pois depende do WhatsApp. Aqui o cancelamento opera sem notificação externa.
 >
-> **Detalhe de implementação (spec aprovada 2026-07-22 — DL-041).** Endpoint `PATCH /api/appointments/:id/cancel` (body `{ reason? }`): `status → cancelled`; `cancelled_by = 'professional'` (o **LADO** — usado pelo bot na 6.6) **+** nova coluna **`cancelled_by_user_id`** (nullable, FK → `users`) = a **PESSOA** que cancelou (D1 — dois campos, propósitos distintos). Motivo opcional → `cancellation_reason`. **Permissões:** owner/gerente cancelam qualquer um; `basic` só o próprio (`professional_id == self`). **Erros:** `409` já cancelado · `400` completed/no_show · `404` fora do tenant. **Disponibilidade sem mudança** — já exclui cancelados, o slot volta sozinho. Continua **visível como Cancelado** (não é `is_deleted`). Grupo multi-serviço não se aplica (`group_id` não existe — DL-040). Edição/remarcação fora (buraco consciente).
+> **Detalhe de implementação (spec aprovada 2026-07-22 — DL-041).** Endpoint `PATCH /api/appointments/:id/cancel` (body `{ reason? }`): `status → cancelled`; `cancelled_by = 'professional'` (o **LADO** — usado pelo bot na 6.6) **+** nova coluna **`cancelled_by_user_id`** (nullable, FK → `users`) = a **PESSOA** que cancelou (D1 — dois campos, propósitos distintos). Motivo opcional → `cancellation_reason`. **Permissões:** owner/gerente cancelam qualquer um; `basic` só o próprio (`professional_id == self`). **Erros:** `409` já cancelado · `400` completed/no_show · `404` fora do tenant. **Disponibilidade sem mudança** — já exclui cancelados, o slot volta sozinho. Continua **visível como Cancelado** (não é `is_deleted`). Grupo multi-serviço não se aplica (`group_id` não existe — DL-040). Edição/remarcação fora — é o "U" do CRUD, fatiado em **3.5/3.6** (DL-043).
+
+### Story 3.5: Atribuir/trocar profissional de um agendamento
+
+As a dono/funcionário/profissional,
+I want atribuir ou trocar o profissional de um agendamento existente,
+So that agendamentos sem profissional (inclusive os que o bot cria) ganhem responsável, sem remarcar horário.
+
+**Acceptance Criteria:**
+
+**Given** o modal de detalhe do agendamento (onde já mora o Cancelar) e um agendamento *pending*/*confirmed*
+**When** abro o campo **Profissional** (editável, `select`)
+**Then** posso atribuir/trocar o profissional; *concluído/cancelado/no-show* é histórico e **não** muda (campo read-only)
+
+**Given** a matriz de permissões (FR-D2, FR-I2)
+**When** troco o profissional
+**Then** owner/gerente mudam **qualquer um**; `basic` pode atribuir **a si mesmo** quando `professional_id` é **nulo** (caso comum do bot), mas **não** tira de outra pessoa
+
+**Given** o novo profissional já tem atendimento no horário
+**When** confirmo a troca
+**Then** o sistema **avisa e deixa seguir** (mesma regra do encaixe, D1/3.3.1) — não bloqueia
+
+**Given** o `select` de profissionais
+**When** ele é exibido
+**Then** lista **todos** os atendentes, **destacando** quem executa aquele serviço (o vínculo `professional_services` **sugere**, não restringe — 3.3.1)
+
+**Given** a troca aplicada (FR-K2)
+**When** ela é gravada
+**Then** registra **quem alterou e quando** (padrão do `cancelled_by_user_id`); **não** mexe em horário/serviço/duração/preço (isso é 3.6)
+
+> **Pré-requisito do Épico 6 (FR-A4).** O bot cria agendamentos com `professional_id` **nulo** (sem atribuição no MVP, DL-013); é pela 3.5 que o salão atribui pelo painel. **Dependência explícita da Story 6.4** (tratar pendentes) — sem a 3.5, um pendente do bot não tem como ganhar responsável.
+
+### Story 3.6: Remarcação — trocar serviço/horário
+
+As a dono/funcionário/profissional,
+I want remarcar um agendamento (serviço e/ou horário),
+So that eu ajuste um atendimento sem cancelar e recriar.
+
+**Acceptance Criteria:**
+
+**Given** um agendamento *pending*/*confirmed*
+**When** troco **serviço** e/ou **horário**
+**Then** o sistema **reabre a disponibilidade** (`AvailabilityService`), **checa conflito** (aviso, não bloqueio — D1) e **refaz os snapshots** de duração/preço (o serviço pode mudar) — superfície grande, por isso separada da 3.5
+
+> **Questão em aberto (a decidir na spec da 3.6).** O sistema **guarda o estado anterior** ao remarcar? Sem isso não há como esclarecer reclamação ("eu marquei às 14h"). Provável: um **registro simples de alteração** (quem/quando/de→para), **não** versionamento completo. Decidir na 3.6.
 
 ---
 
@@ -885,6 +935,8 @@ So that eu marque meu atendimento sem ligar para o salão.
 As a dono/funcionário/profissional,
 I want receber a solicitação e confirmá-la ou recusá-la pelo painel,
 So that eu controle quais agendamentos aceito.
+
+> **Depende da Story 3.5 (DL-043).** O bot cria o pré-agendamento com `professional_id` **nulo** (FR-A4/DL-013); atribuir o responsável pelo painel é a **3.5**. Sem ela, o pendente é confirmado mas fica sem profissional — a 3.5 tem que estar pronta antes desta.
 
 **Acceptance Criteria:**
 
