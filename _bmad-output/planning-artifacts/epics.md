@@ -277,6 +277,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 > Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
 
 - **Editar/remarcar agendamento (o "U" do CRUD)** — **fatiado em duas stories (DL-043):** **3.5** atribuir/trocar profissional (mínimo; pré-requisito do Épico 6) — **mergeada (#35)** — e **3.6** remarcação de serviço/horário + **Editar unificado** (a cara; spec aberta). A 3.6 reabsorve o "trocar profissional" da 3.5 num único formulário de Editar (DL-044).
+- **Auditoria de agendamentos consolidada (DL-045)** — a 3.6 cria `appointment_changes` (histórico de deltas das edições). Cancelamento (`cancelled_by_user_id`) e atribuição (`assigned_by_user_id/assigned_at`) seguem em **colunas soltas** (estado atual). Migrá-los para a change-log genérica fica como **refactor futuro** — decidido não fazer na 3.6 (reescreveria 3.4/3.5).
 - **No-show (FR-D9)** — marcar *confirmado* → *não compareceu* pelo card (previsto na 3.2 como AC). **Ainda não implementado.** Informativo, sem automação/notificação (DL-023).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.

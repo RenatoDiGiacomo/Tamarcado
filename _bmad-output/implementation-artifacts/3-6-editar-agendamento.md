@@ -38,7 +38,7 @@ O campo Profissional volta a ser uma **linha read-only** simples (nome ou "Não 
   ```
   - Guards do controller (`JwtAuthGuard, ActiveUserGuard, RolesGuard`). Tenant-aware.
   - **Estado:** só *pending*/*confirmed* → senão **400**.
-  - **Permissão (D-B1, a confirmar):** owner/gerente editam qualquer um; `basic` edita **só o próprio** (`professional_id == self`), e **não** pode reatribuir para outra pessoa (o `professionalId` resultante deve ser `self` ou `null`) — mantém o espírito do D5 da 3.5.
+  - **Permissão (D-B1 ✅):** owner/gerente editam qualquer um; `basic` edita quando o agendamento é **dele** (`professional_id == self`) **ou está NÃO ATRIBUÍDO** (`professional_id == null` — caso do bot, ele **assume para si**). `basic` **não** pode: editar agendamento **de outra pessoa** já atribuída, nem definir `professionalId` para **outro** que não ele (o alvo deve ser `self` ou `null`).
   - **Validações:** serviço (quando informado) ativo do tenant; profissional (quando não-nulo) atendente ativo (não exige vínculo — 3.3.1); `date` hoje-ou-futura (mesma regra da criação, AC4/3.3).
   - **Efeito:** recalcula `scheduled_at` de `date`+`time` no fuso do tenant; se `serviceId` mudou, **re-snapshota** `duration_minutes`/`price_snapshot`; aplica `professional_id`; grava auditoria + registro de alteração.
   - **Resposta:** o agendamento atualizado (view) **+ `overbooked: boolean`**.
@@ -64,7 +64,11 @@ Tabela nova **`appointment_changes`** (append-only, migração aditiva):
 
 Uma linha por campo alterado numa edição. É o "registro simples de alteração" do DL-043/DL-044 — **não** snapshot do agendamento inteiro. Índice `(company_id, appointment_id)`.
 
-> **Auditoria "quem editou/quando":** coberta pela própria `appointment_changes` (cada linha tem `changed_by_user_id`/`changed_at`). **Não** adiciona colunas novas em `appointments` para isso (evita `edited_by` redundante com a tabela de mudanças). *(Alternativa a confirmar: se você preferir um "último editor" barato no próprio `appointments`, dá para adicionar `edited_by_user_id`/`edited_at` — digo o trade-off na revisão.)*
+> **Auditoria "quem editou/quando":** coberta pela própria `appointment_changes` (cada linha tem `changed_by_user_id`/`changed_at`). **Não** adiciona colunas novas em `appointments` para isso — o `edited_by/edited_at` barato foi **descartado** (apaga o histórico, que é o objetivo).
+>
+> **Coerência com a 3.5:** quando a edição troca o **profissional**, além de logar o delta na `appointment_changes`, o serviço **também atualiza `assigned_by_user_id`/`assigned_at`** (coluna de estado da 3.5), para "último a atribuir" seguir correto.
+>
+> **Consolidação da auditoria — adiada (DL-045).** A `appointment_changes` nasce **genérica (por campo)**, então cancelamento/atribuição poderiam migrar para ela no futuro; mas **não** consolidamos agora (não reescreve 3.4/3.5). Débito consciente registrado no DL-045.
 
 ## Frontend
 
@@ -109,8 +113,8 @@ Pela tela, screenshots de:
 | # | Decisão | Resolução |
 |---|---|---|
 | **D-B0** | Endpoint | ✅ `PATCH /api/appointments/:id` (edição unificada); `:id/professional` da 3.5 permanece para o bot (DL-044). |
-| **D-B1** | Permissão | 🟡 **Recomendado:** owner/gerente qualquer; `basic` só o próprio e sem reatribuir para outra pessoa (espírito do D5). **Confirmar.** |
-| **D-B2** | Registro de alteração | 🟡 **Recomendado:** tabela `appointment_changes` (delta por campo), sem colunas novas em `appointments`. **Confirmar** (vs. `edited_by`/`edited_at` no próprio agendamento). |
+| **D-B1** | Permissão | ✅ owner/gerente qualquer; `basic` edita o **próprio** OU um **não atribuído** (assume para si — caso do bot); não tira de outro nem reatribui para terceiro (alvo ∈ {self, null}). |
+| **D-B2** | Registro de alteração | ✅ Tabela `appointment_changes` (delta por campo). `edited_by/edited_at` descartado (apaga histórico). Consolidar cancel/assign nela = **adiado (DL-045)**. |
 | **D-B3** | Escopo do editável | ✅ serviço + horário + profissional juntos; **cliente fixo** (cancela e recria para trocar cliente). |
 | **D-B4** | Conflito | ✅ Avisa e segue (D1); `overbooked` informativo; ignora o próprio agendamento. |
 | **D-B5** | Re-snapshot | ✅ Ao trocar serviço, refaz `duration_minutes`/`price_snapshot` do novo serviço. |
