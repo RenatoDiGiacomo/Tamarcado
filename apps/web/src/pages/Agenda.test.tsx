@@ -25,7 +25,9 @@ const BUSINESS = { start: "08:00", end: "19:00" };
 const seg: ApiAppointment = {
   id: "10",
   clientName: "Maria das Dores",
+  serviceId: "3",
   serviceName: "Coloração",
+  professionalId: "7",
   professionalName: "Fernanda",
   date: "2026-07-20",
   start: "09:00",
@@ -36,7 +38,9 @@ const seg: ApiAppointment = {
 const semAtrib: ApiAppointment = {
   id: "11",
   clientName: "Joana Silva",
+  serviceId: "3",
   serviceName: "Corte",
+  professionalId: null,
   professionalName: null,
   date: "2026-07-20",
   start: "11:00",

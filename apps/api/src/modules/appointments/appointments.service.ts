@@ -45,6 +45,12 @@ export interface CreatedAppointment {
   overbooked: boolean;
 }
 
+export interface AssignProfessionalResult {
+  appointment: AppointmentView;
+  /** True quando o novo profissional já tem atendimento sobreposto (informativo, não bloqueia — D3/D1). */
+  overbooked: boolean;
+}
+
 interface CreateAtomicParams {
   clientId: string;
   serviceId: string;
@@ -67,6 +73,7 @@ export class AppointmentsService {
   constructor(
     private readonly appointmentsRepo: AppointmentsRepository,
     @InjectRepository(Company) private readonly companies: Repository<Company>,
+    @InjectRepository(User) private readonly users: Repository<User>,
     private readonly tenant: TenantContextService,
     private readonly dataSource: DataSource,
   ) {}
@@ -203,6 +210,87 @@ export class AppointmentsService {
   }
 
   /**
+   * Atribuir/trocar o profissional de um agendamento (Story 3.5/DL-043). Muta
+   * **só** `professional_id` + auditoria (`assigned_by_user_id`/`assigned_at`) —
+   * não mexe em horário/serviço/preço (é a 3.6). Só em pending/confirmed. Conflito
+   * de horário do novo profissional **avisa** (`overbooked`) mas não bloqueia (D3/D1).
+   * Permissão D5: owner/gerente qualquer; `basic` só atribui A SI e só quando o
+   * campo está nulo (não tira de ninguém).
+   */
+  async assignProfessional(
+    id: string,
+    professionalId: string | null,
+    user: AuthUser,
+  ): Promise<AssignProfessionalResult> {
+    const companyId = this.tenant.getCompanyId();
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+
+    // Estado (AC/API): só faz sentido em atendimentos ainda ativos.
+    if (appt.status !== "pending" && appt.status !== "confirmed") {
+      throw new BadRequestException(
+        "Não é possível trocar o profissional de um atendimento encerrado ou cancelado.",
+      );
+    }
+
+    // Permissão (D5): owner/gerente qualquer; basic só atribui A SI e só quando
+    // o agendamento está sem profissional (não pode tirar de outra pessoa).
+    if (user.accessLevel === "basic") {
+      const assigningSelf = professionalId === user.userId;
+      const currentlyUnassigned = appt.professional_id === null;
+      if (!assigningSelf || !currentlyUnassigned) {
+        throw new ForbiddenException(
+          "Você só pode atribuir a si mesmo um agendamento sem profissional.",
+        );
+      }
+    }
+
+    // Validação: profissional (quando não-nulo) precisa ser atendente ativo do
+    // tenant. NÃO exige o vínculo `professional_services` (sugere, não restringe — 3.3.1).
+    if (professionalId !== null) {
+      const prof = await this.users.findOne({
+        where: {
+          id: professionalId,
+          company_id: companyId,
+          attends_clients: true,
+          is_active: true,
+        },
+      });
+      if (!prof) {
+        throw new BadRequestException("Profissional inválido.");
+      }
+    }
+
+    // Conflito é informativo (D3/D1): calcula sobreposição do NOVO profissional
+    // ignorando o próprio agendamento; nunca bloqueia.
+    let overbooked = false;
+    if (professionalId !== null) {
+      overbooked = await this.hasOverlapExcluding(
+        companyId,
+        professionalId,
+        appt.scheduled_at,
+        appt.duration_minutes,
+        appt.id,
+      );
+    }
+
+    appt.professional_id = professionalId;
+    appt.assigned_by_user_id = user.userId;
+    appt.assigned_at = new Date();
+    await this.appointmentsRepo.save(appt);
+
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const row = await this.appointmentsRepo.findViewById(id);
+    if (!row) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    return { appointment: toAppointmentView(row, tz), overbooked };
+  }
+
+  /**
    * Núcleo transacional (NFR-C1/DL-002). Serializa por profissional com
    * `SELECT ... FOR UPDATE` (a T2 só passa após a T1 commitar, enxergando a linha
    * já gravada). `enforce=true` rejeita conflito (409) — pronto para o bot.
@@ -319,6 +407,37 @@ export class AppointmentsService {
     if (!prof) {
       throw new BadRequestException("Profissional inválido.");
     }
+  }
+
+  /**
+   * Sobreposição informativa (Story 3.5, D3): há OUTRO agendamento não-cancelado
+   * do profissional cobrindo `[start, start+dur)`, ignorando `excludeId` (o próprio
+   * que está sendo reatribuído)? Sem lock — o resultado só alimenta o aviso, não
+   * decide transação.
+   */
+  private async hasOverlapExcluding(
+    companyId: string,
+    professionalId: string,
+    start: Date,
+    durationMinutes: number,
+    excludeId: string,
+  ): Promise<boolean> {
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    const count = await this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder("a")
+      .where("a.company_id = :companyId", { companyId })
+      .andWhere("a.professional_id = :pid", { pid: professionalId })
+      .andWhere("a.id != :excludeId", { excludeId })
+      .andWhere("a.is_deleted = false")
+      .andWhere("a.status != :cancelled", { cancelled: "cancelled" })
+      .andWhere("a.scheduled_at < :end", { end })
+      .andWhere(
+        "DATE_ADD(a.scheduled_at, INTERVAL a.duration_minutes MINUTE) > :start",
+        { start },
+      )
+      .getCount();
+    return count > 0;
   }
 
   /**

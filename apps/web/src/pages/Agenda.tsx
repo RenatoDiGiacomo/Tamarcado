@@ -17,6 +17,8 @@ import {
   type AgendaView,
 } from "../components/agenda/AgendaGrid";
 import { NovoAgendamento } from "./NovoAgendamento";
+import { AtribuirProfissional } from "./AtribuirProfissional";
+import { useAuth } from "../auth/AuthContext";
 import {
   formatDateLabel,
   periodRange,
@@ -40,6 +42,7 @@ interface AgendaResponse {
  * (D6) para buscar 1 dia × 7 dias. Clicar num card abre um detalhe read-only (D3).
  */
 export function Agenda() {
+  const { user } = useAuth();
   const [anchor, setAnchor] = useState<string>(() => todayIso());
   const [view, setView] = useState<AgendaView>("dia");
   const [data, setData] = useState<AgendaResponse | null>(null);
@@ -96,8 +99,18 @@ export function Agenda() {
     return { start, end };
   }, [data, appointments]);
   const selected = data?.appointments.find((a) => a.id === selectedId) ?? null;
-  const canCancel =
+  const isActiveStatus =
     selected?.status === "pending" || selected?.status === "confirmed";
+  const canCancel = isActiveStatus;
+  // Atribuir/trocar profissional (Story 3.5/D5): owner/gerente em qualquer ativo;
+  // `basic` só ATRIBUI A SI, e só quando o agendamento está sem profissional.
+  const assignMode: "any" | "self" | null = !isActiveStatus
+    ? null
+    : user?.accessLevel === "basic"
+      ? selected?.professionalId === null
+        ? "self"
+        : null
+      : "any";
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
@@ -193,11 +206,26 @@ export function Agenda() {
                   label="Horário"
                   value={`${selected.date.split("-").reverse().join("/")} · ${selected.start}–${selected.end}`}
                 />
-                <Row
-                  label="Profissional"
-                  value={selected.professionalName ?? "Não atribuído"}
-                  muted={!selected.professionalName}
-                />
+                {assignMode ? (
+                  <AtribuirProfissional
+                    appointmentId={selected.id}
+                    serviceId={selected.serviceId}
+                    date={selected.date}
+                    start={selected.start}
+                    end={selected.end}
+                    currentProfessionalId={selected.professionalId}
+                    currentProfessionalName={selected.professionalName}
+                    mode={assignMode}
+                    selfId={user?.id ?? ""}
+                    onAssigned={() => setRefreshKey((k) => k + 1)}
+                  />
+                ) : (
+                  <Row
+                    label="Profissional"
+                    value={selected.professionalName ?? "Não atribuído"}
+                    muted={!selected.professionalName}
+                  />
+                )}
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-muted-foreground">Status</dt>
                   <dd>

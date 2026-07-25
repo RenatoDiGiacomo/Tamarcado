@@ -5,7 +5,9 @@ import type { AppointmentStatus } from "../components/StatusChip";
 export interface ApiAppointment {
   id: string;
   clientName: string;
+  serviceId: string; // 3.5: busca quem executa o serviço p/ destacar no select
   serviceName: string;
+  professionalId: string | null; // 3.5: pré-seleciona o profissional atual
   professionalName: string | null;
   date: string; // YYYY-MM-DD (fuso do tenant)
   start: string; // HH:MM

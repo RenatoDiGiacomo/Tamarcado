@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Appointment } from "../../database/entities/appointment.entity";
 import { Company } from "../../database/entities/company.entity";
+import { User } from "../../database/entities/user.entity";
 import { TenantModule } from "../tenant/tenant.module";
 import { UsersModule } from "../users/users.module";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
@@ -15,7 +16,7 @@ import { AppointmentsRepository } from "./appointments.repository";
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Appointment, Company]),
+    TypeOrmModule.forFeature([Appointment, Company, User]),
     TenantModule,
     UsersModule, // ActiveUserGuard depende de UsersService
   ],

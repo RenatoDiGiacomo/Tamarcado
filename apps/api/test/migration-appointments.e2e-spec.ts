@@ -86,6 +86,8 @@ describe("Migration CreateAppointmentsBase (e2e)", () => {
         "cancellation_reason",
         "cancelled_by",
         "cancelled_by_user_id",
+        "assigned_by_user_id",
+        "assigned_at",
         "timeout_notified_at",
         "is_deleted",
         "created_at",
@@ -123,7 +125,17 @@ describe("Migration CreateAppointmentsBase (e2e)", () => {
     ).toBe("YES");
   });
 
-  it("appointments tem índices liderados por company_id e as 6 FKs", async () => {
+  it("assigned_by_user_id e assigned_at são NULLABLE (Story 3.5/D2 — autoria da atribuição)", async () => {
+    const cols = await columns("appointments");
+    expect(
+      cols.find((c) => c.COLUMN_NAME === "assigned_by_user_id")?.IS_NULLABLE,
+    ).toBe("YES");
+    expect(
+      cols.find((c) => c.COLUMN_NAME === "assigned_at")?.IS_NULLABLE,
+    ).toBe("YES");
+  });
+
+  it("appointments tem índices liderados por company_id e as 7 FKs", async () => {
     const idx: Array<{ COLUMN_NAME: string }> = await ds.query(
       `SELECT COLUMN_NAME FROM information_schema.STATISTICS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'
@@ -144,7 +156,7 @@ describe("Migration CreateAppointmentsBase (e2e)", () => {
         "users",
       ]),
     );
-    expect(fks).toHaveLength(6); // company, client, service, professional, created_by, cancelled_by_user
+    expect(fks).toHaveLength(7); // company, client, service, professional, created_by, cancelled_by_user, assigned_by_user
   });
 
   it("reverte removendo appointments e clients (FK-safe)", async () => {

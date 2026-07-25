@@ -17,12 +17,14 @@ import type { AuthUser } from "../auth/auth-user";
 import {
   AppointmentsService,
   type AgendaPeriod,
+  type AssignProfessionalResult,
   type CreatedAppointment,
 } from "./appointments.service";
 import type { AppointmentView } from "./appointments.mapper";
 import { ListAppointmentsQueryDto } from "./dto/list-appointments-query.dto";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { CancelAppointmentDto } from "./dto/cancel-appointment.dto";
+import { AssignProfessionalDto } from "./dto/assign-professional.dto";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -70,5 +72,19 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<AppointmentView> {
     return this.appointments.cancel(id, dto, user);
+  }
+
+  /**
+   * Atribui/troca o profissional de um agendamento (Story 3.5/DL-043). Só muta
+   * `professional_id` + auditoria. `basic` só atribui a si, e só quando está sem
+   * profissional (D5). Conflito de horário avisa via `overbooked`, não bloqueia.
+   */
+  @Patch(":id/professional")
+  async assignProfessional(
+    @Param("id") id: string,
+    @Body() dto: AssignProfessionalDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AssignProfessionalResult> {
+    return this.appointments.assignProfessional(id, dto.professionalId, user);
   }
 }
