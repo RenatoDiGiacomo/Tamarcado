@@ -252,7 +252,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 ---
 
-## Estado de implementação — retrato (2026-07-23)
+## Estado de implementação — retrato (2026-07-25)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
@@ -263,12 +263,12 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 - ✅ **3.3** Agendamento manual pelo painel — mergeada
 - ✅ **3.3.1** Correções do agendamento manual (encaixe não bloqueia; mensagens de erro reais) — mergeada (PR #24)
 - ✅ **3.4** Cancelamento pelo painel — mergeada (PR #30, DL-041)
-- 🔜 **3.5** Atribuir/trocar profissional — spec aberta (DL-043); **pré-requisito da 6.4** (bot cria sem profissional, FR-A4)
-- 📋 **3.6** Remarcação (trocar serviço/horário) — planejada (DL-043); a cara (reabre disponibilidade/conflito/re-snapshot)
+- ✅ **3.5** Atribuir/trocar profissional — mergeada (PR #35, DL-043); **pré-requisito da 6.4** (bot cria sem profissional, FR-A4)
+- 🔜 **3.6** Remarcação (trocar serviço/horário) + **Editar unificado** — spec aberta (DL-043); absorve o "trocar profissional" da 3.5 num Editar único (reabre disponibilidade/conflito/re-snapshot)
 
 **Épico 4 — Gestão de Clientes:**
 - ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
-- 🔜 **4.2** Perfil da cliente (histórico + observações) — **em implementação** (PR #32) — fecha o Épico 4
+- ✅ **4.2** Perfil da cliente (histórico + observações) — mergeada (PR #32) — **Épico 4 completo**
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
@@ -276,7 +276,8 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 > Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
 
-- **Editar/remarcar agendamento (o "U" do CRUD)** — **fatiado em duas stories (DL-043):** **3.5** atribuir/trocar profissional (mínimo; pré-requisito do Épico 6) e **3.6** remarcação de serviço/horário (a cara). Deixou de ser buraco — tem story.
+- **Editar/remarcar agendamento (o "U" do CRUD)** — **fatiado em duas stories (DL-043):** **3.5** atribuir/trocar profissional (mínimo; pré-requisito do Épico 6) — **mergeada (#35)** — e **3.6** remarcação de serviço/horário + **Editar unificado** (a cara; spec aberta). A 3.6 reabsorve o "trocar profissional" da 3.5 num único formulário de Editar (DL-044).
+- **Auditoria de agendamentos consolidada (DL-045)** — a 3.6 cria `appointment_changes` (histórico de deltas das edições). Cancelamento (`cancelled_by_user_id`) e atribuição (`assigned_by_user_id/assigned_at`) seguem em **colunas soltas** (estado atual). Migrá-los para a change-log genérica fica como **refactor futuro** — decidido não fazer na 3.6 (reescreveria 3.4/3.5).
 - **No-show (FR-D9)** — marcar *confirmado* → *não compareceu* pelo card (previsto na 3.2 como AC). **Ainda não implementado.** Informativo, sem automação/notificação (DL-023).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
@@ -676,19 +677,21 @@ So that agendamentos sem profissional (inclusive os que o bot cria) ganhem respo
 
 > **Pré-requisito do Épico 6 (FR-A4).** O bot cria agendamentos com `professional_id` **nulo** (sem atribuição no MVP, DL-013); é pela 3.5 que o salão atribui pelo painel. **Dependência explícita da Story 6.4** (tratar pendentes) — sem a 3.5, um pendente do bot não tem como ganhar responsável.
 
-### Story 3.6: Remarcação — trocar serviço/horário
+### Story 3.6: Editar agendamento (remarcação unificada — serviço + horário + profissional)
 
 As a dono/funcionário/profissional,
-I want remarcar um agendamento (serviço e/ou horário),
-So that eu ajuste um atendimento sem cancelar e recriar.
+I want editar um agendamento (serviço, horário e profissional juntos, num formulário só),
+So that eu ajuste um atendimento sem cancelar e recriar — inclusive trocar o profissional junto com o serviço que ele executa.
 
 **Acceptance Criteria:**
 
 **Given** um agendamento *pending*/*confirmed*
-**When** troco **serviço** e/ou **horário**
-**Then** o sistema **reabre a disponibilidade** (`AvailabilityService`), **checa conflito** (aviso, não bloqueio — D1) e **refaz os snapshots** de duração/preço (o serviço pode mudar) — superfície grande, por isso separada da 3.5
+**When** abro **Editar** (botão claro no modal de detalhe, reusando o formulário de Novo agendamento pré-preenchido)
+**Then** posso trocar **serviço**, **horário** e **profissional** juntos; o sistema **reabre a disponibilidade** (`AvailabilityService`), **checa conflito** (aviso, não bloqueio — D1) e **refaz os snapshots** de duração/preço quando o serviço muda; grava **auditoria** (quem editou e quando) e um **registro simples do que mudou** (de→para)
 
-> **Questão em aberto (a decidir na spec da 3.6).** O sistema **guarda o estado anterior** ao remarcar? Sem isso não há como esclarecer reclamação ("eu marquei às 14h"). Provável: um **registro simples de alteração** (quem/quando/de→para), **não** versionamento completo. Decidir na 3.6.
+> **Editar unificado (DL-044).** A 3.6 **absorve o "trocar profissional" da 3.5**: em vez de um select isolado escondido no detalhe, um botão **Editar** único abre serviço + horário + profissional juntos. Resolve o paradoxo de atribuir um profissional a um serviço que ele não faz — troca-se os dois de uma vez.
+>
+> **Questão em aberto resolvida (era do DL-043):** guarda-se o estado anterior via **registro simples de alteração** (quem/quando/de→para) — **não** versionamento completo.
 
 ---
 

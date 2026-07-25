@@ -22,7 +22,10 @@ interface Opts {
   body?: Record<string, unknown>;
 }
 
-const services = [{ id: "s1", name: "Corte", isActive: true }];
+const services = [
+  { id: "s1", name: "Corte", isActive: true },
+  { id: "s2", name: "Coloração", isActive: true },
+];
 const attenders = [
   { id: "p1", name: "Ana" },
   { id: "p2", name: "Bruna" },
@@ -43,6 +46,9 @@ function routeApi(path: string, opts: Opts = {}): Response {
   }
   if (path === "/appointments" && method === "POST") {
     return jsonRes({ id: "a1", date: "2026-07-20", overbooked: false });
+  }
+  if (path.startsWith("/appointments/") && method === "PATCH") {
+    return jsonRes({ appointment: {}, overbooked: false });
   }
   return jsonRes({});
 }
@@ -96,6 +102,54 @@ describe("NovoAgendamento", () => {
       date: "2026-07-20",
       time: "10:00",
     });
+  });
+
+  it("modo edição (3.6): pré-preenche, troca Corte→Coloração e salva via PATCH", async () => {
+    role = "owner";
+    const onCreated = vi.fn();
+    render(
+      <NovoAgendamento
+        open
+        onOpenChange={vi.fn()}
+        date="2026-07-20"
+        onCreated={onCreated}
+        editing={{
+          appointmentId: "42",
+          clientName: "Maria Souza",
+          serviceId: "s1",
+          professionalId: "p1",
+          date: "2026-07-20",
+          time: "10:00",
+        }}
+      />,
+    );
+    await screen.findByText("Editar agendamento");
+    // Cliente fixo (sem "trocar") e serviço pré-preenchido.
+    expect(screen.getByText("Maria Souza")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "trocar" })).toBeNull();
+    await waitFor(() =>
+      expect((screen.getByLabelText("Serviço") as HTMLSelectElement).value).toBe("s1"),
+    );
+
+    // Troca o serviço → Coloração (reabre disponibilidade); re-escolhe o horário.
+    fireEvent.change(screen.getByLabelText("Serviço"), { target: { value: "s2" } });
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(
+        ([p, o]) => p === "/appointments/42" && o?.method === "PATCH",
+      );
+      expect(patch?.[1].body).toEqual(
+        expect.objectContaining({
+          serviceId: "s2",
+          date: "2026-07-20",
+          time: "10:00",
+          professionalId: "p1",
+        }),
+      );
+    });
+    expect(onCreated).toHaveBeenCalledWith("2026-07-20");
   });
 
   it("mostra a mensagem REAL da API quando a criação falha (não a genérica)", async () => {

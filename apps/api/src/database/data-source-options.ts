@@ -7,6 +7,7 @@ import { ProfessionalService } from "./entities/professional-service.entity";
 import { ProfessionalSchedule } from "./entities/professional-schedule.entity";
 import { Client } from "./entities/client.entity";
 import { Appointment } from "./entities/appointment.entity";
+import { AppointmentChange } from "./entities/appointment-change.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
@@ -15,6 +16,7 @@ import { CreateProfessionalSchedules1718900400000 } from "./migrations/171890040
 import { CreateAppointmentsBase1718900500000 } from "./migrations/1718900500000-CreateAppointmentsBase";
 import { AddCancelledByUserIdToAppointments1718900600000 } from "./migrations/1718900600000-AddCancelledByUserIdToAppointments";
 import { AddAssignmentAuditToAppointments1718900700000 } from "./migrations/1718900700000-AddAssignmentAuditToAppointments";
+import { CreateAppointmentChanges1718900800000 } from "./migrations/1718900800000-CreateAppointmentChanges";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -39,6 +41,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       ProfessionalSchedule,
       Client,
       Appointment,
+      AppointmentChange,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -49,6 +52,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreateAppointmentsBase1718900500000,
       AddCancelledByUserIdToAppointments1718900600000,
       AddAssignmentAuditToAppointments1718900700000,
+      CreateAppointmentChanges1718900800000,
     ],
     synchronize: false,
     migrationsRun: false,
