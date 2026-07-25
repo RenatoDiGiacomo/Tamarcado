@@ -62,11 +62,23 @@ const NO_SLOTS_MSG: Record<NoSlotsReason, string> = {
     "Ainda não há horários de atendimento configurados. Use “Outro horário” para encaixar.",
 };
 
+/** Modo edição (Story 3.6): pré-preenche o formulário para editar um agendamento. */
+export interface EditingAppointment {
+  appointmentId: string;
+  clientName: string;
+  serviceId: string;
+  professionalId: string | null;
+  date: string;
+  time: string;
+}
+
 /**
- * Novo agendamento manual (Story 3.3, D4 = modal sobre a agenda). Cliente com
- * busca + cadastro inline (FR-D7); serviço; profissional (oculto para `basic`,
- * D6); data/horário com slots livres de `/availability` + "outro horário".
- * Overbooking = aviso, não bloqueio (D1). Cria via `POST /appointments`.
+ * Novo agendamento manual (Story 3.3, D4 = modal sobre a agenda) — e **edição**
+ * unificada (Story 3.6/DL-044). Cliente com busca + cadastro inline (FR-D7);
+ * serviço; profissional (oculto para `basic`, D6); data/horário com slots livres
+ * de `/availability` + "outro horário". Overbooking = aviso, não bloqueio (D1).
+ * Cria via `POST /appointments`; em modo edição, **cliente fixo** e salva via
+ * `PATCH /appointments/:id` (serviço + horário + profissional juntos).
  */
 export function NovoAgendamento({
   open,
@@ -74,6 +86,7 @@ export function NovoAgendamento({
   date,
   onCreated,
   initialClient,
+  editing,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +94,8 @@ export function NovoAgendamento({
   onCreated: (date: string) => void;
   /** Pré-seleciona a cliente (Story 4.2 — atalho do perfil). */
   initialClient?: ClientView | null;
+  /** Modo edição (Story 3.6): pré-preenche e salva via PATCH; cliente fixo. */
+  editing?: EditingAppointment | null;
 }) {
   const { user } = useAuth();
   const isBasic = user?.accessLevel === "basic";
@@ -107,20 +122,38 @@ export function NovoAgendamento({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reabrir zera o formulário e ancora na data corrente da agenda.
+  // Reabrir zera (ou pré-preenche, em edição) o formulário.
   useEffect(() => {
     if (!open) return;
-    setFormDate(date);
-    setServiceId("");
-    setProfessionalId("");
-    setTime("");
-    setCustomMode(false);
-    setCustomTime("");
-    setSlots([]);
-    setSlotsReason(null);
-    setClientQuery(initialClient?.name ?? "");
+    if (editing) {
+      // Modo edição (3.6): pré-preenche serviço/profissional/data/horário; cliente fixo.
+      setFormDate(editing.date);
+      setServiceId(editing.serviceId);
+      setProfessionalId(editing.professionalId ?? "");
+      setTime(editing.time);
+      setCustomMode(false);
+      setCustomTime("");
+      setSlots([]);
+      setSlotsReason(null);
+      setSelectedClient({
+        id: "fixed",
+        name: editing.clientName,
+        phone_whatsapp: null,
+      });
+      setClientQuery(editing.clientName);
+    } else {
+      setFormDate(date);
+      setServiceId("");
+      setProfessionalId("");
+      setTime("");
+      setCustomMode(false);
+      setCustomTime("");
+      setSlots([]);
+      setSlotsReason(null);
+      setClientQuery(initialClient?.name ?? "");
+      setSelectedClient(initialClient ?? null);
+    }
     setClientResults([]);
-    setSelectedClient(initialClient ?? null);
     setAddingClient(false);
     setNewName("");
     setNewPhone("");
@@ -137,7 +170,7 @@ export function NovoAgendamento({
         setAttenders(((await attRes.json()) as { users: Attender[] }).users);
       }
     })();
-  }, [open, date, initialClient]);
+  }, [open, date, initialClient, editing]);
 
   // Slots livres (+ motivo do vazio) para serviço + data (+ profissional).
   useEffect(() => {
@@ -238,6 +271,31 @@ export function NovoAgendamento({
 
     setSubmitting(true);
     try {
+      if (editing) {
+        // Edição (3.6): cliente fixo; envia serviço/horário/profissional. `basic`
+        // assume para si (professionalId = self); owner/gerente enviam o escolhido.
+        const res = await apiRequest(`/appointments/${editing.appointmentId}`, {
+          method: "PATCH",
+          body: {
+            serviceId,
+            date: formDate,
+            time: chosenTime,
+            professionalId: isBasic
+              ? (user?.id ?? null)
+              : professionalId || null,
+          },
+          token: token(),
+        });
+        if (!res.ok) {
+          setError(
+            await apiErrorMessage(res, "Não foi possível salvar as alterações."),
+          );
+          return;
+        }
+        onCreated(formDate);
+        onOpenChange(false);
+        return;
+      }
       const res = await apiRequest("/appointments", {
         method: "POST",
         body: {
@@ -270,7 +328,9 @@ export function NovoAgendamento({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Novo agendamento</DialogTitle>
+          <DialogTitle>
+            {editing ? "Editar agendamento" : "Novo agendamento"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -280,16 +340,18 @@ export function NovoAgendamento({
             {selectedClient ? (
               <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
                 <span>{selectedClient.name}</span>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => {
-                    setSelectedClient(null);
-                    setClientQuery("");
-                  }}
-                >
-                  trocar
-                </button>
+                {!editing && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSelectedClient(null);
+                      setClientQuery("");
+                    }}
+                  >
+                    trocar
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -498,9 +560,11 @@ export function NovoAgendamento({
             </p>
           )}
 
-          <p className="text-xs text-muted-foreground">
-            Entra como: <strong className="text-foreground">Confirmado</strong>, sem aprovação.
-          </p>
+          {!editing && (
+            <p className="text-xs text-muted-foreground">
+              Entra como: <strong className="text-foreground">Confirmado</strong>, sem aprovação.
+            </p>
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -522,7 +586,11 @@ export function NovoAgendamento({
               disabled={submitting}
               className={cn(overbookWarn && "bg-status-noshow hover:bg-status-noshow/90")}
             >
-              {submitting ? "Salvando…" : "Agendar"}
+              {submitting
+                ? "Salvando…"
+                : editing
+                  ? "Salvar alterações"
+                  : "Agendar"}
             </Button>
           </div>
         </div>

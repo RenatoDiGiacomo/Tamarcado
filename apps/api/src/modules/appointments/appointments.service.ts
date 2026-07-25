@@ -12,10 +12,12 @@ import { User } from "../../database/entities/user.entity";
 import { Client } from "../../database/entities/client.entity";
 import { SalonService } from "../../database/entities/salon-service.entity";
 import { Appointment } from "../../database/entities/appointment.entity";
+import { AppointmentChange } from "../../database/entities/appointment-change.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import type { AuthUser } from "../auth/auth-user";
 import {
   addDays,
+  minutesToTime,
   timeToMinutes,
   utcToZonedParts,
   zonedWallTimeToUtc,
@@ -49,6 +51,13 @@ export interface AssignProfessionalResult {
   appointment: AppointmentView;
   /** True quando o novo profissional já tem atendimento sobreposto (informativo, não bloqueia — D3/D1). */
   overbooked: boolean;
+}
+
+export interface EditAppointmentInput {
+  serviceId?: string;
+  date?: string;
+  time?: string;
+  professionalId?: string | null;
 }
 
 interface CreateAtomicParams {
@@ -283,6 +292,179 @@ export class AppointmentsService {
 
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
+    const row = await this.appointmentsRepo.findViewById(id);
+    if (!row) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    return { appointment: toAppointmentView(row, tz), overbooked };
+  }
+
+  /**
+   * Edição unificada (Story 3.6/DL-044): troca serviço, horário e/ou profissional
+   * juntos. Ao trocar o serviço, **re-snapshota** duração/preço. Conflito **avisa**
+   * (`overbooked`) e não bloqueia (D1). Grava um **registro de alteração** por
+   * campo (`appointment_changes`, DL-045) com valores legíveis (de→para). Permissão
+   * D-B1: owner/gerente qualquer; `basic` edita o próprio OU assume um não atribuído,
+   * e não define o profissional para terceiro. Só em pending/confirmed.
+   */
+  async editAppointment(
+    id: string,
+    dto: EditAppointmentInput,
+    user: AuthUser,
+  ): Promise<AssignProfessionalResult> {
+    const companyId = this.tenant.getCompanyId();
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+
+    if (appt.status !== "pending" && appt.status !== "confirmed") {
+      throw new BadRequestException(
+        "Não é possível editar um atendimento encerrado ou cancelado.",
+      );
+    }
+
+    // Permissão (D-B1): basic edita o próprio OU um não atribuído (assume p/ si);
+    // não pode editar de outra pessoa já atribuída.
+    if (user.accessLevel === "basic") {
+      const ownOrUnassigned =
+        appt.professional_id === user.userId || appt.professional_id === null;
+      if (!ownOrUnassigned) {
+        throw new ForbiddenException(
+          "Você só pode editar seus próprios agendamentos ou um sem profissional.",
+        );
+      }
+    }
+
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const changes: {
+      field: "service" | "scheduled_at" | "professional";
+      from: string | null;
+      to: string | null;
+    }[] = [];
+
+    // --- Serviço (re-snapshot ao trocar) ---
+    if (dto.serviceId !== undefined && dto.serviceId !== appt.service_id) {
+      const svc = await this.dataSource.getRepository(SalonService).findOne({
+        where: { id: dto.serviceId, company_id: companyId, is_active: true },
+      });
+      if (!svc) {
+        throw new BadRequestException("Serviço inválido ou inativo.");
+      }
+      const oldSvc = await this.dataSource
+        .getRepository(SalonService)
+        .findOne({ where: { id: appt.service_id, company_id: companyId } });
+      changes.push({
+        field: "service",
+        from: oldSvc?.name ?? null,
+        to: svc.name,
+      });
+      appt.service_id = svc.id;
+      appt.duration_minutes = svc.duration_minutes;
+      appt.price_snapshot = svc.price ?? null;
+    }
+
+    // --- Horário (recalcula scheduled_at a partir dos deltas) ---
+    const cur = utcToZonedParts(appt.scheduled_at, tz);
+    const curTime = minutesToTime(cur.minutesOfDay);
+    const newDate = dto.date ?? cur.dateStr;
+    const newTime = dto.time ?? curTime;
+    const newScheduledAt = zonedWallTimeToUtc(
+      newDate,
+      timeToMinutes(newTime),
+      tz,
+    );
+    if (newScheduledAt.getTime() !== appt.scheduled_at.getTime()) {
+      if (isPastCivilDate(newScheduledAt, new Date(), tz)) {
+        throw new BadRequestException("A data deve ser hoje ou futura.");
+      }
+      changes.push({
+        field: "scheduled_at",
+        from: `${cur.dateStr} ${curTime}`,
+        to: `${newDate} ${newTime}`,
+      });
+      appt.scheduled_at = newScheduledAt;
+    }
+
+    // --- Profissional ---
+    if (dto.professionalId !== undefined) {
+      const target = dto.professionalId;
+      if (
+        user.accessLevel === "basic" &&
+        target !== null &&
+        target !== user.userId
+      ) {
+        throw new ForbiddenException(
+          "Você não pode atribuir o agendamento a outro profissional.",
+        );
+      }
+      let newName: string | null = null;
+      if (target !== null) {
+        const prof = await this.users.findOne({
+          where: {
+            id: target,
+            company_id: companyId,
+            attends_clients: true,
+            is_active: true,
+          },
+        });
+        if (!prof) {
+          throw new BadRequestException("Profissional inválido.");
+        }
+        newName = prof.name;
+      }
+      if (target !== appt.professional_id) {
+        const oldName = appt.professional_id
+          ? ((
+              await this.users.findOne({
+                where: { id: appt.professional_id, company_id: companyId },
+              })
+            )?.name ?? null)
+          : null;
+        changes.push({
+          field: "professional",
+          from: oldName ?? "Não atribuído",
+          to: newName ?? "Não atribuído",
+        });
+        appt.professional_id = target;
+        // Coluna de estado da 3.5 coerente com o "último a atribuir".
+        appt.assigned_by_user_id = user.userId;
+        appt.assigned_at = new Date();
+      }
+    }
+
+    // Conflito informativo do resultado final (D1): ignora o próprio agendamento.
+    let overbooked = false;
+    if (appt.professional_id) {
+      overbooked = await this.hasOverlapExcluding(
+        companyId,
+        appt.professional_id,
+        appt.scheduled_at,
+        appt.duration_minutes,
+        appt.id,
+      );
+    }
+
+    if (changes.length > 0) {
+      await this.appointmentsRepo.save(appt);
+      const now = new Date();
+      const changeRepo = this.dataSource.getRepository(AppointmentChange);
+      await changeRepo.save(
+        changes.map((c) =>
+          changeRepo.create({
+            company_id: companyId,
+            appointment_id: appt.id,
+            changed_by_user_id: user.userId,
+            changed_at: now,
+            field: c.field,
+            old_value: c.from,
+            new_value: c.to,
+          }),
+        ),
+      );
+    }
+
     const row = await this.appointmentsRepo.findViewById(id);
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");

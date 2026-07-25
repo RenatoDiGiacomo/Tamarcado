@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
 import { PageLayout } from "../components/PageLayout";
@@ -16,8 +16,7 @@ import {
   AgendaGrid,
   type AgendaView,
 } from "../components/agenda/AgendaGrid";
-import { NovoAgendamento } from "./NovoAgendamento";
-import { AtribuirProfissional } from "./AtribuirProfissional";
+import { NovoAgendamento, type EditingAppointment } from "./NovoAgendamento";
 import { useAuth } from "../auth/AuthContext";
 import {
   formatDateLabel,
@@ -50,6 +49,8 @@ export function Agenda() {
   const [error, setError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
+  // Edição (Story 3.6): reusa o formulário de Novo agendamento pré-preenchido.
+  const [editing, setEditing] = useState<EditingAppointment | null>(null);
   // Bump para forçar recarga mesmo quando o período não muda (ex.: criar um
   // agendamento no dia já aberto — senão a agenda manteria a lista antiga).
   const [refreshKey, setRefreshKey] = useState(0);
@@ -102,15 +103,13 @@ export function Agenda() {
   const isActiveStatus =
     selected?.status === "pending" || selected?.status === "confirmed";
   const canCancel = isActiveStatus;
-  // Atribuir/trocar profissional (Story 3.5/D5): owner/gerente em qualquer ativo;
-  // `basic` só ATRIBUI A SI, e só quando o agendamento está sem profissional.
-  const assignMode: "any" | "self" | null = !isActiveStatus
-    ? null
-    : user?.accessLevel === "basic"
-      ? selected?.professionalId === null
-        ? "self"
-        : null
-      : "any";
+  // Editar (Story 3.6/DL-044/D-B1): owner/gerente editam qualquer ativo; `basic`
+  // edita o próprio OU assume um não atribuído (professional_id nulo, caso do bot).
+  const canEdit =
+    isActiveStatus &&
+    (user?.accessLevel !== "basic" ||
+      selected?.professionalId === user?.id ||
+      selected?.professionalId === null);
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
@@ -119,6 +118,20 @@ export function Agenda() {
     setCancelError(null);
     setCancelSubmitting(false);
   }, []);
+
+  // Abre o Editar (3.6): captura os dados do agendamento e fecha o detalhe.
+  const openEdit = useCallback(() => {
+    if (!selected) return;
+    setEditing({
+      appointmentId: selected.id,
+      clientName: selected.clientName,
+      serviceId: selected.serviceId,
+      professionalId: selected.professionalId,
+      date: selected.date,
+      time: selected.start,
+    });
+    closeDetail();
+  }, [selected, closeDetail]);
 
   const cancelAppointment = useCallback(async () => {
     if (!selectedId) return;
@@ -189,6 +202,20 @@ export function Agenda() {
         }}
       />
 
+      {/* Editar agendamento (Story 3.6) — mesmo formulário, pré-preenchido. */}
+      <NovoAgendamento
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        date={anchor}
+        editing={editing}
+        onCreated={(saved) => {
+          setView("dia");
+          setAnchor(saved);
+          setRefreshKey((k) => k + 1);
+          setEditing(null);
+        }}
+      />
+
       {/* Detalhe read-only (D3) → confirmação de cancelamento (Story 3.4). */}
       <Dialog
         open={selected !== null}
@@ -198,7 +225,17 @@ export function Agenda() {
           {selected && !cancelMode && (
             <>
               <DialogHeader>
-                <DialogTitle>{selected.clientName}</DialogTitle>
+                {/* Título: nome + ícone de origem (só WhatsApp) + badge de status. */}
+                <DialogTitle className="flex flex-wrap items-center gap-2">
+                  <span>{selected.clientName}</span>
+                  {selected.source === "whatsapp" && (
+                    <MessageCircle
+                      className="size-4 shrink-0 text-muted-foreground"
+                      aria-label="WhatsApp"
+                    />
+                  )}
+                  <StatusChip status={toAgendaAppointment(selected).status} />
+                </DialogTitle>
               </DialogHeader>
               <dl className="flex flex-col gap-3 text-sm">
                 <Row label="Serviço" value={selected.serviceName} />
@@ -206,45 +243,27 @@ export function Agenda() {
                   label="Horário"
                   value={`${selected.date.split("-").reverse().join("/")} · ${selected.start}–${selected.end}`}
                 />
-                {assignMode ? (
-                  <AtribuirProfissional
-                    appointmentId={selected.id}
-                    serviceId={selected.serviceId}
-                    date={selected.date}
-                    start={selected.start}
-                    end={selected.end}
-                    currentProfessionalId={selected.professionalId}
-                    currentProfessionalName={selected.professionalName}
-                    mode={assignMode}
-                    selfId={user?.id ?? ""}
-                    onAssigned={() => setRefreshKey((k) => k + 1)}
-                  />
-                ) : (
-                  <Row
-                    label="Profissional"
-                    value={selected.professionalName ?? "Não atribuído"}
-                    muted={!selected.professionalName}
-                  />
-                )}
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-muted-foreground">Status</dt>
-                  <dd>
-                    <StatusChip status={toAgendaAppointment(selected).status} />
-                  </dd>
-                </div>
                 <Row
-                  label="Origem"
-                  value={selected.source === "whatsapp" ? "WhatsApp" : "Manual"}
+                  label="Profissional"
+                  value={selected.professionalName ?? "Não atribuído"}
+                  muted={!selected.professionalName}
                 />
               </dl>
-              {canCancel && (
-                <div className="flex justify-end pt-1">
-                  <Button
-                    variant="destructive"
-                    onClick={() => setCancelMode(true)}
-                  >
-                    Cancelar agendamento
-                  </Button>
+              {(canEdit || canCancel) && (
+                <div className="flex justify-end gap-2 pt-1">
+                  {canEdit && (
+                    <Button variant="secondary" onClick={openEdit}>
+                      Editar
+                    </Button>
+                  )}
+                  {canCancel && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => setCancelMode(true)}
+                    >
+                      Cancelar agendamento
+                    </Button>
+                  )}
                 </div>
               )}
             </>

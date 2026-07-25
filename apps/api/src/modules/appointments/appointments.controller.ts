@@ -25,6 +25,7 @@ import { ListAppointmentsQueryDto } from "./dto/list-appointments-query.dto";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { CancelAppointmentDto } from "./dto/cancel-appointment.dto";
 import { AssignProfessionalDto } from "./dto/assign-professional.dto";
+import { EditAppointmentDto } from "./dto/edit-appointment.dto";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -86,5 +87,19 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<AssignProfessionalResult> {
     return this.appointments.assignProfessional(id, dto.professionalId, user);
+  }
+
+  /**
+   * Edição unificada (Story 3.6/DL-044): serviço, horário e/ou profissional juntos.
+   * Re-snapshota ao trocar serviço; conflito avisa (`overbooked`), não bloqueia (D1);
+   * grava o histórico de alteração (`appointment_changes`). Só *pending/confirmed*.
+   */
+  @Patch(":id")
+  async edit(
+    @Param("id") id: string,
+    @Body() dto: EditAppointmentDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AssignProfessionalResult> {
+    return this.appointments.editAppointment(id, dto, user);
   }
 }
