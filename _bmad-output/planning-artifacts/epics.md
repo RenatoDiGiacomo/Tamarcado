@@ -252,19 +252,20 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 ---
 
-## Estado de implementação — retrato (2026-07-25)
+## Estado de implementação — retrato (2026-07-26)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
-**Épico 3 — Agendamento manual (painel):**
+**Épico 3 — Agendamento manual (painel) — ✅ COMPLETO (CRUD inteiro):**
 - ✅ **3.1** Base de agendamento + disponibilidade — mergeada
 - ✅ **3.2** Agenda do painel (dia/semana) — mergeada
 - ✅ **3.2.02** Ajustes da agenda (card curto em linha única; aviso ao marcar o mesmo profissional em horário ocupado; **horário de funcionamento configurável** na Identidade) — mergeada (PR #28)
 - ✅ **3.3** Agendamento manual pelo painel — mergeada
 - ✅ **3.3.1** Correções do agendamento manual (encaixe não bloqueia; mensagens de erro reais) — mergeada (PR #24)
 - ✅ **3.4** Cancelamento pelo painel — mergeada (PR #30, DL-041)
-- ✅ **3.5** Atribuir/trocar profissional — mergeada (PR #35, DL-043); **pré-requisito da 6.4** (bot cria sem profissional, FR-A4)
-- 🔜 **3.6** Remarcação (trocar serviço/horário) + **Editar unificado** — spec aberta (DL-043); absorve o "trocar profissional" da 3.5 num Editar único (reabre disponibilidade/conflito/re-snapshot)
+- ✅ **3.5** Atribuir/trocar profissional — mergeada (PR #35, DL-043); **pré-requisito** de tratar pendentes (link/bot)
+- ✅ **3.6** Remarcação + **Editar unificado** (serviço/horário/profissional) — mergeada (PR #36, DL-044/DL-045); cria `appointment_changes`
+- ✅ **3.7** Marcar comparecimento (no-show/concluído) por ações pontuais — mergeada (PR #38); auditoria unificada na `appointment_changes`
 
 **Épico 4 — Gestão de Clientes:**
 - ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
@@ -276,9 +277,9 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 > Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
 
-- **Editar/remarcar agendamento (o "U" do CRUD)** — **fatiado em duas stories (DL-043):** **3.5** atribuir/trocar profissional (mínimo; pré-requisito do Épico 6) — **mergeada (#35)** — e **3.6** remarcação de serviço/horário + **Editar unificado** (a cara; spec aberta). A 3.6 reabsorve o "trocar profissional" da 3.5 num único formulário de Editar (DL-044).
-- **Auditoria de agendamentos consolidada (DL-045)** — a 3.6 cria `appointment_changes` (histórico de deltas das edições). Cancelamento (`cancelled_by_user_id`) e atribuição (`assigned_by_user_id/assigned_at`) seguem em **colunas soltas** (estado atual). Migrá-los para a change-log genérica fica como **refactor futuro** — decidido não fazer na 3.6 (reescreveria 3.4/3.5).
-- **No-show (FR-D9)** — marcar *confirmado* → *não compareceu* pelo card (previsto na 3.2 como AC). **Ainda não implementado.** Informativo, sem automação/notificação (DL-023).
+- ~~**Editar/remarcar agendamento (o "U" do CRUD)**~~ — **FECHADO:** 3.5 (atribuir/trocar profissional, #35), 3.6 (remarcação + Editar unificado, #36, DL-044) e 3.7 (marcar comparecimento, #38). O CRUD de agendamento está completo.
+- ~~**No-show (FR-D9)**~~ — **FECHADO na 3.7 (#38):** ações pontuais Concluído/Não compareceu, só depois do horário; informativo, sem notificação (DL-023).
+- **Auditoria de agendamentos consolidada (DL-045)** — a 3.6/3.7 usam `appointment_changes` (histórico de deltas: serviço/horário/profissional/status). Cancelamento (`cancelled_by_user_id`) e atribuição (`assigned_by_user_id/assigned_at`) seguem em **colunas soltas** (estado atual). Migrá-los para a change-log genérica fica como **refactor futuro** — não feito para não reescrever 3.4/3.5.
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
 - **Overbooking do mesmo profissional** — permitido **de propósito** (D1: encaixe deliberado). A 3.2.02 adicionou **aviso nomeando** quem já está ocupado, mas **não há bloqueio duro**. Fica assim no MVP; revisar se algum salão pedir prevenção rígida.
