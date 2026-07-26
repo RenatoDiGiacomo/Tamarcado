@@ -68,14 +68,27 @@ Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o q
 **5B.3** — `PATCH :id/confirm` + `PATCH :id/reject` (DTOs, mapa de origem `pending`, auditoria); tela Pendentes (lista + confirmar inline + recusar com justificativa); e2e (pending→confirmed com/sem profissional; pending→cancelled com reason; reason vazio → 400; origem não-pending → 409; permissão).
 **5B.4** — `GET /appointments/pending-count`; polling em background + badge + toast; e2e/web tests (conta certa; badge não some por reload; polling não fecha modal).
 
-## Decisões a confirmar
+## O link funciona COMPLETO sem o Épico 6 (nada órfão)
 
-| # | Decisão | Recomendação |
+**Confirmado: 5B.2/5B.3/5B.4 são um fluxo fechado, sem depender do bot.**
+
+- **Cliente (5B.2):** agenda → vê a tela de sucesso **"Recebido! O salão vai confirmar."** e **acabou**. Ela **não** espera nenhuma notificação automática — a mensagem já diz que a confirmação virá do salão. Sem promessa quebrada.
+- **Salão (5B.3):** vê o pendente na agenda + na tela Pendentes; **confirma** (atribui + confirmado) ou **recusa** (cancelado + motivo). Tudo **in-panel**, sem WhatsApp.
+- **Badge (5B.4):** polling in-panel — a recepção percebe novos pendentes sem F5.
+- **Motivo da recusa** é **gravado agora** (`cancellation_reason`) e fica **pronto** para o bot notificar a cliente depois (Épico 6) — é **forward-compatible**, não uma dependência. Se o bot nunca existisse, o motivo simplesmente fica no registro (auditoria).
+
+**O que o Épico 6 ADICIONA por cima (sem alterar o fluxo do painel):** a mensagem à cliente na confirmação/recusa (FR-B3/B5) e o timeout de 2h (FR-B6). São **camadas aditivas** — o painel já funciona sem elas.
+
+> **Gap consciente (registrado, não órfão):** sem o bot, a cliente **não recebe** aviso automático de confirmado/recusado. Ela sabe disso pela tela de sucesso; o salão tem o telefone e contata manual se quiser. É uma **limitação consciente** do link-sem-bot, não meio fluxo pendurado.
+
+## Decisões (Pendentes)
+
+| # | Decisão | Status |
 |---|---|---|
-| **PR-1** | Profissional obrigatório na confirmação? | **Não** — pode confirmar sem atribuir (atribuição é 3.5, independente) |
-| **PR-2** | Recusar: endpoint dedicado `:id/reject` (reason obrigatório) vs. reusar `:id/cancel` | **Dedicado** — obrigatoriedade é regra do domínio (FR-B4) |
-| **PR-3** | Quem confirma/recusa | **owner/gerente** (recepção); basic não trata pendente de outros |
-| **PR-4** | Intervalo do polling | **15–30s** (NFR-A3); WebSocket/SSE = futuro (DL-019) |
+| **PR-1** | Profissional obrigatório na confirmação? | 🟡 **Recomendo Não** — pode confirmar sem atribuir; atribuição é 3.5, independente. A confirmar. |
+| **PR-2** | Recusar: endpoint dedicado `:id/reject` (reason obrigatório) vs. reusar `:id/cancel` | ✅ **Aprovado (Renato):** dedicado, reason **obrigatório**, reusa o padrão de motivo do cancelamento (3.4). O motivo é o que o bot usa depois (FR-B5). |
+| **PR-3** | Quem confirma/recusa | 🟡 **Recomendo owner/gerente** (recepção); basic não trata pendente de outros. A confirmar. |
+| **PR-4** | Intervalo do polling | 🟡 **Recomendo 15–30s** (NFR-A3); WebSocket/SSE = futuro (DL-019). A confirmar. |
 
 ## References
 

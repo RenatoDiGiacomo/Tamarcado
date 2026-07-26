@@ -75,13 +75,13 @@ O DL-034 proíbe **confiar em id de company vindo de fora** — para um **usuár
 - **NÃO** cria agendamento (5B.2). **NÃO** calcula disponibilidade (5B.2). **NÃO** tem a tela de Pendentes (5B.3).
 - **NÃO** expõe nada além de branding + serviços ativos.
 
-## Decisões a confirmar (5B.1)
+## Decisões (5B.1)
 
-| # | Decisão | Recomendação |
+| # | Decisão | Status |
 |---|---|---|
-| **P-A** | 3ª categoria `PUBLIC_TENANT_CONTROLLERS` + middleware por slug (vs. jogar no PRE_TENANT com scoping manual) | **3ª categoria** — scoping automático + guard-rail intacto |
-| **P-B** | `companies.findBySlug` unscoped | **Sim** — slug é a chave pública; retorna só branding/id p/ o contexto |
-| **P-C** | Rota pública fora do `ProtectedRoute` | **Sim** — `/agendar/:slug` é aberta |
+| **P-A** | 3ª categoria `PUBLIC_TENANT_CONTROLLERS` + `PublicSlugTenantMiddleware` (vs. PRE_TENANT com scoping manual) | ✅ **Aprovado (Renato, 2026-07-26)** — scoping automático + guard-rail quebra a suíte se faltar |
+| **P-B** | `companies.findBySlug` unscoped p/ resolver o tenant | 🟡 **Recomendo Sim** — slug é a chave pública; retorna só id + branding p/ o contexto/DTO. A confirmar. |
+| **P-C** | Rota pública `/agendar/:slug` fora do `ProtectedRoute` | 🟡 **Recomendo Sim** — é aberta (sem auth). A confirmar. |
 
 ## References
 
