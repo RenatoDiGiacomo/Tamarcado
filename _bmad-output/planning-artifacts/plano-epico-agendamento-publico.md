@@ -87,6 +87,8 @@ O DL-034 proíbe **confiar em id de company vindo de fora** (para um usuário lo
 
 ## 5. Segurança do POST público (sem auth)
 
+> **Detalhamento tratado (hostil por padrão) na spec `5B-2-agendamento-publico-criar-pendente.md`:** 7 ACs **testados** (SQLi, XSS na saída, regex estrita por campo, whitelist estrita, payload limit, serviceId cross-tenant, isolamento por slug), com testes que batem a **API direto** (supertest), sem passar pelo front. Regra de ouro: validação no **backend**, duas camadas independentes (entrada + saída).
+
 Defesas, em camadas:
 1. **Pending + confirmação do salão é o antispam primário:** nada é confirmado sozinho; lixo entra como pendente e o salão **recusa**. Não gera custo (sem WhatsApp) nem bloqueia agenda de verdade.
 2. **Rate limiting** (`@nestjs/throttler`): limite por **IP** e por **slug** no POST público (ex.: 5/min, 20/h). Global mais frouxo nos GETs.
