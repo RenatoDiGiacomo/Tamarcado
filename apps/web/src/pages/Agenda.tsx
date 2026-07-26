@@ -292,39 +292,56 @@ export function Agenda() {
                 />
               </dl>
               {(canMark || canEdit || canCancel) && (
-                <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                  {/* "Não compareceu" fica DISCRETO (ghost) — no-show cedo demais é
-                      fácil de marcar sem querer; "Concluído" é a ação proeminente. */}
+                <div className="flex flex-col gap-3 pt-1">
+                  {/* DESFECHO — "Como foi?": só quando o horário já passou. "Concluído"
+                      é a ação primária; "Não compareceu" fica DISCRETO (ghost) — no-show
+                      cedo demais é fácil de marcar sem querer. */}
                   {canMark && (
-                    <Button
-                      variant="ghost"
-                      className="text-muted-foreground"
-                      disabled={marking}
-                      onClick={() => void markStatus("no_show")}
-                    >
-                      Não compareceu
-                    </Button>
+                    <div className="flex flex-col gap-3">
+                      <div className="border-t border-border" />
+                      <div className="flex items-center gap-2">
+                        <span className="mr-auto text-sm font-medium text-foreground">
+                          Como foi?
+                        </span>
+                        <Button
+                          disabled={marking}
+                          onClick={() => void markStatus("completed")}
+                        >
+                          Concluído
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="text-muted-foreground"
+                          disabled={marking}
+                          onClick={() => void markStatus("no_show")}
+                        >
+                          Não compareceu
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                  {canEdit && (
-                    <Button variant="secondary" onClick={openEdit}>
-                      Editar
-                    </Button>
-                  )}
-                  {canCancel && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => setCancelMode(true)}
-                    >
-                      Cancelar agendamento
-                    </Button>
-                  )}
-                  {canMark && (
-                    <Button
-                      disabled={marking}
-                      onClick={() => void markStatus("completed")}
-                    >
-                      Concluído
-                    </Button>
+                  {/* GESTÃO: Editar à esquerda, Cancelar à direita. */}
+                  {(canEdit || canCancel) && (
+                    <div className="flex flex-col gap-3">
+                      <div className="border-t border-border" />
+                      <div className="flex items-center justify-between gap-2">
+                        {canEdit ? (
+                          <Button variant="secondary" onClick={openEdit}>
+                            Editar
+                          </Button>
+                        ) : (
+                          <span />
+                        )}
+                        {canCancel && (
+                          <Button
+                            variant="destructive"
+                            onClick={() => setCancelMode(true)}
+                          >
+                            Cancelar agendamento
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
