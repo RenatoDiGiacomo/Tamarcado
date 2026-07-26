@@ -11,7 +11,10 @@ import { Company } from "../../database/entities/company.entity";
 import { User } from "../../database/entities/user.entity";
 import { Client } from "../../database/entities/client.entity";
 import { SalonService } from "../../database/entities/salon-service.entity";
-import { Appointment } from "../../database/entities/appointment.entity";
+import {
+  Appointment,
+  type AppointmentStatus,
+} from "../../database/entities/appointment.entity";
 import { AppointmentChange } from "../../database/entities/appointment-change.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import type { AuthUser } from "../auth/auth-user";
@@ -473,6 +476,76 @@ export class AppointmentsService {
   }
 
   /**
+   * Marcar comparecimento (Story 3.7/FR-D9): `confirmed` → `completed` ("Concluído")
+   * ou `no_show` ("Não compareceu"). Ações pontuais por transição válida (não select
+   * livre). Ambas exigem que o horário já tenha **começado** (`scheduled_at ≤ agora`,
+   * D1/D2) — não se marca falta nem se conclui um agendamento futuro. Origem tem que
+   * ser `confirmed` (terminal → 409). Permissão simétrica ao cancelamento: basic só o
+   * próprio (D3). Auditoria unificada em `appointment_changes` (`field="status"`).
+   * NÃO dispara pagamento (Épico 5) nem notifica a cliente (Épico 6).
+   */
+  async changeStatus(
+    id: string,
+    to: "completed" | "no_show",
+    user: AuthUser,
+  ): Promise<AppointmentView> {
+    const companyId = this.tenant.getCompanyId();
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+
+    // Permissão (D3): basic só marca onde é o profissional (igual ao cancelamento).
+    if (user.accessLevel === "basic" && appt.professional_id !== user.userId) {
+      throw new ForbiddenException(
+        "Você só pode marcar seus próprios atendimentos.",
+      );
+    }
+
+    // Origem tem que ser confirmed; terminal/pending não transiciona por aqui.
+    if (appt.status !== "confirmed") {
+      throw new ConflictException(
+        "Só é possível marcar comparecimento de um agendamento confirmado.",
+      );
+    }
+
+    // Condição de tempo (D1/D2): o horário já começou.
+    if (appt.scheduled_at.getTime() > Date.now()) {
+      throw new BadRequestException(
+        to === "no_show"
+          ? "Não é possível marcar falta de um agendamento que ainda não começou."
+          : "Não é possível concluir um agendamento que ainda não começou.",
+      );
+    }
+
+    const fromLabel = statusLabel(appt.status);
+    appt.status = to;
+    await this.appointmentsRepo.save(appt);
+
+    const now = new Date();
+    const changeRepo = this.dataSource.getRepository(AppointmentChange);
+    await changeRepo.save(
+      changeRepo.create({
+        company_id: companyId,
+        appointment_id: appt.id,
+        changed_by_user_id: user.userId,
+        changed_at: now,
+        field: "status",
+        old_value: fromLabel,
+        new_value: statusLabel(to),
+      }),
+    );
+
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const row = await this.appointmentsRepo.findViewById(id);
+    if (!row) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    return toAppointmentView(row, tz);
+  }
+
+  /**
    * Núcleo transacional (NFR-C1/DL-002). Serializa por profissional com
    * `SELECT ... FOR UPDATE` (a T2 só passa após a T1 commitar, enxergando a linha
    * já gravada). `enforce=true` rejeita conflito (409) — pronto para o bot.
@@ -655,4 +728,16 @@ export class AppointmentsService {
 /** `HH:MM:SS` (coluna TIME do MySQL) → `HH:MM`. */
 function hhmm(time: string): string {
   return time.slice(0, 5);
+}
+
+/** Rótulo legível do status para o histórico de alteração (Story 3.7). */
+function statusLabel(status: AppointmentStatus): string {
+  const labels: Record<AppointmentStatus, string> = {
+    pending: "Aguardando confirmação",
+    confirmed: "Confirmado",
+    cancelled: "Cancelado",
+    completed: "Concluído",
+    no_show: "Não compareceu",
+  };
+  return labels[status];
 }

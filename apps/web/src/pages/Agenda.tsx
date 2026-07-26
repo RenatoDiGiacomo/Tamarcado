@@ -59,6 +59,8 @@ export function Agenda() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Marcar comparecimento (Story 3.7): evita duplo-clique enquanto envia.
+  const [marking, setMarking] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +112,15 @@ export function Agenda() {
     (user?.accessLevel !== "basic" ||
       selected?.professionalId === user?.id ||
       selected?.professionalId === null);
+  // Marcar comparecimento (Story 3.7): só em confirmado cujo horário já COMEÇOU
+  // (D1/D2). Permissão simétrica ao cancelamento (D3): basic só o próprio.
+  const hasStarted = selected
+    ? new Date(`${selected.date}T${selected.start}`).getTime() <= Date.now()
+    : false;
+  const canMark =
+    selected?.status === "confirmed" &&
+    hasStarted &&
+    (user?.accessLevel !== "basic" || selected?.professionalId === user?.id);
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
@@ -132,6 +143,37 @@ export function Agenda() {
     });
     closeDetail();
   }, [selected, closeDetail]);
+
+  // Marca comparecimento (Story 3.7): PATCH :id/status → refetch + toast.
+  const markStatus = useCallback(
+    async (to: "completed" | "no_show") => {
+      if (!selectedId || marking) return;
+      setMarking(true);
+      try {
+        const res = await apiRequest(`/appointments/${selectedId}/status`, {
+          method: "PATCH",
+          body: { to },
+          token: token(),
+        });
+        if (!res.ok) {
+          toast.error(await statusErrorMessage(res));
+          return;
+        }
+        closeDetail();
+        setRefreshKey((k) => k + 1); // card repinta com o novo StatusChip
+        toast.success(
+          to === "completed"
+            ? "Atendimento concluído."
+            : "Marcado como não compareceu.",
+        );
+      } catch {
+        toast.error("Não foi possível marcar. Verifique sua conexão.");
+      } finally {
+        setMarking(false);
+      }
+    },
+    [selectedId, marking, closeDetail],
+  );
 
   const cancelAppointment = useCallback(async () => {
     if (!selectedId) return;
@@ -249,20 +291,57 @@ export function Agenda() {
                   muted={!selected.professionalName}
                 />
               </dl>
-              {(canEdit || canCancel) && (
-                <div className="flex justify-end gap-2 pt-1">
-                  {canEdit && (
-                    <Button variant="secondary" onClick={openEdit}>
-                      Editar
-                    </Button>
+              {(canMark || canEdit || canCancel) && (
+                <div className="flex flex-col gap-3 pt-1">
+                  {/* DESFECHO — "Como foi?": só quando o horário já passou. "Concluído"
+                      é a ação primária; "Não compareceu" fica DISCRETO (ghost) — no-show
+                      cedo demais é fácil de marcar sem querer. */}
+                  {canMark && (
+                    <div className="flex flex-col gap-3">
+                      <div className="border-t border-border" />
+                      <div className="flex items-center gap-2">
+                        <span className="mr-auto text-sm font-medium text-foreground">
+                          Como foi?
+                        </span>
+                        <Button
+                          disabled={marking}
+                          onClick={() => void markStatus("completed")}
+                        >
+                          Concluído
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="text-muted-foreground"
+                          disabled={marking}
+                          onClick={() => void markStatus("no_show")}
+                        >
+                          Não compareceu
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                  {canCancel && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => setCancelMode(true)}
-                    >
-                      Cancelar agendamento
-                    </Button>
+                  {/* GESTÃO: Editar à esquerda, Cancelar à direita. */}
+                  {(canEdit || canCancel) && (
+                    <div className="flex flex-col gap-3">
+                      <div className="border-t border-border" />
+                      <div className="flex items-center justify-between gap-2">
+                        {canEdit ? (
+                          <Button variant="secondary" onClick={openEdit}>
+                            Editar
+                          </Button>
+                        ) : (
+                          <span />
+                        )}
+                        {canCancel && (
+                          <Button
+                            variant="destructive"
+                            onClick={() => setCancelMode(true)}
+                          >
+                            Cancelar agendamento
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -341,6 +420,19 @@ async function cancelErrorMessage(res: Response): Promise<string> {
     /* sem corpo JSON */
   }
   return "Não foi possível cancelar o agendamento.";
+}
+
+/** Mensagem real da API para o marcar-comparecimento (Story 3.7). */
+async function statusErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string | string[] };
+    const m = body?.message;
+    if (Array.isArray(m) && m.length > 0) return m.join(" · ");
+    if (typeof m === "string" && m.trim() !== "") return m;
+  } catch {
+    /* sem corpo JSON */
+  }
+  return "Não foi possível marcar o atendimento.";
 }
 
 function Row({
