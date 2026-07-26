@@ -163,17 +163,19 @@ A cliente vai querer **cílios + sobrancelha** → o carrinho reaparece. O DL-04
 
 ---
 
-## Decisões a aprovar (antes de eu escrever specs e atualizar epics.md/decision-log)
+## Decisões (revisão do Renato — 2026-07-25)
 
-| # | Decisão | Recomendação |
+| # | Decisão | Resolução |
 |---|---|---|
-| **P1** | Numeração | Link = **Épico 6**; WhatsApp→7; Mobile→8 (renumerar). *(alt: Épico 5B sem churn)* |
-| **P2** | Pendentes migram para a fundação do link | **Sim** — bot reusa depois |
-| **P3** | `source` novo valor | **`link`** |
-| **P4** | Multi-serviço no MVP | **Cortar** (Story 6.5 fast-follow) — salvo se o cliente travar |
-| **P5** | Polling/badge (6.4) no MVP | **Incluir** (usabilidade real) |
-| **P6** | Notificação à cliente no MVP | **Fora** (depende do canal — Épico 7); MVP só tela de sucesso |
-| **P7** | Mobile = PWA read-only | **Sim** (formalizar DL) |
-| **P8** | 3.7 (no-show/concluído, último buraco do Épico 3) | **Parar** e retomar depois do link? ou intercalar? *(sua chamada)* |
+| **P1** | Numeração | ✅ **Link = "Épico 5B"** (rótulo, zero churn); bot fica 6, mobile 7 |
+| **P2** | Pendentes migram para a fundação do link | ✅ **Sim** — bot reusa depois *(recomendação aceita)* |
+| **P3** | `source` novo valor | ✅ **`link`** *(recomendação aceita)* |
+| **P4** | Multi-serviço no MVP | ✅ **Cortar** — Story 5B.5 fast-follow |
+| **P5** | Polling/badge no MVP | ✅ **Incluir** (5B.1–5B.4) |
+| **P6** | Notificação à cliente no MVP | ✅ **Fora** (depende do canal — Épico 6/bot); MVP só tela de sucesso *(recomendação aceita)* |
+| **P7** | Mobile = PWA read-only | ✅ **Sim** — formalizar DL *(recomendação aceita)* |
+| **P8** | 3.7 (no-show/concluído) | ✅ **Intercalar: 3.7 primeiro**, fecha o Épico 3, depois o link |
+
+> Numeração escolhida = **"5B"** (zero churn). As stories viram **5B.1–5B.4** (+ 5B.5 carrinho). Quando você der o **go do link** (depois da 3.7), escrevo as specs 5B.1–5B.4 e atualizo epics.md/decision-log; **aviso para subir ao Contexto**.
 
 > Quando você bater P1–P8, eu: (a) escrevo as specs 6.1–6.4 (e 6.5 se entrar), (b) atualizo `epics.md` (novo Épico 6 + renumeração + retrato com 3.6 mergeada) e o decision-log (DLs do link: pré-tenant público, branding público, pendentes-como-fundação, source=link, PWA), e (c) te aviso para subir ao Contexto. **Nada disso antes da sua revisão.**
