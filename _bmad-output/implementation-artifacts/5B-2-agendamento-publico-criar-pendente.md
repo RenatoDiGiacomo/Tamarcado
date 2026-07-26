@@ -99,14 +99,16 @@ Ambas são exigidas e **testadas separadamente**.
 - CAPTCHA/Turnstile (só se houver abuso — plano §5).
 - Notificação à cliente (Épico do bot).
 
-## Decisões a confirmar
+## Decisões (revisão do Renato — 2026-07-26) — aprovadas
 
-| # | Decisão | Recomendação |
+| # | Decisão | Resolução |
 |---|---|---|
-| **S1** | phone estrito só-dígitos | **Sim** (`^\d{2}9?\d{8}$`); o front tira máscara antes de enviar |
-| **S2** | Teto do payload | **16 KB** no caminho público (→ 413) |
-| **S3** | name: apóstrofo curvo `’` além do reto `'` | **Aceitar os dois** (teclados de celular usam `’`) |
-| **S4** | time inválido como slot | Formato agora; **conflito avisa, não bloqueia** (D1) — validade de agenda é regra de negócio, não segurança |
+| **S1** | phone estrito só-dígitos | ✅ **Sim** (`^\d{2}9?\d{8}$`); o front tira a máscara antes de enviar |
+| **S2** | Teto do payload | ✅ **16 KB** no caminho público (→ 413) |
+| **S3** | name: apóstrofo curvo `’` além do reto `'` | ✅ **Aceitar os dois** — iPhone/Word convertem `'`→`’` sozinhos; senão "D'Ávila" do iPhone seria rejeitado |
+| **S4** | validade de slot | ✅ Regra de **negócio**, não AC de segurança. **Mas registrar como regra:** o slot é **revalidado no BACKEND na criação** (a disponibilidade é recalculada no service, não se confia que o front só ofereceu livres). Conflito **avisa, não bloqueia** (D1). |
+
+> **Nota S4 (regra de negócio, não AC de segurança):** o `POST /public/:slug/appointments` **recalcula a disponibilidade no service** no momento da criação — o backend nunca assume que o horário recebido está livre só porque o front o ofereceu. Se o slot ficou indisponível entre a leitura e o envio, aplica a política da D1 (aviso/`overbooked`, não bloqueio duro) ou 409 conforme o modelo do link (a decidir na spec de implementação da 5B.2, junto com a política de concorrência NFR-C1).
 
 ## References
 
