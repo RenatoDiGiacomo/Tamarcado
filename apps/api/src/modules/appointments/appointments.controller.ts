@@ -26,6 +26,7 @@ import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { CancelAppointmentDto } from "./dto/cancel-appointment.dto";
 import { AssignProfessionalDto } from "./dto/assign-professional.dto";
 import { EditAppointmentDto } from "./dto/edit-appointment.dto";
+import { ChangeStatusDto } from "./dto/change-status.dto";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -101,5 +102,19 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<AssignProfessionalResult> {
     return this.appointments.editAppointment(id, dto, user);
+  }
+
+  /**
+   * Marca comparecimento (Story 3.7/FR-D9): `confirmed` → `completed`/`no_show`.
+   * Ações pontuais por transição válida; exige o horário já ter começado (D1/D2);
+   * basic só o próprio (D3). Auditoria em `appointment_changes`. Sem notificação.
+   */
+  @Patch(":id/status")
+  async changeStatus(
+    @Param("id") id: string,
+    @Body() dto: ChangeStatusDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AppointmentView> {
+    return this.appointments.changeStatus(id, dto.to, user);
   }
 }

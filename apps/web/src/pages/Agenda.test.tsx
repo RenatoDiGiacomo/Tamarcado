@@ -19,8 +19,13 @@ vi.mock("../auth/AuthContext", () => ({
   useAuth: () => ({ user: { id: "u1", accessLevel: "owner" } }),
 }));
 
-// Toast de sucesso (UX-DR19) — sem Toaster montado no teste.
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+// Toast (UX-DR19) — sem Toaster montado no teste.
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+/** Data civil (YYYY-MM-DD) deslocada em `days` a partir de hoje. */
+function isoOffset(days: number): string {
+  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+}
 
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
@@ -186,6 +191,66 @@ describe("Agenda", () => {
         expect.objectContaining({ serviceId: "3", date: "2026-07-20", time: "09:00" }),
       );
     });
+  });
+
+  it("marca Concluído num agendamento passado → PATCH status {to:completed} + recarrega (Story 3.7)", async () => {
+    const past = { ...seg, id: "10", date: isoOffset(-1) }; // ontem, confirmado
+    apiMock.mockImplementation((path: string, opts?: { method?: string }) => {
+      if (opts?.method === "PATCH") {
+        return Promise.resolve(jsonRes({ id: "10", status: "completed" }));
+      }
+      return Promise.resolve(
+        jsonRes({ appointments: [past], businessHours: BUSINESS }),
+      );
+    });
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    fireEvent.click(await screen.findByRole("button", { name: "Concluído" }));
+
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+      expect(patch?.[0]).toBe("/appointments/10/status");
+      expect(patch?.[1].body).toEqual({ to: "completed" });
+    });
+    const gets = apiMock.mock.calls.filter(
+      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+    );
+    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após marcar
+  });
+
+  it("marca Não compareceu → PATCH status {to:no_show}", async () => {
+    const past = { ...seg, id: "10", date: isoOffset(-1) };
+    apiMock.mockImplementation((path: string, opts?: { method?: string }) => {
+      if (opts?.method === "PATCH") {
+        return Promise.resolve(jsonRes({ id: "10", status: "no_show" }));
+      }
+      return Promise.resolve(
+        jsonRes({ appointments: [past], businessHours: BUSINESS }),
+      );
+    });
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    fireEvent.click(await screen.findByRole("button", { name: "Não compareceu" }));
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+      expect(patch?.[1].body).toEqual({ to: "no_show" });
+    });
+  });
+
+  it("agendamento FUTURO não oferece Concluído/Não compareceu (D1)", async () => {
+    const future = { ...seg, id: "10", date: isoOffset(2) };
+    apiMock.mockResolvedValue(
+      jsonRes({ appointments: [future], businessHours: BUSINESS }),
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    const dialog = await screen.findByRole("dialog");
+    // Futuro: sem ações de comparecimento; Editar/Cancelar seguem disponíveis.
+    expect(within(dialog).queryByRole("button", { name: "Concluído" })).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Não compareceu" }),
+    ).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Editar" })).toBeInTheDocument();
   });
 
   it("mostra erro quando a API falha", async () => {

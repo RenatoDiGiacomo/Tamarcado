@@ -5,8 +5,12 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
-/** Campo do agendamento que pode ser editado (Story 3.6). */
-export type AppointmentChangeField = "service" | "scheduled_at" | "professional";
+/** Campo do agendamento que pode ser editado (Story 3.6) ou transicionado (3.7). */
+export type AppointmentChangeField =
+  | "service"
+  | "scheduled_at"
+  | "professional"
+  | "status";
 
 /**
  * Registro de alteração de um agendamento (Story 3.6, DL-044/DL-045). Append-only:
