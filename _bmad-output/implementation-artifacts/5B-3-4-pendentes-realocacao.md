@@ -2,7 +2,31 @@
 
 Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o que move do Épico 6) · **não implementar até o go**
 
-> **Tese (P2, já aprovada):** a máquina de **pendentes** deixa de ser exclusiva do bot e vira a **fundação do link**. O agendamento de fora (link) entra `pending`; o salão **confirma/recusa no painel**. O bot (Épico 6) depois **reusa** essa máquina — só pluga o canal WhatsApp e as notificações à cliente. Constrói-se **uma vez**.
+> **Tese (P2, já aprovada):** a máquina de **pendentes** deixa de ser exclusiva do bot e vira a **fundação do link**. O agendamento de fora (link) entra `pending`; o estabelecimento **confirma/recusa no painel**. O bot (Épico 6) depois **reusa** essa máquina — só pluga o canal WhatsApp e as notificações à cliente. Constrói-se **uma vez**.
+
+---
+
+## Máquina de status — o bot é GATILHO, não dono (DL-046)
+
+**Princípio:** nada no ciclo depende 100% do bot; o bot **automatiza gatilhos que já existem manuais**. Máquina única:
+
+```
+pendente → confirmado → concluído
+               ↓
+           não compareceu / cancelado
+```
+
+Cada transição é disparável por **(a) mão da recepção** (existe desde o link, nunca sai) e **(b) bot** (Épico 6 — gatilho adicional sobre a MESMA transição, nunca exclusivo).
+
+| Transição | Manual existe? |
+|---|---|
+| `confirmado → concluído` / `→ não compareceu` | ✅ Story 3.7 |
+| `confirmado`/`pendente → cancelado` | ✅ Story 3.4 |
+| **`pendente → confirmado`** | ❌ **FALTA — nasce nesta 5B.3** (botão Confirmar na tela Pendentes **e** no modal de detalhe) |
+
+**Lembrete = eixo SEPARADO (DL-047):** o lembrete automático (bot, 6.10) é ortogonal à máquina — o bot manda **independente** de a cliente ter confirmado; **não trava** nenhuma transição.
+
+> **Vocabulário neutro (DL-048):** o produto serve **qualquer prestador com agenda** (personal, serviços domésticos, etc), não só salão. O fluxo é universal; o vocabulário é preenchimento do usuário. A **página pública e os textos nascem NEUTROS** (ex.: "O estabelecimento vai confirmar", não "o salão"). O seed "Salão Teste" é só teste.
 
 ---
 
@@ -30,16 +54,18 @@ Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o q
 - **Na agenda** (FR-B1): já renderiza — o `StatusChip` mapeia `pending` → "aguardando confirmação" (existe desde a 3.2, nunca exercitado). O card mostra "Não atribuído" (DL-013).
 - **Na tela Pendentes** (UX-DR9): lista dedicada de `status = pending`, ordenada por chegada, para a recepção despachar em lote.
 
-### Ações (reusam o que já existe)
-- **Confirmar** = **atribuir profissional (Story 3.5)** + `status → confirmed`. O momento natural de atribuir é a confirmação (o link/bot criam sem profissional — DL-013). Endpoint dedicado `PATCH /appointments/:id/confirm { professionalId }` (padrão `PATCH :id/ação`), que: valida origem `pending` (senão 409); atribui o profissional (reusa `assertProfessional` + auditoria `assigned_by` da 3.5); seta `confirmed`; grava delta em `appointment_changes` (`field="status"`, → Confirmado). **(PR-1: profissional obrigatório na confirmação, ou pode confirmar deixando "não atribuído" para atribuir depois via 3.5/3.6? Recomendo permitir confirmar SEM profissional — atribuição é independente.)**
-- **Recusar** = `status → cancelled` com **justificativa obrigatória** (FR-B4). Reusa a transição de cancelamento (3.4), mas com `reason` **obrigatório** (a 3.4 tem `reason` opcional). **(PR-2: endpoint dedicado `PATCH :id/reject { reason }` com `@IsNotEmpty`, ou reusar `:id/cancel` e o front exigir o motivo? Recomendo endpoint dedicado — a obrigatoriedade é regra do domínio, não da UI.)**
+### Ações — a transição `pending→confirmed` MANUAL (DL-046)
+- **Confirmar** (`pending → confirmed`) = a transição manual que **nasce aqui**. Endpoint dedicado `PATCH /appointments/:id/confirm { professionalId? }` (padrão `PATCH :id/ação`): valida origem `pending` (senão 409); **opcionalmente** atribui o profissional (PR-1 ✅ **não obrigatório** — reusa `assertProfessional` + auditoria `assigned_by` da 3.5); seta `confirmed`; grava delta em `appointment_changes` (`field="status"`, → Confirmado). Permissão owner/gerente (PR-3 ✅).
+  - **Aparece em DOIS lugares (DL-046):** (1) botão **Confirmar** na **tela Pendentes** (despacho em lote); (2) botão **Confirmar** no **modal de detalhe** de um agendamento `pending` — o **caso presencial**: o dono encontra a cliente e confirma na hora, **sem link nem bot**. É a mesma transição, dois gatilhos manuais.
+- **Recusar** (`pending → cancelled`) = endpoint dedicado `PATCH /appointments/:id/reject { reason }` com `reason` **obrigatório** (`@IsNotEmpty`, PR-2 ✅ / FR-B4). Reusa o padrão de motivo do cancelamento (3.4); o motivo fica gravado (`cancellation_reason`) — é o que o bot usa depois para notificar a cliente (FR-B5).
 
 ### UX (UX-DR9)
-- Confirmação **inline** (sem modal) com toast; recusa abre modal com campo de justificativa **obrigatório** (botão desabilitado até preencher).
-- Permissão: owner/gerente qualquer; **basic** — a decidir (PR-3): recepção costuma ser owner/gerente; um `basic` (profissional) confirmar pendentes de outros não faz sentido. Recomendo **owner/gerente** para confirmar/recusar (a atribuição a si mesmo continua sendo 3.5).
+- **Modal de detalhe (status `pending`):** grupo de ação com **Confirmar** (primário) + **Recusar** — análogo ao "Desfecho" da 3.7, mas para a entrada do ciclo. (Um `pending` também pode ser Editado/Cancelado como hoje.)
+- **Tela Pendentes:** confirmação **inline** (sem modal) com toast; recusa abre modal com justificativa **obrigatória** (botão desabilitado até preencher).
+- Permissão: **owner/gerente** confirmam/recusam (PR-3 ✅); um `basic` não despacha pendente de outros (atribuir-se continua sendo 3.5/3.6).
 
-### Não notifica a cliente
-- No MVP do link, confirmar/recusar **não** manda mensagem à cliente (Épico 6). A cliente viu a tela "recebido, o salão vai confirmar" (5B.2); o salão contata manual se quiser. A notificação pluga quando o bot entrar (FR-B3/B5).
+### Não notifica a cliente (texto neutro — DL-048)
+- No MVP do link, confirmar/recusar **não** manda mensagem à cliente (Épico 6). A cliente viu a tela **"Recebido! O estabelecimento vai confirmar."** (5B.2, **texto neutro**, não "salão"); o estabelecimento contata manual se quiser. A notificação pluga quando o bot entrar (FR-B3/B5).
 
 ---
 
@@ -72,8 +98,8 @@ Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o q
 
 **Confirmado: 5B.2/5B.3/5B.4 são um fluxo fechado, sem depender do bot.**
 
-- **Cliente (5B.2):** agenda → vê a tela de sucesso **"Recebido! O salão vai confirmar."** e **acabou**. Ela **não** espera nenhuma notificação automática — a mensagem já diz que a confirmação virá do salão. Sem promessa quebrada.
-- **Salão (5B.3):** vê o pendente na agenda + na tela Pendentes; **confirma** (atribui + confirmado) ou **recusa** (cancelado + motivo). Tudo **in-panel**, sem WhatsApp.
+- **Cliente (5B.2):** agenda → vê a tela de sucesso **"Recebido! O estabelecimento vai confirmar."** (texto neutro — DL-048) e **acabou**. Ela **não** espera nenhuma notificação automática — a mensagem já diz que a confirmação virá do estabelecimento. Sem promessa quebrada.
+- **Estabelecimento (5B.3):** vê o pendente na agenda + na tela Pendentes; **confirma** (atribui + confirmado) ou **recusa** (cancelado + motivo). Tudo **in-panel**, sem WhatsApp.
 - **Badge (5B.4):** polling in-panel — a recepção percebe novos pendentes sem F5.
 - **Motivo da recusa** é **gravado agora** (`cancellation_reason`) e fica **pronto** para o bot notificar a cliente depois (Épico 6) — é **forward-compatible**, não uma dependência. Se o bot nunca existisse, o motivo simplesmente fica no registro (auditoria).
 
@@ -85,10 +111,10 @@ Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o q
 
 | # | Decisão | Status |
 |---|---|---|
-| **PR-1** | Profissional obrigatório na confirmação? | 🟡 **Recomendo Não** — pode confirmar sem atribuir; atribuição é 3.5, independente. A confirmar. |
-| **PR-2** | Recusar: endpoint dedicado `:id/reject` (reason obrigatório) vs. reusar `:id/cancel` | ✅ **Aprovado (Renato):** dedicado, reason **obrigatório**, reusa o padrão de motivo do cancelamento (3.4). O motivo é o que o bot usa depois (FR-B5). |
-| **PR-3** | Quem confirma/recusa | 🟡 **Recomendo owner/gerente** (recepção); basic não trata pendente de outros. A confirmar. |
-| **PR-4** | Intervalo do polling | 🟡 **Recomendo 15–30s** (NFR-A3); WebSocket/SSE = futuro (DL-019). A confirmar. |
+| **PR-1** | Profissional obrigatório na confirmação? | ✅ **Aprovado (Renato):** **não obrigatório** — confirmar e atribuir são independentes (atribuição é 3.5). |
+| **PR-2** | Recusar: endpoint dedicado `:id/reject` (reason obrigatório) | ✅ **Aprovado (Renato):** dedicado, reason **obrigatório**, reusa o padrão de motivo do cancelamento (3.4). O motivo é o que o bot usa depois (FR-B5). |
+| **PR-3** | Quem confirma/recusa | ✅ **Aprovado (Renato):** **owner/gerente** despacham; basic não trata pendente de outros. |
+| **PR-4** | Intervalo do polling | ✅ **Aprovado (Renato):** **15–30s** (NFR-A3); WebSocket/SSE = futuro (DL-019). |
 
 ## References
 
