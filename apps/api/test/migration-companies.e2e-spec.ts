@@ -7,6 +7,9 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * Nota: a partir da Story 1.2 existe também a migration `users`; este teste
  * usa reset FK-safe e valida apenas o que diz respeito a `companies`.
  */
+// resetSchema no beforeAll passa de 5s sob carga do CI (evita flake do hook de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateCompanies (e2e)", () => {
   let ds: DataSource;
 

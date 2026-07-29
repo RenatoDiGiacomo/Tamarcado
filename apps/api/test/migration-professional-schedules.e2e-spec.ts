@@ -6,6 +6,9 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * (Story 1.6, DL-032): colunas, índice por company_id, FKs (users, companies),
  * coluna de intervalo e reversão. Requer MySQL.
  */
+// resetSchema no beforeAll passa de 5s sob carga do CI (evita flake do hook de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateProfessionalSchedules (e2e)", () => {
   let ds: DataSource;
 
