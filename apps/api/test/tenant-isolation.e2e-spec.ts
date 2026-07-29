@@ -10,6 +10,10 @@ import { bootstrapE2E, teardownE2E, type E2EContext } from "./e2e-app";
  * Salão A tem 1 usuário; salão B tem 3 (mais dados). O token de A nunca pode
  * enxergar — nem contar — dados de B; id de B → 404. Empresa inativa → 403.
  */
+// bootstrap + resetSchema no beforeAll passam de 5s no Docker local (Windows) —
+// alinha ao padrão dos demais e2e (CI Linux é mais rápido).
+jest.setTimeout(60000);
+
 describe("Multi-tenant isolation (e2e)", () => {
   let ctx: E2EContext;
   const PASSWORD = "senha123";

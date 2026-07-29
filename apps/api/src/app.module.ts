@@ -7,7 +7,11 @@ import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./modules/health/health.module";
 import { TenantModule } from "./modules/tenant/tenant.module";
 import { TenantMiddleware } from "./modules/tenant/tenant.middleware";
-import { TENANT_AWARE_CONTROLLERS } from "./modules/tenant/tenant-aware-controllers";
+import { PublicSlugTenantMiddleware } from "./modules/public-booking/public-slug-tenant.middleware";
+import {
+  PUBLIC_TENANT_CONTROLLERS,
+  TENANT_AWARE_CONTROLLERS,
+} from "./modules/tenant/tenant-aware-controllers";
 import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ServicesModule } from "./modules/services/services.module";
@@ -17,6 +21,7 @@ import { AvailabilityModule } from "./modules/availability/availability.module";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
 import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
+import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
 
 @Module({
   imports: [
@@ -35,6 +40,7 @@ import { InstallationController } from "./modules/installation/installation.cont
     AvailabilityModule,
     AppointmentsModule,
     InstallationModule,
+    PublicBookingModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -51,5 +57,11 @@ export class AppModule implements NestModule {
     consumer
       .apply(TenantMiddleware)
       .forRoutes(...TENANT_AWARE_CONTROLLERS, InstallationController);
+
+    // Rotas PÚBLICAS (Story 5B.1): tenant resolvido pelo SLUG da URL, sem JWT.
+    // Aplicado à 3ª categoria PUBLIC_TENANT_CONTROLLERS (guard-rail DL-027).
+    consumer
+      .apply(PublicSlugTenantMiddleware)
+      .forRoutes(...PUBLIC_TENANT_CONTROLLERS);
   }
 }
