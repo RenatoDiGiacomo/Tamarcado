@@ -6,6 +6,7 @@ import { SchedulesController } from "../schedules/schedules.controller";
 import { AvailabilityController } from "../availability/availability.controller";
 import { AppointmentsController } from "../appointments/appointments.controller";
 import { ClientsController } from "../clients/clients.controller";
+import { PublicBookingController } from "../public-booking/public-booking.controller";
 
 /**
  * FONTE ÚNICA DE VERDADE dos controllers protegidos pelo TenantMiddleware.
@@ -43,3 +44,18 @@ export const TENANT_AWARE_CONTROLLERS: Type[] = [
  * domínio novo NÃO entra nesta lista — ele vai em `TENANT_AWARE_CONTROLLERS`.
  */
 export const PRE_TENANT_CONTROLLERS: Type[] = [AuthController];
+
+/**
+ * TERCEIRA categoria (Story 5B.1 / DL-049): controllers PÚBLICOS que tocam
+ * `TenantAwareRepository` mas resolvem o tenant pelo **slug da URL** (sem JWT),
+ * via `PublicSlugTenantMiddleware`. Diferente do PRE_TENANT (que opera unscoped e
+ * resolve na mão), aqui o scoping é **automático** — o middleware seta o
+ * `TenantContext` e os repos saem filtrados sozinhos, mais seguro que scoping
+ * manual.
+ *
+ * O `AppModule.configure()` aplica o `PublicSlugTenantMiddleware` exatamente a
+ * esta lista. O guard-rail (DL-027) aceita a cobertura por QUALQUER das três
+ * listas — o invariante continua: todo controller tenant-aware tem um middleware
+ * que seta `company_id` antes do handler; só muda a FONTE do id (JWT vs slug).
+ */
+export const PUBLIC_TENANT_CONTROLLERS: Type[] = [PublicBookingController];

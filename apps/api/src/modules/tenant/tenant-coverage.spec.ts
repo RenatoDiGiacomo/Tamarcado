@@ -4,6 +4,7 @@ import { TenantAwareRepository } from "../../common/repository/tenant-aware.repo
 import { UsersController } from "../users/users.controller";
 import {
   PRE_TENANT_CONTROLLERS,
+  PUBLIC_TENANT_CONTROLLERS,
   TENANT_AWARE_CONTROLLERS,
 } from "./tenant-aware-controllers";
 import {
@@ -80,10 +81,11 @@ describe("Guard-rail: cobertura do TenantMiddleware no AppModule real (DL-027)",
     expect(controllers.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("GUARD-RAIL: todo controller que toca tabela tenant-aware está protegido OU declarado pré-tenant", () => {
+  it("GUARD-RAIL: todo controller que toca tabela tenant-aware está protegido OU declarado pré-tenant/público", () => {
     const accountedFor = [
       ...TENANT_AWARE_CONTROLLERS,
       ...PRE_TENANT_CONTROLLERS,
+      ...PUBLIC_TENANT_CONTROLLERS,
     ];
     const unprotected = findUnprotectedTenantControllers(
       controllers,
@@ -101,6 +103,7 @@ describe("Guard-rail: cobertura do TenantMiddleware no AppModule real (DL-027)",
     for (const controller of [
       ...TENANT_AWARE_CONTROLLERS,
       ...PRE_TENANT_CONTROLLERS,
+      ...PUBLIC_TENANT_CONTROLLERS,
     ]) {
       expect(known.has(controller)).toBe(true);
       expect(dependsOnTenantAware(controller)).toBe(true);
