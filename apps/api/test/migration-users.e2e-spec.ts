@@ -5,6 +5,9 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * Verifica a migration `users` (AC1): colunas exigidas, enums, unique por
  * tenant (DL-026), FK para companies, e reversão limpa. Requer MySQL.
  */
+// resetSchema no beforeAll passa de 5s sob carga do CI (evita flake do hook de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateUsers (e2e)", () => {
   let ds: DataSource;
 

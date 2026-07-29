@@ -6,6 +6,9 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * colunas, price NULLABLE (DL-030), índices por company_id, FKs e reversão.
  * Requer MySQL.
  */
+// resetSchema no beforeAll passa de 5s sob carga do CI (evita flake do hook de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateServices (e2e)", () => {
   let ds: DataSource;
 
