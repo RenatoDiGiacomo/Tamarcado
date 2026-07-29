@@ -188,7 +188,8 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 
 **Funcionais:**
 - FR-A1–A8 → **Épico 6** (fluxo de agendamento via bot)
-- FR-B1–B6 → **Épico 6** (notificação ao salão + confirmação/recusa de pendentes pelo painel — só existe com o bot)
+- FR-B1/B2/B4 → **Épico 5B** (pendentes pelo painel: aparecem na agenda + confirmar/recusar — DL-049)
+- FR-B3/B5/B6 → **Épico 6** (notificar a cliente na confirmação/recusa + timeout de 2h — via bot)
 - FR-C1–C3, C5, C6 → **Épico 6** (cancelamento via bot + notificação à cliente); FR-C4 (cancelar pelo painel) → **Épico 3**
 - FR-D1–D9 → **Épico 3** (agenda do painel + agendamento manual + marcação de não compareceu)
 - FR-E1–E4 → **Épico 4** (cadastro e histórico de clientes)
@@ -202,7 +203,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 **Não-funcionais:**
 - NFR-A1 (resposta do bot ≤3s) → **Épico 6**
 - NFR-A2 (painel ≤2s em 4G) → **Épico 1** (shell/transversal ao painel)
-- NFR-A3 (polling de pendentes) → **Épico 6**
+- NFR-A3 (contador de pendentes) → **Épico 5B** (contador na 5B.3)
 - NFR-C1 (atomicidade na criação de agendamento) → **Épico 3** (base) / reforçada no fluxo concorrente do bot no **Épico 6**
 - NFR-C2–C3 (monitoramento e resiliência do WhatsApp) → **Épico 6**
 - NFR-S1–S3 (isolamento, LGPD, autenticação) → **Épico 1**
@@ -245,7 +246,7 @@ A cliente agenda sozinha por um **link público** (`/agendar/{slug}`), **sem Wha
 
 ### Épico 6: Ciclo de Agendamento via WhatsApp (Bot) — o diferencial, depois da base
 Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` + Evolution API, a máquina de estados (`whatsapp_conversations`), o fluxo de agendamento via bot (sobre o `AvailabilityService`/`appointments` já existentes), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6), a resiliência do provider e o polling de pendentes. Consome a base do Épico 3 (não recria tabelas de agendamento).
-**FRs cobertas:** FR-A1–A8, FR-B1–B6, FR-C1–C3, FR-C5, FR-C6, FR-J2
+**FRs cobertas:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 migraram para o Épico 5B — pendentes pelo painel)*, FR-C1–C3, FR-C5, FR-C6, FR-J2
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
@@ -267,7 +268,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 - ✅ **3.3** Agendamento manual pelo painel — mergeada
 - ✅ **3.3.1** Correções do agendamento manual (encaixe não bloqueia; mensagens de erro reais) — mergeada (PR #24)
 - ✅ **3.4** Cancelamento pelo painel — mergeada (PR #30, DL-041)
-- ✅ **3.5** Atribuir/trocar profissional — mergeada (PR #35, DL-043); **pré-requisito da 6.4** (bot cria sem profissional, FR-A4)
+- ✅ **3.5** Atribuir/trocar profissional — mergeada (PR #35, DL-043); **pré-requisito da 5B.3** (confirmar pendente = atribuir + confirmar)
 - ✅ **3.6** Remarcação + **Editar unificado** (serviço/horário/profissional) — mergeada (PR #36, DL-044/DL-045); cria `appointment_changes`
 - ✅ **3.7** Marcar comparecimento (no-show/concluído) por ações pontuais — mergeada (PR #38); auditoria unificada em `appointment_changes`
 
@@ -289,7 +290,7 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 - ~~**No-show (FR-D9)**~~ — **FECHADO na 3.7 (#38):** ações Concluído/Não compareceu, só depois do horário; informativo, sem notificação (DL-023).
 - **Filtro por status na agenda** — ajuste **3.7.01** (DL-028, commit `feat`): Todos/Pendente/Confirmado/Cancelado/Não compareceu/Concluído, usando os status existentes. **Fora do 5B**, planejado.
 - **Notificação automática à cliente (confirmação/recusa)** — depende de canal; fica no **Épico 6/bot**. No link (5B), a cliente vê "o estabelecimento vai confirmar" e o salão contata manual (DL-049).
-- **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada. (Status *pendente* só existe com o bot — Épico 6.)
+- **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada.
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
 - **Overbooking do mesmo profissional** — permitido **de propósito** (D1: encaixe deliberado). A 3.2.02 adicionou **aviso nomeando** quem já está ocupado, mas **não há bloqueio duro**. Fica assim no MVP; revisar se algum salão pedir prevenção rígida.
 
@@ -846,7 +847,7 @@ Rota `/agendar/{slug}` **sem login**. Resolve empresa por **slug** (`findBySlug`
 `GET` de horários livres (reusa `AvailabilityService`) e `POST` que cria agendamento **pendente**, `source=link`. Campos: serviço, data, horário, **nome (obrig.)**, **telefone/WhatsApp (obrig.)**, **profissional (opcional)**, **consentimento LGPD (obrig.)**. **Segurança (hostil por padrão — 7 ACs testados batendo a API direto):** janela **antispam de 2h** por telefone/IP (mensagem clara na tela) · rate limit por IP e por slug · validação/regex + sanitização em todos os inputs (nome; telefone BR; tamanho máx; whitelist de caracteres) · honeypot · whitelist estrita de campos (rejeita extra) · XSS escapado na saída. Tela: "Recebido! O estabelecimento vai confirmar." Spec: `5B-2-agendamento-publico-criar-pendente.md`.
 
 ### Story 5B.3: Pendentes no painel (confirmar/recusar + contador)
-Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcional**) e **Recusar** (`PATCH :id/reject`, **motivo obrigatório**), auditados em `appointment_changes`. Confirmar leva ao badge **"confirmado" já existente (3.7)** — **sem badge novo**; disponível **também no modal de detalhe** (caso presencial — DL-046). **Contador de pendentes** = estado compartilhado no front (context/provider, refresh curto) **dentro desta story** (não é story separada). Permissão **owner/gerente**. Spec: `5B-3-4-pendentes-realocacao.md`.
+Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcional**) e **Recusar** (`PATCH :id/reject`, **motivo obrigatório**), auditados em `appointment_changes`. Confirmar leva ao badge **"confirmado" já existente (3.7)** — **sem badge novo**; disponível **também no modal de detalhe** (caso presencial — DL-046). **Contador de pendentes** = estado compartilhado no front (context/provider, refresh curto) **dentro desta story** (não é story separada). Permissão **owner/gerente**. Spec: `5B-3-pendentes-confirmar-recusar.md`.
 
 > **Fora do Épico 5B:** filtro por status na agenda = ajuste **3.7.01** (DL-028, commit `feat`). **Dívida consciente (fora do 1º ship):** carrinho multi-serviço (DL-040); notificação automática à cliente (Épico 6/bot).
 
@@ -854,7 +855,7 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 
 **Objetivo:** o diferencial, **adiado** para depois da base manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os pendentes pelo painel. Consome a base do Épico 3 (`appointments`, `AvailabilityService`, `clients`) — não recria tabelas de agendamento.
 
-**FRs:** FR-A1–A8, FR-B1–B6, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C2, NFR-C3, NFR-O3 · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
+**FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C2, NFR-C3, NFR-O3 · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
 ### Story 6.1: Abstração WhatsAppProvider e integração Evolution API
 
