@@ -304,7 +304,7 @@ export function PublicAgendar() {
                     onChange={(e) => setProfessionalId(e.target.value)}
                     className={inputCls}
                   >
-                    <option value="">Tanto faz</option>
+                    <option value="">Sem preferência</option>
                     {professionals.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
