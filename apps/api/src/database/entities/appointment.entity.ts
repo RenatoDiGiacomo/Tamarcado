@@ -14,7 +14,7 @@ export type AppointmentStatus =
   | "completed"
   | "no_show";
 
-export type AppointmentSource = "whatsapp" | "manual" | "app";
+export type AppointmentSource = "whatsapp" | "manual" | "app" | "link";
 
 export type CancelledBy = "client" | "professional" | "system";
 
@@ -73,7 +73,7 @@ export class Appointment {
   })
   status!: AppointmentStatus;
 
-  @Column({ type: "enum", enum: ["whatsapp", "manual", "app"] })
+  @Column({ type: "enum", enum: ["whatsapp", "manual", "app", "link"] })
   source!: AppointmentSource;
 
   // Auditoria do criador manual (FR-K2); NULL quando criado pelo bot.

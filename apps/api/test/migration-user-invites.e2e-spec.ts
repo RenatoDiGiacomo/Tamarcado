@@ -5,6 +5,9 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * Verifica a migration `user_invites` (Story 1.4, DL-029): colunas exigidas,
  * token único, FK para companies e reversão limpa. Requer MySQL.
  */
+// resetSchema no beforeAll passa de 5s sob carga do CI (evita flake do hook de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateUserInvites (e2e)", () => {
   let ds: DataSource;
 

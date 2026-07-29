@@ -7,6 +7,10 @@ import { createTestDataSource, resetSchema, dropSchema } from "./test-db";
  * price_snapshot), enums, índices por company_id, FKs, unicidade NULL-safe de
  * clients e reversão FK-safe. Requer MySQL.
  */
+// bootstrap/resetSchema no beforeAll passam de 5s sob carga do CI — alinha ao
+// padrão dos demais e2e (evita flake do hook default de 5000ms).
+jest.setTimeout(60000);
+
 describe("Migration CreateAppointmentsBase (e2e)", () => {
   let ds: DataSource;
 
