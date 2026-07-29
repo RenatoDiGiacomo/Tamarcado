@@ -545,6 +545,173 @@ export class AppointmentsService {
     return toAppointmentView(row, tz);
   }
 
+  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. */
+  async listPending(): Promise<{ appointments: AppointmentView[] }> {
+    const companyId = this.tenant.getCompanyId();
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const rows = await this.appointmentsRepo.findPending();
+    return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
+  }
+
+  /** Contagem de pendentes do tenant (Story 5B.3) — o contador/badge. */
+  async pendingCount(): Promise<{ count: number }> {
+    return { count: await this.appointmentsRepo.countPending() };
+  }
+
+  /**
+   * Confirmar um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
+   * profissional **opcionalmente** (PR-1). Leva ao StatusChip "confirmado" já
+   * existente (3.7). Auditoria unificada em `appointment_changes` (status e, se
+   * atribuiu, profissional). Só owner/gerente (PR-3). Também disponível no modal.
+   */
+  async confirmPending(
+    id: string,
+    professionalId: string | null | undefined,
+    user: AuthUser,
+  ): Promise<AppointmentView> {
+    const companyId = this.tenant.getCompanyId();
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    if (user.accessLevel === "basic") {
+      throw new ForbiddenException(
+        "Apenas dono ou gerente podem tratar pendentes.",
+      );
+    }
+    if (appt.status !== "pending") {
+      throw new ConflictException(
+        "Só é possível confirmar um agendamento pendente.",
+      );
+    }
+
+    const changes: { field: "status" | "professional"; from: string; to: string }[] = [];
+
+    // Profissional OPCIONAL: quando informado, precisa ser atendente ativo do tenant.
+    if (professionalId != null) {
+      const prof = await this.users.findOne({
+        where: {
+          id: professionalId,
+          company_id: companyId,
+          attends_clients: true,
+          is_active: true,
+        },
+      });
+      if (!prof) {
+        throw new BadRequestException("Profissional inválido.");
+      }
+      if (appt.professional_id !== professionalId) {
+        const oldName = appt.professional_id
+          ? ((
+              await this.users.findOne({
+                where: { id: appt.professional_id, company_id: companyId },
+              })
+            )?.name ?? null)
+          : null;
+        changes.push({
+          field: "professional",
+          from: oldName ?? "Não atribuído",
+          to: prof.name,
+        });
+        appt.professional_id = professionalId;
+        appt.assigned_by_user_id = user.userId;
+        appt.assigned_at = new Date();
+      }
+    }
+
+    changes.push({
+      field: "status",
+      from: statusLabel(appt.status),
+      to: statusLabel("confirmed"),
+    });
+    appt.status = "confirmed";
+    await this.appointmentsRepo.save(appt);
+
+    const now = new Date();
+    const changeRepo = this.dataSource.getRepository(AppointmentChange);
+    await changeRepo.save(
+      changes.map((c) =>
+        changeRepo.create({
+          company_id: companyId,
+          appointment_id: appt.id,
+          changed_by_user_id: user.userId,
+          changed_at: now,
+          field: c.field,
+          old_value: c.from,
+          new_value: c.to,
+        }),
+      ),
+    );
+
+    return this.viewOrThrow(id, companyId);
+  }
+
+  /**
+   * Recusar um PENDENTE (Story 5B.3/FR-B4): `pending → cancelled` com motivo
+   * OBRIGATÓRIO. Reusa o padrão de cancelamento (3.4: `cancelled_by` = lado do
+   * estabelecimento + `cancelled_by_user_id` = a pessoa + `cancellation_reason`)
+   * e audita em `appointment_changes`. O motivo é o que o bot usa depois (FR-B5).
+   * Só owner/gerente (PR-3).
+   */
+  async rejectPending(
+    id: string,
+    reason: string,
+    user: AuthUser,
+  ): Promise<AppointmentView> {
+    const companyId = this.tenant.getCompanyId();
+    const appt = await this.appointmentsRepo.findById(id);
+    if (!appt) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    if (user.accessLevel === "basic") {
+      throw new ForbiddenException(
+        "Apenas dono ou gerente podem tratar pendentes.",
+      );
+    }
+    if (appt.status !== "pending") {
+      throw new ConflictException(
+        "Só é possível recusar um agendamento pendente.",
+      );
+    }
+
+    const fromLabel = statusLabel(appt.status);
+    appt.status = "cancelled";
+    appt.cancellation_reason = reason.trim();
+    appt.cancelled_by = "professional";
+    appt.cancelled_by_user_id = user.userId;
+    await this.appointmentsRepo.save(appt);
+
+    const changeRepo = this.dataSource.getRepository(AppointmentChange);
+    await changeRepo.save(
+      changeRepo.create({
+        company_id: companyId,
+        appointment_id: appt.id,
+        changed_by_user_id: user.userId,
+        changed_at: new Date(),
+        field: "status",
+        old_value: fromLabel,
+        new_value: statusLabel("cancelled"),
+      }),
+    );
+
+    return this.viewOrThrow(id, companyId);
+  }
+
+  /** View do agendamento no fuso do tenant, ou 404. */
+  private async viewOrThrow(
+    id: string,
+    companyId: string,
+  ): Promise<AppointmentView> {
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const tz = company?.timezone ?? "America/Sao_Paulo";
+    const row = await this.appointmentsRepo.findViewById(id);
+    if (!row) {
+      throw new NotFoundException("Agendamento não encontrado.");
+    }
+    return toAppointmentView(row, tz);
+  }
+
   /**
    * Núcleo transacional (NFR-C1/DL-002). Serializa por profissional com
    * `SELECT ... FOR UPDATE` (a T2 só passa após a T1 commitar, enxergando a linha

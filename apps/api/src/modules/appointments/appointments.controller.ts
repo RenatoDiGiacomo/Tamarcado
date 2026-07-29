@@ -27,6 +27,9 @@ import { CancelAppointmentDto } from "./dto/cancel-appointment.dto";
 import { AssignProfessionalDto } from "./dto/assign-professional.dto";
 import { EditAppointmentDto } from "./dto/edit-appointment.dto";
 import { ChangeStatusDto } from "./dto/change-status.dto";
+import { ConfirmPendingDto } from "./dto/confirm-pending.dto";
+import { RejectPendingDto } from "./dto/reject-pending.dto";
+import { Roles } from "../../common/decorators/roles.decorator";
 
 /**
  * Agenda do painel (Story 3.2). Listagem por período para qualquer usuário
@@ -48,6 +51,20 @@ export class AppointmentsController {
     @CurrentUser() user: AuthUser,
   ): Promise<AgendaPeriod> {
     return this.appointments.listByPeriod(q.from, q.to, user);
+  }
+
+  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Só owner/gerente. */
+  @Get("pending")
+  @Roles("owner", "manager")
+  async listPending(): Promise<{ appointments: AppointmentView[] }> {
+    return this.appointments.listPending();
+  }
+
+  /** Contagem de pendentes (Story 5B.3) — o contador/badge. Só owner/gerente. */
+  @Get("pending-count")
+  @Roles("owner", "manager")
+  async pendingCount(): Promise<{ count: number }> {
+    return this.appointments.pendingCount();
   }
 
   /**
@@ -109,6 +126,35 @@ export class AppointmentsController {
    * Ações pontuais por transição válida; exige o horário já ter começado (D1/D2);
    * basic só o próprio (D3). Auditoria em `appointment_changes`. Sem notificação.
    */
+  /**
+   * Confirma um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
+   * profissional OPCIONALMENTE (PR-1). Leva ao badge "confirmado" da 3.7. Só
+   * owner/gerente (PR-3). Auditado em `appointment_changes`. Também no modal.
+   */
+  @Patch(":id/confirm")
+  @Roles("owner", "manager")
+  async confirm(
+    @Param("id") id: string,
+    @Body() dto: ConfirmPendingDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AppointmentView> {
+    return this.appointments.confirmPending(id, dto.professionalId, user);
+  }
+
+  /**
+   * Recusa um PENDENTE (Story 5B.3/FR-B4): `pending → cancelled` com motivo
+   * OBRIGATÓRIO (reusa o padrão da 3.4). Só owner/gerente. Auditado.
+   */
+  @Patch(":id/reject")
+  @Roles("owner", "manager")
+  async reject(
+    @Param("id") id: string,
+    @Body() dto: RejectPendingDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AppointmentView> {
+    return this.appointments.rejectPending(id, dto.reason, user);
+  }
+
   @Patch(":id/status")
   async changeStatus(
     @Param("id") id: string,

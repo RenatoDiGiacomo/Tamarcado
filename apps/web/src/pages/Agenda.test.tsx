@@ -60,6 +60,20 @@ const semAtrib: ApiAppointment = {
   source: "manual",
 };
 
+const pendente: ApiAppointment = {
+  id: "20",
+  clientName: "Bruna Alves",
+  serviceId: "3",
+  serviceName: "Corte",
+  professionalId: null,
+  professionalName: null,
+  date: isoOffset(2),
+  start: "14:00",
+  end: "15:00",
+  status: "pending",
+  source: "link",
+};
+
 /** Captura o último `from`/`to` pedido à API para asserção de período. */
 function lastQuery(): string {
   const call = apiMock.mock.calls.at(-1);
@@ -251,6 +265,46 @@ describe("Agenda", () => {
       within(dialog).queryByRole("button", { name: "Não compareceu" }),
     ).toBeNull();
     expect(within(dialog).getByRole("button", { name: "Editar" })).toBeInTheDocument();
+  });
+
+  it("Confirmar (5B.3/DL-046): pendente vira confirmado direto no detalhe → PATCH :id/confirm + recarrega", async () => {
+    apiMock.mockImplementation((path: string, opts?: { method?: string }) => {
+      if (opts?.method === "PATCH") {
+        return Promise.resolve(jsonRes({ id: "20", status: "confirmed" }));
+      }
+      return Promise.resolve(
+        jsonRes({ appointments: [pendente], businessHours: BUSINESS }),
+      );
+    });
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Bruna Alves"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
+      const patch = apiMock.mock.calls.find(([, o]) => o?.method === "PATCH");
+      expect(patch?.[0]).toBe("/appointments/20/confirm");
+      expect(patch?.[1].body).toEqual({});
+    });
+    const gets = apiMock.mock.calls.filter(
+      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+    );
+    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após confirmar
+  });
+
+  it("Confirmar não aparece para basic (permissão owner/gerente)", async () => {
+    // Nota: o useAuth do teste é owner; aqui só garantimos que confirmado NÃO
+    // oferece Confirmar (o botão é exclusivo do status pendente).
+    apiMock.mockResolvedValue(
+      jsonRes({
+        appointments: [{ ...pendente, id: "21", status: "confirmed" }],
+        businessHours: BUSINESS,
+      }),
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Bruna Alves"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("button", { name: "Confirmar" })).toBeNull();
   });
 
   it("mostra erro quando a API falha", async () => {

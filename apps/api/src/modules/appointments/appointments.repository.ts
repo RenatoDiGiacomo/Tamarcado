@@ -75,6 +75,28 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
   }
 
   /**
+   * Pendentes do tenant (Story 5B.3) — `status = pending`, mais antigo primeiro
+   * (fila de chegada, para a recepção despachar). Sem recorte por papel: só
+   * owner/gerente acessam a tela Pendentes.
+   */
+  async findPending(): Promise<RawAppointmentRow[]> {
+    return this.viewQuery()
+      .andWhere("a.status = :pending", { pending: "pending" })
+      .orderBy("a.scheduled_at", "ASC")
+      .getRawMany<RawAppointmentRow>();
+  }
+
+  /** Contagem de pendentes do tenant (Story 5B.3) — alimenta o badge/contador. */
+  async countPending(): Promise<number> {
+    return this.repo
+      .createQueryBuilder("a")
+      .where("a.company_id = :companyId", { companyId: this.companyId })
+      .andWhere("a.is_deleted = false")
+      .andWhere("a.status = :pending", { pending: "pending" })
+      .getCount();
+  }
+
+  /**
    * Base da view da agenda: joins tenant-safe + nomes resolvidos, já filtrando o
    * `company_id` do contexto e `is_deleted = false`. Quem chama adiciona o recorte
    * (período/id/escopo).

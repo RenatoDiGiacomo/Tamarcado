@@ -276,8 +276,10 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 - ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
 - ✅ **4.2** Perfil da cliente (histórico + observações) — mergeada (PR #32) — **Épico 4 completo**
 
-**Épico 5B — Agendamento pela Cliente (link público):**
-- 📋 **Escopo FECHADO (DL-049)** — 3 stories (5B.1 fundação pública · 5B.2 disponibilidade + POST · 5B.3 Pendentes + contador). Planejado, aguardando go. Specs `5B-1/5B-2/5B-3`.
+**Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
+- ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
+- 🔵 **5B.2** Disponibilidade pública + POST hostil-por-padrão — PR #42 aberto (CI verde), aguardando merge
+- 🔵 **5B.3** Pendentes no painel (confirmar/recusar + contador) — PR aberto, aguardando merge — **fecha o Épico 5B**
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 

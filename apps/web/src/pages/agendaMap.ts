@@ -13,7 +13,7 @@ export interface ApiAppointment {
   start: string; // HH:MM
   end: string; // HH:MM
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
-  source: "whatsapp" | "manual" | "app";
+  source: "whatsapp" | "manual" | "app" | "link"; // 5B.2: link público
 }
 
 const STATUS_MAP: Record<ApiAppointment["status"], AppointmentStatus> = {
