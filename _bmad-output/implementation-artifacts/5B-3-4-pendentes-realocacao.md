@@ -1,6 +1,6 @@
 # Stories 5B.3 / 5B.4 (spec para revisão): Realocação de Pendentes — a fundação sai do bot
 
-Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (o que move do Épico 6) · **não implementar até o go**
+Status: **FECHADA (DL-049)** · escopo do Épico 5B = **3 stories**; o **contador de pendentes vive DENTRO da 5B.3** (o antigo "5B.4" foi absorvido) · **não implementar até o go**
 
 > **Tese (P2, já aprovada):** a máquina de **pendentes** deixa de ser exclusiva do bot e vira a **fundação do link**. O agendamento de fora (link) entra `pending`; o estabelecimento **confirma/recusa no painel**. O bot (Épico 6) depois **reusa** essa máquina — só pluga o canal WhatsApp e as notificações à cliente. Constrói-se **uma vez**.
 

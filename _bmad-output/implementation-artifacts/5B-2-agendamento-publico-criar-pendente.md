@@ -79,6 +79,10 @@ Nada além desses 6 campos. **Sem** `companyId`, `status`, `id`, `professional_i
 
 ---
 
+### AC8 — Janela antispam de 2h por telefone/IP (DL-049)
+**Mecanismo:** o **mesmo telefone (normalizado) ou IP** só cria **nova** solicitação **após 2h** da anterior — checado no service (consulta o último pendente/registro daquele telefone/IP no tenant). Dentro da janela → **429** com **mensagem clara** ("Você já tem uma solicitação recente. Aguarde o contato do estabelecimento."). Complementa o rate limit por IP/slug (`@nestjs/throttler`) e o pending+confirmação como antispam primário.
+**Teste (API direto):** dois POSTs válidos seguidos do mesmo telefone → 1º **201**, 2º **429** (janela de 2h); telefone diferente no mesmo IP dentro da janela → conforme política (por telefone **e** por IP).
+
 ## Nota — DUAS camadas independentes (entrada + saída)
 
 A validação estrita de **entrada** (AC3/AC4) **não dispensa** o escape na **saída** (AC2). São defesas independentes:

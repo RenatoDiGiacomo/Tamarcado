@@ -1,6 +1,6 @@
 # Plano — Épico "Agendamento pela Cliente (link público)"
 
-Status: **PROPOSTA para revisão do Renato** · Winston (arquiteto) · 2026-07-25 · **não** mergeado ao `epics.md`/decision-log ainda
+Status: **ESCOPO FECHADO (DL-049) — rótulo "Épico 5B", 3 stories (5B.1–5B.3).** Este doc é o histórico da proposta; a spec fechada vive em `epics.md`, no decision-log (DL-046/047/048/049) e em `5B-1/5B-2/5B-3`. As seções abaixo que propunham renumerar 6→7 e 4 stories foram **superadas** pelas decisões do Renato (ver "Decisões" ao fim).
 
 > **Por que primeiro.** Entrega "a cliente agenda sozinha" **sem** o risco do WhatsApp (banimento, custo por mensagem, dependência da Meta/Evolution) e **constrói a fundação que o bot também usa** (pendentes, disponibilidade pública, branding sem login). Cliente real já pediu. Vem antes do Épico 6 (bot).
 
@@ -92,7 +92,7 @@ O DL-034 proíbe **confiar em id de company vindo de fora** (para um usuário lo
 Defesas, em camadas:
 1. **Pending + confirmação do salão é o antispam primário:** nada é confirmado sozinho; lixo entra como pendente e o salão **recusa**. Não gera custo (sem WhatsApp) nem bloqueia agenda de verdade.
 2. **Rate limiting** (`@nestjs/throttler`): limite por **IP** e por **slug** no POST público (ex.: 5/min, 20/h). Global mais frouxo nos GETs.
-3. **Antispam leve:** honeypot (campo oculto), validação de telefone (formato BR), **teto de pendentes por telefone/IP/dia** (ex.: 3) para não inundar a tela Pendentes.
+3. **Janela antispam de 2h (DL-049):** o **mesmo telefone/IP** só pode enviar **nova** solicitação após **2h** — com **mensagem clara na tela**. + honeypot (campo oculto) + validação de telefone (formato BR).
 4. **CAPTCHA/Turnstile:** **fora do MVP** — só se aparecer abuso real (evita fricção no "agenda sozinha").
 5. **Concorrência** (NFR-C1): a criação reusa o `createAtomic` (serialização por profissional). Para o link, sem profissional atribuído, a checagem é de **capacidade do bloco** (≥1 profissional livre — DL-013); dois pendentes no mesmo slot não se bloqueiam (o salão desempata).
 

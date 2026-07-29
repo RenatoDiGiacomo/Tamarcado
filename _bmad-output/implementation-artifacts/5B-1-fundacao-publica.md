@@ -2,7 +2,7 @@
 
 Status: **PROPOSTA para revisão do Renato** · a parte a olhar com cuidado (pré-tenant + isolamento) · **não implementar até o go**
 
-> **Escopo:** a base do link — resolver o tenant por **slug** (sem login), com o **mesmo isolamento** do painel; e as leituras públicas seguras (**branding** + **serviços**). A disponibilidade e a criação do pendente são a **5B.2**; a tela de Pendentes/polling são a **5B.3/5B.4**.
+> **Escopo:** a base do link — resolver o tenant por **slug** (sem login), com o **mesmo isolamento** do painel; e as leituras públicas seguras (**branding** + **serviços ativos** + **profissionais ativos**). A disponibilidade e a criação do pendente são a **5B.2**; os Pendentes + contador são a **5B.3** (escopo fechado em 3 stories — DL-049).
 
 ---
 
@@ -50,6 +50,7 @@ O DL-034 proíbe **confiar em id de company vindo de fora** — para um **usuár
 |---|---|---|---|
 | GET | `/public/:slug/installation` | `{ name, logoUrl, primaryColor }` | branding whitelisted; 404 se slug não existe |
 | GET | `/public/:slug/services` | `[{ id, name, durationMinutes, price }]` | **só ativos**; tenant-scoped pelo slug |
+| GET | `/public/:slug/professionals` | `[{ id, name }]` | **só ativos** (profissional é OPCIONAL no form — DL-049); tenant-scoped |
 
 - Ambos em `PUBLIC_TENANT_CONTROLLERS`. **Rate-limit** de leitura (frouxo) por cima; o POST estrito é a 5B.2.
 - Sem PII, sem dados de agenda — só o que o salão **quer** público.
@@ -80,8 +81,8 @@ O DL-034 proíbe **confiar em id de company vindo de fora** — para um **usuár
 | # | Decisão | Status |
 |---|---|---|
 | **P-A** | 3ª categoria `PUBLIC_TENANT_CONTROLLERS` + `PublicSlugTenantMiddleware` (vs. PRE_TENANT com scoping manual) | ✅ **Aprovado (Renato, 2026-07-26)** — scoping automático + guard-rail quebra a suíte se faltar |
-| **P-B** | `companies.findBySlug` unscoped p/ resolver o tenant | 🟡 **Recomendo Sim** — slug é a chave pública; retorna só id + branding p/ o contexto/DTO. A confirmar. |
-| **P-C** | Rota pública `/agendar/:slug` fora do `ProtectedRoute` | 🟡 **Recomendo Sim** — é aberta (sem auth). A confirmar. |
+| **P-B** | `companies.findBySlug` unscoped p/ resolver o tenant | ✅ **Aprovado (Renato):** slug é a chave pública; retorna id + branding p/ o contexto/DTO. |
+| **P-C** | Rota pública `/agendar/:slug` fora do `ProtectedRoute` | ✅ **Aprovado (Renato):** rota aberta (sem auth). |
 
 ## References
 
