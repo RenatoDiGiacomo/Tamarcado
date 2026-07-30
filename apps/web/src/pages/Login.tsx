@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { ApiConnectionError, CONNECTION_ERROR_MESSAGE } from "../lib/api";
 import { APP_VERSION } from "../lib/version";
 // Logo vertical (ícone TM + wordmark empilhados) — variação por tema:
 // wordmark preto no tema claro, branco no escuro. O check roxo é o mesmo nas
@@ -33,8 +34,14 @@ export function Login() {
     try {
       await login(email, password, slug);
       navigate("/");
-    } catch {
-      setError("E-mail ou senha incorretos. Tente novamente.");
+    } catch (err) {
+      // Distingue "não deu para falar com o servidor" (rede/CORS/timeout) de
+      // credencial inválida — antes toda falha virava "senha incorreta".
+      setError(
+        err instanceof ApiConnectionError
+          ? CONNECTION_ERROR_MESSAGE
+          : "E-mail ou senha incorretos. Tente novamente.",
+      );
     } finally {
       setSubmitting(false);
     }
