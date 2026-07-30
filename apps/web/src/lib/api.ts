@@ -19,6 +19,26 @@ function resolveApiBase(): string {
 
 const BASE_URL: string = resolveApiBase();
 
+/** Tempo máximo por requisição antes de tratar como falha de conexão. */
+const REQUEST_TIMEOUT_MS = 15000;
+
+/** Mensagem única para o usuário quando NÃO deu para falar com a API. */
+export const CONNECTION_ERROR_MESSAGE =
+  "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
+
+/**
+ * Falha de TRANSPORTE (rede caiu, CORS bloqueou, DNS, timeout) — a requisição
+ * nunca chegou a uma resposta HTTP. É distinta de uma resposta de erro do
+ * servidor (4xx/5xx), que resolve normalmente com `res.ok === false`. Serve
+ * para a UI não confundir "servidor fora do ar" com "credencial inválida".
+ */
+export class ApiConnectionError extends Error {
+  constructor(public readonly original?: unknown) {
+    super(CONNECTION_ERROR_MESSAGE);
+    this.name = "ApiConnectionError";
+  }
+}
+
 export interface ApiRequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
@@ -35,9 +55,19 @@ export function apiRequest(
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   return fetch(`${BASE_URL}/api${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+    signal: controller.signal,
+  })
+    .catch((cause: unknown) => {
+      // `fetch` só rejeita em falha de REDE/CORS/DNS ou no abort do timeout —
+      // nunca em 4xx/5xx (esses resolvem com res.ok === false). Envolvemos num
+      // erro tipado para a UI mostrar "sem conexão", não "credencial inválida".
+      throw new ApiConnectionError(cause);
+    })
+    .finally(() => clearTimeout(timeoutId));
 }

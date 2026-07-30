@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Login } from "./Login";
+import { ApiConnectionError } from "../lib/api";
 
 const loginMock = vi.fn();
 const navigateMock = vi.fn();
@@ -87,8 +88,8 @@ describe("Login", () => {
     expect(senha).toHaveAttribute("type", "password");
   });
 
-  it("login com erro exibe mensagem", async () => {
-    loginMock.mockRejectedValue(new Error("bad"));
+  it("credencial inválida (401) exibe mensagem de senha", async () => {
+    loginMock.mockRejectedValue(new Error("Credenciais inválidas"));
     render(
       <MemoryRouter>
         <Login />
@@ -97,10 +98,30 @@ describe("Login", () => {
     fireEvent.change(screen.getByLabelText("E-mail"), {
       target: { value: "dono@x.dev" },
     });
-    fireEvent.change(screen.getByLabelText("Senha"), {
+    fireEvent.change(screen.getByLabelText("Senha", { exact: true }), {
       target: { value: "errada" },
     });
     fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/senha incorret/i);
+  });
+
+  it("falha de conexão/CORS mostra mensagem de servidor, NÃO de credencial", async () => {
+    loginMock.mockRejectedValue(new ApiConnectionError());
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText("E-mail"), {
+      target: { value: "dono@x.dev" },
+    });
+    fireEvent.change(screen.getByLabelText("Senha", { exact: true }), {
+      target: { value: "tamarcado123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/conectar ao servidor/i);
+    expect(alert.textContent).not.toMatch(/senha incorret/i);
   });
 });
