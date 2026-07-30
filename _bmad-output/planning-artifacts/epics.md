@@ -557,6 +557,8 @@ So that eu provisione um cliente vendido sem mexer no banco na mão.
 **When** cada dono usa seu token
 **Then** cada um só enxerga os dados da própria empresa (isolamento de tenant, DL-027)
 
+**Nota de deploy (PLATFORM_KEY):** o valor de `PLATFORM_KEY` em dev é **só para dev** e **não vai para produção**. Ao subir o VPS, **gerar uma chave nova e longa** (ex.: `openssl rand -hex 32`) direto no ambiente de produção, fora do repositório (secret do host/compose). Rotacionar se vazar. O endpoint **falha fechada**: sem `PLATFORM_KEY` no ambiente, o `POST /platform/companies` responde 401 (nunca abre por esquecimento de env).
+
 ---
 
 
