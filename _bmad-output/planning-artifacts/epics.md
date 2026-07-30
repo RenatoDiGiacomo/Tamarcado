@@ -552,7 +552,12 @@ So that eu provisione um cliente vendido sem mexer no banco na mão.
 **When** cada dono usa seu token
 **Then** cada um só enxerga os dados da própria empresa (isolamento de tenant, DL-027)
 
-**Nota de deploy (PLATFORM_KEY):** o valor de `PLATFORM_KEY` em dev é **só para dev** e **não vai para produção**. Ao subir o VPS, **gerar uma chave nova e longa** (ex.: `openssl rand -hex 32`) direto no ambiente de produção, fora do repositório (secret do host/compose). Rotacionar se vazar. O endpoint **falha fechada**: sem `PLATFORM_KEY` no ambiente, o `POST /platform/companies` responde 401 (nunca abre por esquecimento de env).
+**Nota de deploy — variáveis OBRIGATÓRIAS no VPS/produção:**
+
+- **`NODE_ENV=production` (obrigatório).** Define o modo de produção — entre outras coisas, mantém o **CORS estrito** (só o allowlist de `CORS_ORIGIN`) e desliga o Swagger. O check é **fail-closed**: se `NODE_ENV` faltar, a API **já trata como produção** (não cai no CORS de rede local do dev — ver `app-setup.ts`/`isDevEnv`). Ainda assim, **defina explicitamente** no host (não confie no default). Em dev vale `NODE_ENV=development` (habilita o CORS de rede local para testar pelo celular).
+- **`AUTH_ALLOW_SINGLE_TENANT` = OFF** (ausente ou `0`) em produção. É conveniência de dev/CI apenas; com ela ligada o login sem slug resolveria tenant único. Fail-closed: ausente = desligado = slug obrigatório (DL-050).
+- **`PLATFORM_KEY`** gerada **nova e longa** direto no ambiente de produção (ex.: `openssl rand -hex 32`), **fora do repositório** (secret do host/compose) — o valor de dev é só para dev. Rotacionar se vazar. O `POST /platform/companies` **falha fechada**: sem `PLATFORM_KEY`, responde 401.
+- **`CORS_ORIGIN`** = a(s) origem(ns) real(is) do painel em produção (CSV), já que o modo dev de CORS não é usado com `NODE_ENV=production`.
 
 ---
 

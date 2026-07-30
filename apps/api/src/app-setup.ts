@@ -8,9 +8,16 @@ export function corsOrigins(): string[] {
     .filter(Boolean);
 }
 
-/** Dev = qualquer ambiente que não seja produção (start:dev, e2e). */
-function isDevEnv(): boolean {
-  return process.env.NODE_ENV !== "production";
+/**
+ * Dev = ambiente de desenvolvimento/teste **explícito**. **Fail-closed:** se
+ * `NODE_ENV` estiver AUSENTE (ou tiver qualquer valor não reconhecido), tratamos
+ * como PRODUÇÃO — CORS estrito. O modo permissivo (rede local) só liga quando
+ * `NODE_ENV` é `"development"` ou `"test"`. Assim um VPS que suba **sem**
+ * `NODE_ENV` definido NÃO cai no CORS de dev. Ver nota de deploy no epics.md.
+ */
+export function isDevEnv(): boolean {
+  const env = process.env.NODE_ENV;
+  return env === "development" || env === "test";
 }
 
 // Hosts de rede local: loopback + faixas privadas RFC 1918. Usado SOMENTE para

@@ -1,4 +1,4 @@
-import { devCorsOrigin } from "./app-setup";
+import { devCorsOrigin, isDevEnv } from "./app-setup";
 
 /** Coleta o resultado do callback estilo-cors (err, allow). */
 function check(origin: string | undefined): boolean {
@@ -45,5 +45,37 @@ describe("devCorsOrigin (CORS de dev — só rede local)", () => {
 
   it("rejeita origem malformada", () => {
     expect(check("nao-e-url")).toBe(false);
+  });
+});
+
+describe("isDevEnv (fail-closed por NODE_ENV)", () => {
+  const OLD = process.env.NODE_ENV;
+  afterEach(() => {
+    if (OLD === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = OLD;
+  });
+
+  it("NODE_ENV AUSENTE → NÃO é dev (tratado como produção, fail-closed)", () => {
+    delete process.env.NODE_ENV;
+    expect(isDevEnv()).toBe(false);
+  });
+
+  it("NODE_ENV=production → não é dev", () => {
+    process.env.NODE_ENV = "production";
+    expect(isDevEnv()).toBe(false);
+  });
+
+  it("valor não reconhecido (ex.: 'staging', '') → não é dev", () => {
+    process.env.NODE_ENV = "staging";
+    expect(isDevEnv()).toBe(false);
+    process.env.NODE_ENV = "";
+    expect(isDevEnv()).toBe(false);
+  });
+
+  it("NODE_ENV=development ou test → é dev (CORS de rede local liberado)", () => {
+    process.env.NODE_ENV = "development";
+    expect(isDevEnv()).toBe(true);
+    process.env.NODE_ENV = "test";
+    expect(isDevEnv()).toBe(true);
   });
 });
