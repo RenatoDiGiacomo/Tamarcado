@@ -990,6 +990,8 @@ primeiro acesso.
 
 > *Reformulado por **DL-051** (revoga **DL-018** / "app mobile somente leitura"): o acesso mobile é o **próprio painel**, responsivo e instalável como PWA, com **as mesmas ações** do desktop — não um app nativo separado de leitura. As telas abaixo são o painel no celular; a navegação por tabs no rodapé é a do painel (UX-DR7).*
 
+> **Desenho detalhado do painel no celular (Épico 7, Stories 7.2/7.3):** ver **[`painel-mobile-ux-spec.md`](./painel-mobile-ux-spec.md)** — AppBar enxuta, bottom sheets para as ações, toolbar de agenda consolidada, versão em Perfil, e tratamento de dias cheios / multi-profissional. Os wireframes 5.2–5.4 abaixo são a base; a spec do painel mobile os atualiza para "cara de app" mantendo o desktop intacto.
+
 *Autenticação compartilhada com o painel: o usuário loga uma vez; a sessão persiste.*
 
 ### 5.1 Navegação (tabs no rodapé)
