@@ -18,6 +18,7 @@ import {
 } from "../components/agenda/AgendaGrid";
 import { NovoAgendamento, type EditingAppointment } from "./NovoAgendamento";
 import { useAuth } from "../auth/AuthContext";
+import { usePendentes } from "../lib/usePendentes";
 import {
   formatDateLabel,
   periodRange,
@@ -42,6 +43,7 @@ interface AgendaResponse {
  */
 export function Agenda() {
   const { user } = useAuth();
+  const { refresh: refreshPending } = usePendentes();
   const [anchor, setAnchor] = useState<string>(() => todayIso());
   const [view, setView] = useState<AgendaView>("dia");
   const [data, setData] = useState<AgendaResponse | null>(null);
@@ -61,6 +63,8 @@ export function Agenda() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   // Marcar comparecimento (Story 3.7): evita duplo-clique enquanto envia.
   const [marking, setMarking] = useState(false);
+  // Confirmar pendente (Story 5B.3/DL-046): caso presencial, direto no detalhe.
+  const [confirming, setConfirming] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +125,11 @@ export function Agenda() {
     selected?.status === "confirmed" &&
     hasStarted &&
     (user?.accessLevel !== "basic" || selected?.professionalId === user?.id);
+  // Confirmar (Story 5B.3/DL-046): pendente → confirmado, direto no detalhe
+  // (caso presencial, mesmo lugar do Editar/Cancelar). Só owner/gerente.
+  const canConfirm =
+    selected?.status === "pending" &&
+    (user?.accessLevel === "owner" || user?.accessLevel === "manager");
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
@@ -174,6 +183,32 @@ export function Agenda() {
     },
     [selectedId, marking, closeDetail],
   );
+
+  // Confirma um pendente (Story 5B.3/DL-046): PATCH :id/confirm → vira o badge
+  // "Confirmado" (3.7). Profissional fica opcional (atribui depois em Editar).
+  const confirmAppointment = useCallback(async () => {
+    if (!selectedId || confirming) return;
+    setConfirming(true);
+    try {
+      const res = await apiRequest(`/appointments/${selectedId}/confirm`, {
+        method: "PATCH",
+        body: {},
+        token: token(),
+      });
+      if (!res.ok) {
+        toast.error(await statusErrorMessage(res));
+        return;
+      }
+      closeDetail();
+      setRefreshKey((k) => k + 1); // card repinta com o StatusChip "Confirmado"
+      refreshPending(); // some da fila de Pendentes → atualiza o contador
+      toast.success("Agendamento confirmado.");
+    } catch {
+      toast.error("Não foi possível confirmar. Verifique sua conexão.");
+    } finally {
+      setConfirming(false);
+    }
+  }, [selectedId, confirming, closeDetail, refreshPending]);
 
   const cancelAppointment = useCallback(async () => {
     if (!selectedId) return;
@@ -291,8 +326,26 @@ export function Agenda() {
                   muted={!selected.professionalName}
                 />
               </dl>
-              {(canMark || canEdit || canCancel) && (
+              {(canConfirm || canMark || canEdit || canCancel) && (
                 <div className="flex flex-col gap-3 pt-1">
+                  {/* CONFIRMAR (Story 5B.3/DL-046): solicitação pendente vira
+                      confirmada direto no detalhe (caso presencial). Ação primária. */}
+                  {canConfirm && (
+                    <div className="flex flex-col gap-3">
+                      <div className="border-t border-border" />
+                      <div className="flex items-center gap-2">
+                        <span className="mr-auto text-sm font-medium text-foreground">
+                          Confirmar esta solicitação?
+                        </span>
+                        <Button
+                          disabled={confirming}
+                          onClick={() => void confirmAppointment()}
+                        >
+                          {confirming ? "Confirmando…" : "Confirmar"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {/* DESFECHO — "Como foi?": só quando o horário já passou. "Concluído"
                       é a ação primária; "Não compareceu" fica DISCRETO (ghost) — no-show
                       cedo demais é fácil de marcar sem querer. */}

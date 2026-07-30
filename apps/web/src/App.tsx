@@ -13,8 +13,10 @@ import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
 import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { PublicAgendar } from "./pages/PublicAgendar";
+import { Pendentes } from "./pages/Pendentes";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
+import { PendentesProvider } from "./lib/usePendentes";
 
 function Protected({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -28,9 +30,11 @@ function Protected({ children }: { children: ReactNode }) {
 function Layout() {
   return (
     <Protected>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <PendentesProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </PendentesProvider>
     </Protected>
   );
 }
@@ -47,6 +51,7 @@ export function App() {
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Agenda />} />
+        <Route path="/pendentes" element={<Pendentes />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/clientes/:id" element={<ClientePerfil />} />
         <Route path="/perfil" element={<Perfil />} />

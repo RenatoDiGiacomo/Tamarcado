@@ -13,6 +13,11 @@ vi.mock("../lib/useInstallation", () => ({
   useInstallation: () => useInstallationMock(),
 }));
 
+const usePendentesMock = vi.fn();
+vi.mock("../lib/usePendentes", () => ({
+  usePendentes: () => usePendentesMock(),
+}));
+
 function mockMatchMedia(matches: boolean): void {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches,
@@ -41,6 +46,8 @@ describe("AppShell", () => {
     useAuthMock.mockReset();
     useInstallationMock.mockReset();
     useInstallationMock.mockReturnValue(null);
+    usePendentesMock.mockReset();
+    usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
   });
 
   it("desktop (≥768px): sidebar com Pagamentos e Configurações para owner", () => {
@@ -80,6 +87,43 @@ describe("AppShell", () => {
     mockMatchMedia(true);
     renderShell();
     expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
+  });
+
+  it("Pendentes (5B.3): owner/gerente veem o item com o contador no badge", () => {
+    useAuthMock.mockReturnValue({
+      user: { name: "Dono", accessLevel: "owner", theme: "light" },
+      logout: vi.fn(),
+    });
+    usePendentesMock.mockReturnValue({ count: 3, refresh: vi.fn() });
+    mockMatchMedia(true);
+    renderShell();
+    const link = screen.getByRole("link", { name: /Pendentes/ });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/pendentes");
+    expect(screen.getByLabelText("3 pendentes")).toBeInTheDocument();
+  });
+
+  it("Pendentes: sem pendentes (count 0) não mostra badge", () => {
+    useAuthMock.mockReturnValue({
+      user: { name: "Gestor", accessLevel: "manager", theme: "light" },
+      logout: vi.fn(),
+    });
+    usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
+    mockMatchMedia(true);
+    renderShell();
+    expect(screen.getByRole("link", { name: /Pendentes/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/pendentes$/)).toBeNull();
+  });
+
+  it("Pendentes: basic não vê o item (owner/gerente apenas)", () => {
+    useAuthMock.mockReturnValue({
+      user: { name: "Profissional", accessLevel: "basic", theme: "light" },
+      logout: vi.fn(),
+    });
+    usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
+    mockMatchMedia(true);
+    renderShell();
+    expect(screen.queryByRole("link", { name: /Pendentes/ })).toBeNull();
   });
 
   it("mobile (<768px): tabs no rodapé com botão de ações rápidas", () => {

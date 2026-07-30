@@ -1,9 +1,10 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, CreditCard, Settings, Users } from "lucide-react";
+import { CalendarDays, CreditCard, Inbox, Settings, Users } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
+import { usePendentes } from "../lib/usePendentes";
 import { hexToHslTriplet } from "../lib/theme";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -15,12 +16,16 @@ interface NavItem {
   icon: ComponentType<{ className?: string }>;
   /** Sem tela ainda — item aparece "em breve", desabilitado (não navegável). */
   disabled?: boolean;
+  /** Contador (ex.: pendentes) — mostra badge quando > 0. */
+  badge?: number;
 }
 
 /**
- * Navegação principal (DL-036 manual-first — sem "Pendentes"). Clientes ativa na
- * Story 4.1; Pagamentos ainda não tem tela — fica "em breve" (vira pacote de
- * venda à parte), mesmo tratamento das abas de Configurações.
+ * Navegação principal. "Pendentes" entra só para owner/gerente (Story 5B.3, o
+ * link público passa a gerar solicitações a tratar) e é montado à parte, logo
+ * após a Agenda. Clientes ativa na Story 4.1; Pagamentos ainda não tem tela —
+ * fica "em breve" (vira pacote de venda à parte), mesmo tratamento das abas de
+ * Configurações.
  */
 const NAV_ITEMS: NavItem[] = [
   { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
@@ -31,8 +36,11 @@ const NAV_ITEMS: NavItem[] = [
 export function AppShell({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
   const installation = useInstallation();
+  const { count: pendingCount } = usePendentes();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const isOwner = user?.accessLevel === "owner";
+  const canSeePendentes =
+    user?.accessLevel === "owner" || user?.accessLevel === "manager";
   const [quickOpen, setQuickOpen] = useState(false);
 
   // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
@@ -51,8 +59,22 @@ export function AppShell({ children }: { children?: ReactNode }) {
     }
   }, [installation?.primaryColor]);
 
+  // Pendentes (Story 5B.3): só owner/gerente; badge com o contador. Entra logo
+  // após a Agenda (é o tratamento das solicitações que caem na agenda).
+  const pendItem: NavItem = {
+    key: "pendentes",
+    label: "Pendentes",
+    to: "/pendentes",
+    icon: Inbox,
+    badge: pendingCount,
+  };
+  const mainItems: NavItem[] = [
+    NAV_ITEMS[0],
+    ...(canSeePendentes ? [pendItem] : []),
+    ...NAV_ITEMS.slice(1),
+  ];
   const items: NavItem[] = [
-    ...NAV_ITEMS,
+    ...mainItems,
     ...(isOwner
       ? [
           {
@@ -108,6 +130,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
                     >
                       <item.icon className="size-4 shrink-0 text-muted-foreground" />
                       {item.label}
+                      {item.badge ? (
+                        <span
+                          aria-label={`${item.badge} pendentes`}
+                          className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-primary-foreground"
+                        >
+                          {item.badge}
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 ),
@@ -161,7 +191,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         aria-label="Navegação inferior"
         className="fixed inset-x-0 bottom-0 flex items-center justify-around border-t border-border bg-card py-2"
       >
-        {NAV_ITEMS.map((item) =>
+        {mainItems.map((item) =>
           item.disabled ? (
             <span
               key={item.key}
@@ -176,9 +206,19 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <Link
               key={item.key}
               to={item.to}
-              className="flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
+              className="relative flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
             >
-              <item.icon className="size-5 shrink-0" />
+              <span className="relative">
+                <item.icon className="size-5 shrink-0" />
+                {item.badge ? (
+                  <span
+                    aria-label={`${item.badge} pendentes`}
+                    className="absolute -right-2 -top-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground"
+                  >
+                    {item.badge}
+                  </span>
+                ) : null}
+              </span>
               {item.label}
             </Link>
           ),
