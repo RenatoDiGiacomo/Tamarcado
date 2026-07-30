@@ -24,8 +24,16 @@ export class AuthService {
   ) {}
 
   /**
-   * Resolve o tenant do login (DL-026): por slug informado ou, em deploy de
-   * tenant único, a única company existente. Sem como resolver → 401.
+   * Resolve o tenant do login (DL-026/DL-050). Ordem:
+   * 1. Com `companySlug` → resolve pela company do slug (não achou → 401
+   *    "Credenciais inválidas", sem revelar se o tenant existe — sem enumeração).
+   * 2. Sem slug → só resolve se `AUTH_ALLOW_SINGLE_TENANT` estiver LIGADA **e**
+   *    existir exatamente uma company (conveniência de dev / deploy tenant-único).
+   * 3. Caso contrário → 401 "Informe a instalação".
+   *
+   * Em produção multi-tenant a flag fica OFF: sem slug é SEMPRE 401. O painel
+   * manda o slug pela rota `/app/{slug}/login` (DL-050). Isso remove o fallback
+   * silencioso e dependente de estado que mascarava o bug 1.2.01.
    */
   private async resolveCompanyId(companySlug?: string): Promise<string> {
     if (companySlug) {
@@ -37,11 +45,22 @@ export class AuthService {
       }
       return company.id;
     }
-    const companies = await this.companies.find({ take: 2 });
-    if (companies.length === 1) {
-      return companies[0].id;
+    if (this.singleTenantLoginAllowed()) {
+      const companies = await this.companies.find({ take: 2 });
+      if (companies.length === 1) {
+        return companies[0].id;
+      }
     }
     throw new UnauthorizedException("Informe a instalação (companySlug)");
+  }
+
+  /**
+   * Conveniência de dev/tenant-único: permite login sem slug quando há UMA
+   * company. Default OFF (seguro em produção); liga-se só via env em dev/CI.
+   */
+  private singleTenantLoginAllowed(): boolean {
+    const flag = this.config.get<string>("AUTH_ALLOW_SINGLE_TENANT");
+    return flag === "1" || flag === "true";
   }
 
   async validateUser(

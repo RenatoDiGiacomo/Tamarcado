@@ -21,14 +21,17 @@ const baseUser = {
   is_active: true,
 };
 
-function make(): Mocked {
+function make(opts: { allowSingleTenant?: boolean } = {}): Mocked {
   const users = {
     findByCompanyAndEmail: jest.fn(),
     findByIdUnscoped: jest.fn(),
   };
   const jwt = { sign: jest.fn().mockReturnValue("token"), verify: jest.fn() };
   const config = {
-    get: jest.fn((_k: string, d?: string) => d ?? "cfg"),
+    get: jest.fn((k: string, d?: string) => {
+      if (k === "AUTH_ALLOW_SINGLE_TENANT") return opts.allowSingleTenant ? "1" : undefined;
+      return d ?? "cfg";
+    }),
   };
   const companies = {
     findOne: jest.fn().mockResolvedValue(company),
@@ -51,7 +54,7 @@ describe("AuthService", () => {
       ...baseUser,
       password_hash: hash,
     });
-    const result = await svc.validateUser("dono@x.dev", "segredo");
+    const result = await svc.validateUser("dono@x.dev", "segredo", "salao-teste");
     expect(result).not.toBeNull();
     expect(result?.id).toBe("10");
   });
@@ -63,7 +66,7 @@ describe("AuthService", () => {
       ...baseUser,
       password_hash: hash,
     });
-    expect(await svc.validateUser("dono@x.dev", "errada")).toBeNull();
+    expect(await svc.validateUser("dono@x.dev", "errada", "salao-teste")).toBeNull();
   });
 
   it("validateUser retorna null se o usuário está inativo", async () => {
@@ -74,7 +77,7 @@ describe("AuthService", () => {
       password_hash: hash,
       is_active: false,
     });
-    expect(await svc.validateUser("dono@x.dev", "segredo")).toBeNull();
+    expect(await svc.validateUser("dono@x.dev", "segredo", "salao-teste")).toBeNull();
   });
 
   it("validateUser exige companySlug quando há múltiplas instalações", async () => {
@@ -83,6 +86,30 @@ describe("AuthService", () => {
     await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it("validateUser sem slug → 401 mesmo com 1 empresa quando a flag está OFF (contrato de produção, DL-050)", async () => {
+    const { svc, companies } = make(); // AUTH_ALLOW_SINGLE_TENANT off
+    companies.find.mockResolvedValue([company]);
+    await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it("validateUser sem slug resolve a única empresa quando AUTH_ALLOW_SINGLE_TENANT está ON (dev)", async () => {
+    const { svc, users } = make({ allowSingleTenant: true });
+    const hash = await bcrypt.hash("segredo", 10);
+    users.findByCompanyAndEmail.mockResolvedValue({ ...baseUser, password_hash: hash });
+    const result = await svc.validateUser("dono@x.dev", "segredo");
+    expect(result?.id).toBe("10");
+  });
+
+  it("validateUser com slug inexistente → 401 (sem 500, sem enumeração)", async () => {
+    const { svc, companies } = make();
+    companies.findOne.mockResolvedValue(null);
+    await expect(
+      svc.validateUser("dono@x.dev", "segredo", "nao-existe"),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it("login assina access e refresh tokens", () => {

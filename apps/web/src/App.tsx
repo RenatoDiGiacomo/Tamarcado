@@ -1,6 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useAuth } from "./auth/AuthContext";
+import { useAuth, loginPath } from "./auth/AuthContext";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
@@ -21,7 +21,14 @@ function Protected({ children }: { children: ReactNode }) {
   if (loading) {
     return <p>Carregando...</p>;
   }
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  // Redireciona para o login do tenant guardado (/app/{slug}/login) quando há
+  // slug; senão o /login genérico. Cobre sessão expirada e acesso direto a rota
+  // interna sem sessão (DL-050).
+  return isAuthenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate to={loginPath()} replace />
+  );
 }
 
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
@@ -38,7 +45,11 @@ function Layout() {
 export function App() {
   return (
     <Routes>
+      {/* Login do painel. `/app/{slug}/login` (DL-050) carrega o slug do tenant
+          na URL; o `/login` genérico atende dev tenant-único e o primeiro acesso
+          sem link da instalação. */}
       <Route path="/login" element={<Login />} />
+      <Route path="/app/:slug/login" element={<Login />} />
       {/* Aceite de convite (Story 3.3.3, UX-DR14): pública, a pessoa cria a senha. */}
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
       {/* Agendamento público por link (Story 5B.1): pública, sem login, por slug. */}

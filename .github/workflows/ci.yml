@@ -39,6 +39,9 @@ jobs:
       JWT_ACCESS_TTL: "900"
       JWT_REFRESH_SECRET: ci-test-refresh-secret
       JWT_REFRESH_TTL: "604800"
+      # Banco de teste do CI é tenant-único; os e2e legados logam sem slug.
+      # Prod fica com a flag OFF (login exige slug via /app/{slug}/login — DL-050).
+      AUTH_ALLOW_SINGLE_TENANT: "1"
 
     steps:
       - uses: actions/checkout@v4

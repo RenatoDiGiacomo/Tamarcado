@@ -8,6 +8,10 @@ import { bootstrapE2E, teardownE2E, type E2EContext } from "./e2e-app";
 const EMAIL = "dono@teste.dev";
 const PASSWORD = "senha123";
 
+// Alinha ao padrão dos demais e2e — evita o flake de timeout de 5s no hook de
+// bootstrap (subir a app + resetSchema pode passar de 5s no CI/máquina fria).
+jest.setTimeout(60000);
+
 describe("Auth (e2e)", () => {
   let ctx: E2EContext;
 
