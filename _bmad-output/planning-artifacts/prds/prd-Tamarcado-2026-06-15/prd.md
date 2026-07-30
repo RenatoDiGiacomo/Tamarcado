@@ -58,7 +58,7 @@ Fernanda, 32 anos, cabeleireira há 8 anos. Atende em cabine alugada em salão c
 
 **Objetivo:** nunca mais perder cliente por falta de resposta rápida, sem precisar aprender nada novo.
 
-**Acesso ao produto:** painel web (gestão completa) + app mobile (revisão rápida em movimento).
+**Acesso ao produto:** painel web (gestão completa), acessível também no celular — responsivo e instalável como PWA, com funcionalidade completa (DL-051).
 
 ### 4.2 Dono de Salão — Marco (persona secundária)
 
@@ -183,7 +183,7 @@ No dia do atendimento, a recepcionista sabe que o horário das 10h está confirm
 
 **FR-B1.** Dono e funcionário recebem notificação de nova solicitação com: nome da cliente, serviço, data e horário. Em instalações solo, a notificação vai para o próprio profissional. O agendamento aparece na agenda como *aguardando confirmação* sem profissional atribuído.
 
-**FR-B2.** Dono, funcionário ou profissional (em instalações solo) confirma ou recusa a solicitação exclusivamente pelo painel web. O número de WhatsApp do bot é dedicado à Evolution API — o profissional não consegue responder por esse número para confirmar. O app mobile é somente leitura nesta fase *(ver FR-H2, DL-018)*.
+**FR-B2.** Dono, funcionário ou profissional (em instalações solo) confirma ou recusa a solicitação pelas **telas do painel**. O número de WhatsApp do bot é dedicado à Evolution API — o profissional **não** consegue responder por esse número para confirmar (limitação do **canal WhatsApp**, que permanece). O painel é acessível **também no celular** (responsivo/PWA), com as **ações completas** — **não** há restrição de "somente leitura" *(ver FR-H2; **DL-051** revoga a limitação de app read-only de **DL-018**; a premissa do canal WhatsApp segue válida)*.
 
 **FR-B3.** Se confirmado: o sistema atualiza o status para *confirmado* e envia mensagem de confirmação automática à cliente com os dados completos do agendamento.
 
@@ -209,7 +209,7 @@ No dia do atendimento, a recepcionista sabe que o horário das 10h está confirm
 
 **FR-C5.** Não há política de antecedência mínima para cancelamento no MVP.
 
-**FR-C6.** Quando dono, profissional ou funcionário cancelar um agendamento pelo painel web ou app mobile, o sistema envia notificação automática via WhatsApp à cliente informando o cancelamento e oferecendo reagendamento imediato — se a cliente tiver número de WhatsApp cadastrado. Se não houver número cadastrado (agendamento manual sem WhatsApp, ver FR-D8), nenhuma notificação é disparada e a comunicação fica por conta de quem realizou o cancelamento.
+**FR-C6.** Quando dono, profissional ou funcionário cancelar um agendamento pelo painel (desktop ou celular), o sistema envia notificação automática via WhatsApp à cliente informando o cancelamento e oferecendo reagendamento imediato — se a cliente tiver número de WhatsApp cadastrado. Se não houver número cadastrado (agendamento manual sem WhatsApp, ver FR-D8), nenhuma notificação é disparada e a comunicação fica por conta de quem realizou o cancelamento.
 
 ---
 
@@ -279,19 +279,21 @@ No dia do atendimento, a recepcionista sabe que o horário das 10h está confirm
 
 ---
 
-### FR-H: App Mobile do Profissional
+### FR-H: Acesso mobile do painel (responsivo/PWA)
 
-**FR-H1.** O app exibe a agenda do usuário autenticado em visões de dia e semana.
+> *Reformulado por **DL-051** (revoga **DL-018** e o "app mobile somente leitura"). O acesso mobile é o **próprio painel**, responsivo e instalável como PWA, com **funcionalidade completa** — não um app nativo separado de leitura.*
 
-**FR-H2.** O app lista os agendamentos com status *aguardando confirmação* para consulta. Confirmação e recusa não são feitas pelo app no MVP — esse fluxo é exclusivo do painel web *(ver FR-B2, DL-018)*.
+**FR-H1.** No celular, o painel exibe a agenda do usuário autenticado em visões de dia e semana.
 
-**FR-H3.** *(Removido — recusa não ocorre pelo app no MVP, ver FR-H2 e DL-018.)*
+**FR-H2.** No celular, o painel lista **e trata** os agendamentos com status *aguardando confirmação*: **confirmar e recusar** estão disponíveis (as mesmas ações do desktop) *(ver FR-B2; **DL-051** revoga a leitura-apenas de **DL-018**)*.
 
-**FR-H4.** O app está disponível para iOS e Android.
+**FR-H3.** *(**Reabilitado por DL-051** — a recusa está disponível no celular por ser a mesma tela do painel; havia sido removido por DL-018.)*
 
-**Nota MVP:** o app mobile é **somente leitura** — o profissional visualiza a própria agenda (dia/semana) e consulta os pendentes, mas não confirma, não recusa e não cria agendamentos. A criação é exclusiva do bot WhatsApp (origem `whatsapp`) e do painel web (origem `manual`). A origem `app` no enum de FR-K1 está reservada para implementação futura.
+**FR-H4.** O painel é **instalável como PWA** (adicionar à tela inicial) em iOS e Android; **sem app nativo separado** no MVP.
 
-**Feature futura (roadmap, não construir no MVP):** confirmar/recusar pendentes pelo app e criar agendamento manual pelo app. Objetivo é validar em campo, com os primeiros clientes, se a ação via app agrega valor antes de investir na tela. **Preparação sem construção:** como o app já consome a API para a leitura e os endpoints de confirmar/recusar já existem (usados pelo painel web — ver FR-B2), essa evolução é apenas a adição da tela de ação no app, sem mudança de backend. *(ver DL-018)*
+**Nota MVP:** acesso mobile = **painel responsivo instalável**, com **funcionalidade completa** (não somente leitura) — o profissional visualiza a agenda, e confirma/recusa/cria/cancela/remarca como no desktop. Agendamentos criados pelo celular usam a origem `manual` (as mesmas telas do painel). A origem `app` no enum de FR-K1 fica **sem uso** (reservada). A criação por bot WhatsApp segue com origem `whatsapp`.
+
+**Superado por DL-051:** confirmar/recusar e criar pelo celular **deixam de ser "feature futura"** — são as mesmas telas do painel, agora responsivas/PWA, sem mudança de backend (os endpoints já existem — ver FR-B2). A evolução futura remanescente é apenas empacotamento (ex.: subdomínio por marca), não paridade de ações.
 
 ---
 
@@ -341,7 +343,7 @@ O atributo **atende clientes** determina se o usuário aparece no cálculo de di
 
 ### FR-K: Rastreabilidade de Origem
 
-**FR-K1.** Todo agendamento registra obrigatoriamente sua origem: `whatsapp` (iniciado pela cliente via bot), `manual` (criado por dono, profissional ou funcionário pelo painel web) ou `app` (reservado para uso futuro — não utilizado no MVP, pois o app mobile não cria agendamentos).
+**FR-K1.** Todo agendamento registra obrigatoriamente sua origem: `whatsapp` (iniciado pela cliente via bot), `manual` (criado por dono, profissional ou funcionário pelo painel — desktop **ou** celular, por serem as mesmas telas, DL-051) ou `app` (reservado — sem uso no MVP).
 
 **FR-K2.** Agendamentos com origem `manual` registram o identificador do usuário criador (dono, profissional ou funcionário) para fins de auditoria.
 
@@ -361,7 +363,7 @@ O atributo **atende clientes** determina se o usuário aparece no cálculo de di
 
 **FR-J2.** O bot de WhatsApp assina as mensagens com o nome da instalação — a cliente interage com "a Agenda da Cris" ou "o Studio Ana", não com uma plataforma genérica.
 
-**FR-J3.** O painel web e o app mobile exibem o nome e o logotipo da instalação.
+**FR-J3.** O painel (desktop e celular) exibe o nome e o logotipo da instalação.
 
 **FR-J4.** O painel web suporta tema claro e escuro, selecionável pelo próprio usuário nas preferências.
 
@@ -397,7 +399,7 @@ O atributo **atende clientes** determina se o usuário aparece no cálculo de di
 
 **NFR-S2.** Dados de clientes finais (nome, número de WhatsApp, histórico de serviços) são tratados conforme a LGPD. O sistema não compartilha dados de clientes entre instalações.
 
-**NFR-S3.** Autenticação no painel web e no app mobile deve utilizar mecanismo seguro com controle de sessão e expiração de token.
+**NFR-S3.** Autenticação no painel (desktop e celular) deve utilizar mecanismo seguro com controle de sessão e expiração de token.
 
 ---
 
