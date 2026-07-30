@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Login } from "./Login";
 
 const loginMock = vi.fn();
@@ -45,10 +45,32 @@ describe("Login", () => {
       target: { value: "segredo" },
     });
     fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
+    // /login genérico → sem slug (undefined); dev tenant-único resolve no back.
     await waitFor(() =>
-      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo"),
+      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo", undefined),
     );
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/"));
+  });
+
+  it("em /app/{slug}/login envia o slug da rota no login (DL-050)", async () => {
+    loginMock.mockResolvedValue(undefined);
+    render(
+      <MemoryRouter initialEntries={["/app/salao-a/login"]}>
+        <Routes>
+          <Route path="/app/:slug/login" element={<Login />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText("E-mail"), {
+      target: { value: "dono@x.dev" },
+    });
+    fireEvent.change(screen.getByLabelText("Senha"), {
+      target: { value: "segredo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
+    await waitFor(() =>
+      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo", "salao-a"),
+    );
   });
 
   it("alterna a visibilidade da senha pelo ícone de olho", () => {

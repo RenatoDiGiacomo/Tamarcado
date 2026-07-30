@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  // Slug do tenant vindo da rota /app/{slug}/login (DL-050). Em /login genérico
+  // fica undefined (dev tenant-único resolve sozinho; ver AUTH_ALLOW_SINGLE_TENANT).
+  const { slug } = useParams<{ slug?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +24,7 @@ export function Login() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, slug);
       navigate("/");
     } catch {
       setError("E-mail ou senha incorretos. Tente novamente.");

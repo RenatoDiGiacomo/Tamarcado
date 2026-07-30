@@ -35,6 +35,21 @@ interface AuthContextValue {
 
 const ACCESS_KEY = "tamarcado.access";
 const REFRESH_KEY = "tamarcado.refresh";
+// Slug da instalação (DL-050). Guardado no login bem-sucedido para o front saber
+// PARA QUAL /app/{slug}/login redirecionar quando a sessão expira/o dono sai — as
+// rotas internas do painel não têm o slug na URL. Persiste no logout (identifica
+// o tenant deste navegador, não a sessão).
+const SLUG_KEY = "tamarcado.slug";
+
+/**
+ * Rota de login a usar em redirects (sessão expirada, logout, rota protegida sem
+ * sessão): `/app/{slug}/login` quando há um slug guardado; senão o `/login`
+ * genérico (dev tenant-único, ou primeiro acesso sem link da instalação).
+ */
+export function loginPath(): string {
+  const slug = localStorage.getItem(SLUG_KEY);
+  return slug ? `/app/${slug}/login` : "/login";
+}
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -99,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       localStorage.setItem(ACCESS_KEY, data.accessToken);
       localStorage.setItem(REFRESH_KEY, data.refreshToken);
+      // Guarda o slug (DL-050) para os redirects futuros saberem o tenant.
+      if (companySlug) {
+        localStorage.setItem(SLUG_KEY, companySlug);
+      }
       await loadProfile();
     },
     [loadProfile],

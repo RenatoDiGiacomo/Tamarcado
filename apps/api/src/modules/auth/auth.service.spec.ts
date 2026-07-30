@@ -21,14 +21,23 @@ const baseUser = {
   is_active: true,
 };
 
-function make(): Mocked {
+// `allowSingleTenant: true` liga a flag ("1"). Para exercitar valores brutos
+// (ausente, "0", "false") passe `flagRaw` — tem precedência e simula exatamente
+// o que o ConfigService devolveria com aquele valor no ambiente. Sem opção
+// alguma, a flag chega AUSENTE (undefined) — o cenário de produção.
+function make(opts: { allowSingleTenant?: boolean; flagRaw?: string } = {}): Mocked {
   const users = {
     findByCompanyAndEmail: jest.fn(),
     findByIdUnscoped: jest.fn(),
   };
   const jwt = { sign: jest.fn().mockReturnValue("token"), verify: jest.fn() };
+  const flagValue =
+    "flagRaw" in opts ? opts.flagRaw : opts.allowSingleTenant ? "1" : undefined;
   const config = {
-    get: jest.fn((_k: string, d?: string) => d ?? "cfg"),
+    get: jest.fn((k: string, d?: string) => {
+      if (k === "AUTH_ALLOW_SINGLE_TENANT") return flagValue;
+      return d ?? "cfg";
+    }),
   };
   const companies = {
     findOne: jest.fn().mockResolvedValue(company),
@@ -51,7 +60,7 @@ describe("AuthService", () => {
       ...baseUser,
       password_hash: hash,
     });
-    const result = await svc.validateUser("dono@x.dev", "segredo");
+    const result = await svc.validateUser("dono@x.dev", "segredo", "salao-teste");
     expect(result).not.toBeNull();
     expect(result?.id).toBe("10");
   });
@@ -63,7 +72,7 @@ describe("AuthService", () => {
       ...baseUser,
       password_hash: hash,
     });
-    expect(await svc.validateUser("dono@x.dev", "errada")).toBeNull();
+    expect(await svc.validateUser("dono@x.dev", "errada", "salao-teste")).toBeNull();
   });
 
   it("validateUser retorna null se o usuário está inativo", async () => {
@@ -74,7 +83,7 @@ describe("AuthService", () => {
       password_hash: hash,
       is_active: false,
     });
-    expect(await svc.validateUser("dono@x.dev", "segredo")).toBeNull();
+    expect(await svc.validateUser("dono@x.dev", "segredo", "salao-teste")).toBeNull();
   });
 
   it("validateUser exige companySlug quando há múltiplas instalações", async () => {
@@ -83,6 +92,51 @@ describe("AuthService", () => {
     await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it("validateUser sem slug → 401 mesmo com 1 empresa quando a flag está OFF (contrato de produção, DL-050)", async () => {
+    const { svc, companies } = make(); // AUTH_ALLOW_SINGLE_TENANT off
+    companies.find.mockResolvedValue([company]);
+    await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it("validateUser sem slug → 401 quando AUTH_ALLOW_SINGLE_TENANT está AUSENTE do ambiente (fail-closed, DL-050)", async () => {
+    // Variável não definida no ambiente: ConfigService devolve undefined.
+    // Ausente = desligado = slug obrigatório, mesmo com uma única empresa.
+    const { svc, companies } = make({ flagRaw: undefined });
+    companies.find.mockResolvedValue([company]);
+    await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it.each(["0", "false", ""])(
+    "validateUser sem slug → 401 quando a flag vale %p (valores desligados)",
+    async (raw) => {
+      const { svc, companies } = make({ flagRaw: raw });
+      companies.find.mockResolvedValue([company]);
+      await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    },
+  );
+
+  it("validateUser sem slug resolve a única empresa quando AUTH_ALLOW_SINGLE_TENANT está ON (dev)", async () => {
+    const { svc, users } = make({ allowSingleTenant: true });
+    const hash = await bcrypt.hash("segredo", 10);
+    users.findByCompanyAndEmail.mockResolvedValue({ ...baseUser, password_hash: hash });
+    const result = await svc.validateUser("dono@x.dev", "segredo");
+    expect(result?.id).toBe("10");
+  });
+
+  it("validateUser com slug inexistente → 401 (sem 500, sem enumeração)", async () => {
+    const { svc, companies } = make();
+    companies.findOne.mockResolvedValue(null);
+    await expect(
+      svc.validateUser("dono@x.dev", "segredo", "nao-existe"),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it("login assina access e refresh tokens", () => {
