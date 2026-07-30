@@ -261,6 +261,11 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
+**Épico 1 — Provisionamento & acesso (fila obrigatória):**
+- 🔵 **1.9** Provisionamento de estabelecimento (`POST /platform/companies`, `x-platform-key`) — **PR aberto** (e2e verde, inclui isolamento de 2 empresas). Só cria; reusa `user_invites` para convidar o owner.
+- 🐛 **1.2.01** Login multi-tenant — **bug bloqueador**; **DL-050 decidido** (slug na ROTA do painel, `/app/{slug}/login`), **correção pendente** (spec `1-2-01`). É o que **libera o uso real da 1.9**.
+- **Fila:** 1.9 → **fix 1.2.01** → provisionar o 1º cliente real. ⚠️ Provisionar cliente real ANTES do fix cria uma empresa cujo dono não consegue logar.
+
 **Épico 3 — Agendamento manual (painel) — ✅ COMPLETO (CRUD inteiro):**
 - ✅ **3.1** Base de agendamento + disponibilidade — mergeada
 - ✅ **3.2** Agenda do painel (dia/semana) — mergeada
@@ -512,6 +517,49 @@ So that os dados das instalações estejam protegidos contra perda.
 **Given** um backup armazenado
 **When** executo a rotina de restauração documentada
 **Then** o banco é restaurado com sucesso a partir do dump (validação de que o backup é recuperável, não só gerado)
+
+---
+
+### Story 1.9: Provisionamento de estabelecimento (endpoint de plataforma)
+
+As a operador da plataforma (Renato),
+I want um endpoint protegido que cria um novo estabelecimento e convida o dono,
+So that eu provisione um cliente vendido sem mexer no banco na mão.
+
+**Escopo:** `POST /api/platform/companies`, protegido por header **`x-platform-key`** (valor no `.env` `PLATFORM_KEY`, **nunca** no repo; sem a chave → 401). Body `{ name, slug, ownerName, ownerEmail }`. Faz: (a) cria a company; (b) cria o **convite do owner** reusando o fluxo de `user_invites` (o mesmo do `POST /users/invite`); (c) retorna `{ slug, painelUrl, publicUrl, inviteUrl }`. **NÃO** cria serviços/horários/exemplo; **NÃO** define senha (o dono define pelo aceite — `/aceitar-convite`). Slug **kebab-case ASCII** (minúsculas/dígitos/hífen; 409 se duplicado — é a URL pública, não muda depois). Rate limit por IP. **Superfície mínima: só cria** (sem listar/editar/deletar). Pré-tenant (`PRE_TENANT_CONTROLLERS`, DL-027). Fora de escopo: tela de admin (uso Insomnia) e signup self-service.
+
+> ⚠️ **LIMITE OPERACIONAL — a 1.9 NÃO provisiona cliente real ainda.** O login do painel só resolve o tenant no modo tenant-único hoje; com 2+ empresas o dono não consegue logar (bug **1.2.01**, spec `1-2-01-login-multi-tenant-resolucao.md`, **DL-050**: decidido, ainda **não implementado**). O `painelUrl` já aponta para `/app/{slug}/login` (destino do fix), mas essa rota só funciona depois dele.
+>
+> **Fila obrigatória:**
+> 1. **1.9** — endpoint de provisionamento *(feito)*
+> 2. **Fix do login multi-tenant** (spec `1-2-01` / DL-050: slug na ROTA do painel) — é o que **libera** o uso real da 1.9
+> 3. **Só então** provisionar o primeiro cliente de verdade
+>
+> Provisionar um 2º estabelecimento antes do passo 2 cria uma empresa cujo dono **não consegue entrar no painel**.
+
+**Acceptance Criteria:**
+
+**Given** o endpoint protegido
+**When** chamo sem a `x-platform-key` correta
+**Then** recebo 401 e nada é criado
+
+**Given** um `slug` malformado (maiúscula, espaço, acento, caractere especial) ou um `ownerEmail` inválido
+**When** provisiono
+**Then** recebo 400
+
+**Given** um `slug` já existente
+**When** provisiono
+**Then** recebo 409
+
+**Given** dados válidos e a chave correta
+**When** provisiono
+**Then** a company é criada, um convite de `owner` pendente é gerado (sem usuário/senha ainda), e recebo `{ slug, painelUrl, publicUrl, inviteUrl }` — sem serviços/horários/exemplo
+
+**Given** DUAS empresas provisionadas e ambos os donos aceitando o convite
+**When** cada dono usa seu token
+**Then** cada um só enxerga os dados da própria empresa (isolamento de tenant, DL-027)
+
+**Nota de deploy (PLATFORM_KEY):** o valor de `PLATFORM_KEY` em dev é **só para dev** e **não vai para produção**. Ao subir o VPS, **gerar uma chave nova e longa** (ex.: `openssl rand -hex 32`) direto no ambiente de produção, fora do repositório (secret do host/compose). Rotacionar se vazar. O endpoint **falha fechada**: sem `PLATFORM_KEY` no ambiente, o `POST /platform/companies` responde 401 (nunca abre por esquecimento de env).
 
 ---
 

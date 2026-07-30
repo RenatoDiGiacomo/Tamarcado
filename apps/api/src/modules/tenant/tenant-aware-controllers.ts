@@ -1,5 +1,6 @@
 import { Type } from "@nestjs/common";
 import { AuthController } from "../auth/auth.controller";
+import { PlatformController } from "../platform/platform.controller";
 import { UsersController } from "../users/users.controller";
 import { ServicesController } from "../services/services.controller";
 import { SchedulesController } from "../schedules/schedules.controller";
@@ -42,8 +43,17 @@ export const TENANT_AWARE_CONTROLLERS: Type[] = [
  * Toda entrada aqui é uma EXCEÇÃO auditável: o guard-rail exige que um controller
  * tenant-aware esteja OU em `TENANT_AWARE_CONTROLLERS` OU aqui. Um controller de
  * domínio novo NÃO entra nesta lista — ele vai em `TENANT_AWARE_CONTROLLERS`.
+ *
+ * `PlatformController` (Story 1.9): provisiona um novo estabelecimento — cria a
+ * company e o convite do owner ANTES de existir tenant. Reusa o `UsersService`
+ * (por isso o guard-rail o vê como tenant-aware), mas só chama métodos CRUS
+ * (`createInviteForCompany` com companyId explícito), nunca os tenant-scoped.
+ * Protegido pelo `PlatformKeyGuard` (x-platform-key), não pelo TenantMiddleware.
  */
-export const PRE_TENANT_CONTROLLERS: Type[] = [AuthController];
+export const PRE_TENANT_CONTROLLERS: Type[] = [
+  AuthController,
+  PlatformController,
+];
 
 /**
  * TERCEIRA categoria (Story 5B.1 / DL-049): controllers PÚBLICOS que tocam

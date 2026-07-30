@@ -22,6 +22,7 @@ import { AppointmentsModule } from "./modules/appointments/appointments.module";
 import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
 import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
+import { PlatformModule } from "./modules/platform/platform.module";
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PublicBookingModule } from "./modules/public-booking/public-booking.mod
     AppointmentsModule,
     InstallationModule,
     PublicBookingModule,
+    PlatformModule,
   ],
 })
 export class AppModule implements NestModule {
