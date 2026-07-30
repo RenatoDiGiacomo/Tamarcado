@@ -24,7 +24,7 @@ Tamarcado é um SaaS de agendamento WhatsApp-first para profissionais de beleza 
 | Banco de dados | MySQL 8 |
 | Cache / Filas | Redis + BullMQ |
 | Frontend web | React + TypeScript + Vite |
-| App mobile | React Native + Expo |
+| Acesso mobile | Painel web responsivo + PWA (mesmo `apps/web`) — DL-051 revoga o app React Native/Expo somente leitura |
 | WhatsApp (MVP) | Evolution API (self-hosted) |
 | WhatsApp (futuro) | Cloud API oficial Meta |
 | Pagamentos (futuro) | Asaas |
@@ -532,7 +532,7 @@ appointments (1) ── (N) payments
 - `owner` / `manager`: qualquer appointment do tenant
 - `basic`: apenas appointments com `professional_id = self` ou `professional_id IS NULL`
 
-**Confirmação/recusa de pendentes (FR-B2, DL-018):** exclusivamente via `PATCH /appointments/:id/confirm` e `PATCH /appointments/:id/refuse`, chamados pelo painel web. App mobile não expõe essas rotas no MVP (somente leitura).
+**Confirmação/recusa de pendentes (FR-B2, DL-051):** via `PATCH /appointments/:id/confirm` e `PATCH /appointments/:id/refuse`, chamados pelas **telas do painel — desktop ou celular**. O acesso mobile é o próprio painel responsivo/PWA (**DL-051** revoga a leitura-apenas de **DL-018**), então essas rotas ficam disponíveis também no celular. A confirmação/recusa **não** ocorre pelo WhatsApp do bot (premissa do canal, que **permanece**).
 
 **Endpoint de polling (DL-019, ver ADR-011):** `GET /appointments/pending-count` — consultado pelo painel a cada 15–30s para atualizar o badge de pendentes. Leitura pura sobre o estado já persistido; não interfere na atomicidade da criação (seção 7).
 
@@ -547,7 +547,7 @@ appointments (1) ── (N) payments
 - Chama `WhatsAppProvider.sendMessage` se WhatsApp disponível
 - Regra: cliente sem `phone_whatsapp_normalized` → sem notificação (FR-D8, DL-010)
 - Mensagens mapeadas por evento (referência ao ux-spec.md MSG-*; **o ux-spec.md é a fonte canônica das mensagens**):
-  - `AppointmentCreatedEvent` (whatsapp): MSG-A06 (solicitação enviada, à cliente) + MSG-B01 (solo) / MSG-B02 (multi) — notificação ao salão, direcionando ao painel (DL-018)
+  - `AppointmentCreatedEvent` (whatsapp): MSG-A06 (solicitação enviada, à cliente) + MSG-B01 (solo) / MSG-B02 (multi) — notificação ao salão, direcionando ao painel, desktop ou celular (premissa do canal mantida por DL-051; antes DL-018)
   - `AppointmentCreatedEvent` (manual): sem mensagem automática à cliente (entra *confirmed*; cliente sem WhatsApp não é notificada — FR-D8). Aviso interno ao profissional atribuído é opcional e não tem MSG canônica no MVP
   - `AppointmentStatusChangedEvent` (confirmed pelo painel): MSG-B04 à cliente
   - `AppointmentStatusChangedEvent` (refused pelo painel): MSG-B05 à cliente (motivo + alternativas)

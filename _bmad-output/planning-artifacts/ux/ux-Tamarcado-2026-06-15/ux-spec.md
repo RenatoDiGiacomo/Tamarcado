@@ -272,7 +272,7 @@ Ou responda "voltar" para escolher outro dia.
 
 *Canal:* WhatsApp do profissional.
 
-`[CORRIGIDO — DL-018]` O número do bot é dedicado à Evolution API; o profissional não responde por ele. Confirmação/recusa ocorrem exclusivamente pelo painel web (ver MSG-B04/MSG-B05).
+`[CORRIGIDO — DL-018; premissa do canal mantida por DL-051]` O número do bot é dedicado à Evolution API; o profissional não responde por ele. Confirmação/recusa ocorrem pelas **telas do painel** (desktop **ou** celular — DL-051), não pelo WhatsApp do bot (ver MSG-B04/MSG-B05).
 
 ```
 Nova solicitacao de agendamento.
@@ -306,15 +306,15 @@ Acesse o painel para confirmar ou recusar.
 
 ---
 
-#### MSG-B03: *(Removido — DL-018)*
+#### MSG-B03: *(Removido — DL-018; mantido por DL-051)*
 
-A justificativa de recusa é digitada no modal do próprio painel (ver UX-DR9), não solicitada por mensagem de WhatsApp ao profissional.
+A justificativa de recusa é digitada no modal do próprio painel (ver UX-DR9) — desktop ou celular —, não solicitada por mensagem de WhatsApp ao profissional. *(Premissa do canal WhatsApp: segue válida sob DL-051; o que DL-051 revoga é a limitação de "app somente leitura", não este ponto.)*
 
 ---
 
 #### MSG-B04: Confirmação enviada à cliente
 
-*Trigger:* profissional confirma pelo painel web `[CORRIGIDO — DL-018]`.
+*Trigger:* profissional confirma pelas telas do painel (desktop ou celular) `[CORRIGIDO — DL-018; mantido por DL-051]`.
 
 ```
 Ta marcado!
@@ -329,7 +329,7 @@ Com: [NOME_INSTALAÇÃO]
 
 #### MSG-B05: Recusa enviada à cliente + alternativas
 
-*Trigger:* profissional recusa com justificativa pelo painel web `[CORRIGIDO — DL-018]`.
+*Trigger:* profissional recusa com justificativa pelas telas do painel (desktop ou celular) `[CORRIGIDO — DL-018; mantido por DL-051]`.
 
 ```
 Oi, [NOME_CADASTRO]. [NOME_INSTALAÇÃO] nao consegue atender nesse horario.
@@ -437,7 +437,7 @@ O horario foi liberado na agenda.
 
 #### MSG-C06: Notificação à cliente quando profissional/dono/funcionário cancela pelo painel
 
-*Trigger:* cancelamento iniciado pelo painel web ou app mobile; cliente tem número WhatsApp cadastrado.
+*Trigger:* cancelamento iniciado pelo painel (desktop ou celular); cliente tem número WhatsApp cadastrado.
 *Canal:* WhatsApp da cliente.
 
 ```
@@ -529,9 +529,9 @@ Posso ajudar voce a marcar um horario. Qual servico voce gostaria?
 
 ---
 
-#### FB-07: *(Removido — DL-018)*
+#### FB-07: *(Removido — DL-018; mantido por DL-051)*
 
-Premissa inválida: o profissional não confirma/recusa respondendo ao número do bot (dedicado à Evolution API). Confirmação/recusa de pendentes ocorrem exclusivamente pelo painel web — não há fallback de bot para esse canal.
+Premissa inválida: o profissional não confirma/recusa respondendo ao número do bot (dedicado à Evolution API). Confirmação/recusa de pendentes ocorrem pelas **telas do painel** (desktop ou celular — DL-051), não pelo WhatsApp do bot — não há fallback de bot para esse canal. *(DL-051 revoga a limitação de "app somente leitura", não esta premissa do canal.)*
 
 ---
 
@@ -986,9 +986,11 @@ primeiro acesso.
 
 ---
 
-## 5. App Mobile do Profissional
+## 5. Acesso mobile do painel (responsivo/PWA)
 
-*Autenticação compartilhada com o painel web. O usuário loga uma vez; a sessão persiste.*
+> *Reformulado por **DL-051** (revoga **DL-018** / "app mobile somente leitura"): o acesso mobile é o **próprio painel**, responsivo e instalável como PWA, com **as mesmas ações** do desktop — não um app nativo separado de leitura. As telas abaixo são o painel no celular; a navegação por tabs no rodapé é a do painel (UX-DR7).*
+
+*Autenticação compartilhada com o painel: o usuário loga uma vez; a sessão persiste.*
 
 ### 5.1 Navegação (tabs no rodapé)
 
@@ -996,7 +998,7 @@ primeiro acesso.
 [Agenda] [Pendentes (badge)] [Perfil]
 ```
 
-### 5.2 Tela: Agenda (app mobile)
+### 5.2 Tela: Agenda (painel no celular)
 
 ```
 ┌──────────────────────────────┐
@@ -1025,11 +1027,11 @@ primeiro acesso.
 └──────────────────────────────┘
 ```
 
-Toque no card abre detalhes para consulta. `[CORRIGIDO — DL-018]` Confirmar/Recusar não estão disponíveis no app — exclusivos do painel web.
+Toque no card abre os detalhes. `[REVOGADO — DL-018 → DL-051]` **Confirmar/Recusar estão disponíveis** no celular (as mesmas ações do painel desktop); a antiga restrição de "só consulta" caiu.
 
-### 5.3 Tela: Pendentes (app mobile)
+### 5.3 Tela: Pendentes (painel no celular)
 
-`[CORRIGIDO — DL-018]` Tela somente leitura: lista os agendamentos *aguardando confirmação* para consulta. Sem ações de Confirmar/Recusar no app — tratamento é exclusivo do painel web.
+`[REVOGADO — DL-018 → DL-051]` Lista os agendamentos *aguardando confirmação* **com** as ações de **Confirmar/Recusar** (as mesmas do painel desktop). A antiga versão "somente leitura" foi revogada — o tratamento acontece também no celular.
 
 ```
 ┌──────────────────────────────┐
@@ -1052,7 +1054,7 @@ Toque no card abre detalhes para consulta. `[CORRIGIDO — DL-018]` Confirmar/Re
 └──────────────────────────────┘
 ```
 
-### 5.4 Tela: Perfil (app mobile)
+### 5.4 Tela: Perfil (painel no celular)
 
 ```
 ┌──────────────────────────────┐
