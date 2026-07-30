@@ -21,15 +21,21 @@ const baseUser = {
   is_active: true,
 };
 
-function make(opts: { allowSingleTenant?: boolean } = {}): Mocked {
+// `allowSingleTenant: true` liga a flag ("1"). Para exercitar valores brutos
+// (ausente, "0", "false") passe `flagRaw` — tem precedência e simula exatamente
+// o que o ConfigService devolveria com aquele valor no ambiente. Sem opção
+// alguma, a flag chega AUSENTE (undefined) — o cenário de produção.
+function make(opts: { allowSingleTenant?: boolean; flagRaw?: string } = {}): Mocked {
   const users = {
     findByCompanyAndEmail: jest.fn(),
     findByIdUnscoped: jest.fn(),
   };
   const jwt = { sign: jest.fn().mockReturnValue("token"), verify: jest.fn() };
+  const flagValue =
+    "flagRaw" in opts ? opts.flagRaw : opts.allowSingleTenant ? "1" : undefined;
   const config = {
     get: jest.fn((k: string, d?: string) => {
-      if (k === "AUTH_ALLOW_SINGLE_TENANT") return opts.allowSingleTenant ? "1" : undefined;
+      if (k === "AUTH_ALLOW_SINGLE_TENANT") return flagValue;
       return d ?? "cfg";
     }),
   };
@@ -95,6 +101,27 @@ describe("AuthService", () => {
       UnauthorizedException,
     );
   });
+
+  it("validateUser sem slug → 401 quando AUTH_ALLOW_SINGLE_TENANT está AUSENTE do ambiente (fail-closed, DL-050)", async () => {
+    // Variável não definida no ambiente: ConfigService devolve undefined.
+    // Ausente = desligado = slug obrigatório, mesmo com uma única empresa.
+    const { svc, companies } = make({ flagRaw: undefined });
+    companies.find.mockResolvedValue([company]);
+    await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it.each(["0", "false", ""])(
+    "validateUser sem slug → 401 quando a flag vale %p (valores desligados)",
+    async (raw) => {
+      const { svc, companies } = make({ flagRaw: raw });
+      companies.find.mockResolvedValue([company]);
+      await expect(svc.validateUser("dono@x.dev", "segredo")).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    },
+  );
 
   it("validateUser sem slug resolve a única empresa quando AUTH_ALLOW_SINGLE_TENANT está ON (dev)", async () => {
     const { svc, users } = make({ allowSingleTenant: true });
