@@ -10,7 +10,7 @@ import { IsNull, Repository } from "typeorm";
 import { createHash, randomBytes } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
-import type { UserTheme } from "../../database/entities/user.entity";
+import type { AccessLevel, UserTheme } from "../../database/entities/user.entity";
 import { UserInvite } from "../../database/entities/user-invite.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import { UsersRepository } from "./users.repository";
@@ -104,10 +104,37 @@ export class UsersService {
     dto: InviteUserDto,
     invitedBy: string,
   ): Promise<{ invite: UserInvite; link: string }> {
-    const companyId = this.tenantContext.getCompanyId();
+    return this.createInviteForCompany(
+      this.tenantContext.getCompanyId(),
+      {
+        name: dto.name,
+        email: dto.email,
+        access_level: dto.access_level,
+        attends_clients: dto.attends_clients,
+      },
+      invitedBy,
+    );
+  }
 
-    const existing = await this.tenantUsers.findOne({
-      where: { email: dto.email },
+  /**
+   * Núcleo do convite, PRÉ-TENANT (companyId explícito). Reusado por
+   * `createInvite` (tenant, do painel) e pelo provisionamento de plataforma
+   * (Story 1.9, que convida o `owner` sem contexto de tenant). Usa só repos
+   * CRUs (`repo`/`invites`) — nunca o tenant-scoped — para operar sem middleware.
+   * Re-convidar o mesmo e-mail substitui o convite pendente anterior.
+   */
+  async createInviteForCompany(
+    companyId: string,
+    params: {
+      name: string;
+      email: string;
+      access_level: AccessLevel;
+      attends_clients: boolean;
+    },
+    invitedBy: string | null,
+  ): Promise<{ invite: UserInvite; link: string }> {
+    const existing = await this.repo.findOne({
+      where: { company_id: companyId, email: params.email },
     });
     if (existing) {
       throw new ConflictException(
@@ -117,7 +144,7 @@ export class UsersService {
 
     await this.invites.delete({
       company_id: companyId,
-      email: dto.email,
+      email: params.email,
       accepted_at: IsNull(),
     });
 
@@ -126,10 +153,10 @@ export class UsersService {
     const invite = await this.invites.save(
       this.invites.create({
         company_id: companyId,
-        email: dto.email,
-        name: dto.name,
-        access_level: dto.access_level,
-        attends_clients: dto.attends_clients,
+        email: params.email,
+        name: params.name,
+        access_level: params.access_level,
+        attends_clients: params.attends_clients,
         token_hash: tokenHash,
         expires_at: new Date(Date.now() + INVITE_TTL_MS),
         accepted_at: null,
