@@ -63,7 +63,7 @@ Hoje o status `pending` existe (3.1) e **nunca foi usado**; toda a máquina de p
 
 Move-se para o Épico 6 (link):
 - **FR-B1** (pendente aparece na agenda como *aguardando confirmação*, sem profissional) — **adaptado**: a notificação ao salão no MVP do link é **in-panel** (badge/toast), não WhatsApp.
-- **FR-B2/B4** (confirmar / recusar com justificativa **pelo painel** — DL-018) — a tela Pendentes.
+- **FR-B2/B4** (confirmar / recusar com justificativa **pelo painel** — agora também no celular via PWA, DL-051; antes citado como DL-018) — a tela Pendentes.
 - **Confirmar = atribuir profissional (Story 3.5) + status→confirmado.** A 3.5 já está mergeada; é aqui que ela paga (era "pré-requisito da 6.4").
 - **Polling/badge** (NFR-A3, UX-DR7, 6.9) — o salão vê novos pendentes sem reload.
 
@@ -145,12 +145,14 @@ A cliente vai querer **cílios + sobrancelha** → o carrinho reaparece. O DL-04
 
 ---
 
-## Épico 7 (renumerado) — Mobile: alinhar o resquício (PWA)
+## Épico 7 (renumerado) — Mobile: painel responsivo instalável (PWA)
 
-- DL-018: mobile é **somente leitura** (agenda + consulta de pendentes; sem confirmar/recusar/criar).
-- **Decisão a formalizar:** mobile = **PWA** (web instalável responsivo), **não** React Native. Remove fricção de app-store e reaproveita o painel (já responsivo, UX-DR7).
-- **Sinergia:** o trabalho responsivo da página pública (Épico 6) e do painel já pavimenta o PWA. O "app do profissional" vira essencialmente o painel responsivo instalável + escopo de leitura — pouco código novo.
-- Registrar como **DL** quando você aprovar (PWA read-only), e ajustar a descrição do Épico 8 (ex-7).
+> ⛔ **P7 "PWA read-only" REVOGADO** — ver **DL-051** (2026-07-30). Mobile é o **painel completo** no celular, com **funcionalidade total**, não somente leitura. O trecho "read-only" abaixo era a premissa antiga (DL-018), agora **revogada**.
+
+- ~~DL-018: mobile é **somente leitura**~~ → **REVOGADO por DL-051**: mobile é o painel com **as mesmas ações** do desktop (confirmar/recusar/criar/cancelar/remarcar).
+- **Formalizado (DL-051):** mobile = **PWA** (web instalável responsivo), **não** React Native. Remove fricção de app-store e reaproveita o painel (já responsivo, UX-DR7). *(Esta parte da recomendação foi mantida; só caiu o "read-only".)*
+- **Sinergia:** o trabalho responsivo da página pública e do painel já pavimenta o PWA. O "app do profissional" vira o **painel responsivo instalável com funcionalidade completa** — pouco código novo (as ações já existem).
+- **Motivo do upgrade de escopo:** muitos estabelecimentos-alvo não têm computador; sem ação plena no celular o produto não é vendável para esse perfil. Por isso o Épico **deixa de ser o último** no roadmap (posição a fechar com o Renato).
 
 ---
 
@@ -175,7 +177,7 @@ A cliente vai querer **cílios + sobrancelha** → o carrinho reaparece. O DL-04
 | **P4** | Multi-serviço no MVP | ✅ **Cortar** — Story 5B.5 fast-follow |
 | **P5** | Polling/badge no MVP | ✅ **Incluir** (5B.1–5B.4) |
 | **P6** | Notificação à cliente no MVP | ✅ **Fora** (depende do canal — Épico 6/bot); MVP só tela de sucesso *(recomendação aceita)* |
-| **P7** | Mobile = PWA read-only | ✅ **Sim** — formalizar DL *(recomendação aceita)* |
+| **P7** | ~~Mobile = PWA read-only~~ | ⛔ **REVOGADO (DL-051, 2026-07-30)** — mobile = painel PWA com **funcionalidade completa** (não read-only). A parte "PWA, não React Native" foi mantida. |
 | **P8** | 3.7 (no-show/concluído) | ✅ **Intercalar: 3.7 primeiro**, fecha o Épico 3, depois o link |
 
 > Numeração escolhida = **"5B"** (zero churn). As stories viram **5B.1–5B.4** (+ 5B.5 carrinho). Quando você der o **go do link** (depois da 3.7), escrevo as specs 5B.1–5B.4 e atualizo epics.md/decision-log; **aviso para subir ao Contexto**.

@@ -32,7 +32,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 **FR-B: Confirmação e Recusa pelo Profissional**
 
 - FR-B1: Notificação de nova solicitação com nome, serviço, data, horário; aparece na agenda como *aguardando confirmação* sem profissional atribuído.
-- FR-B2: Confirmação/recusa exclusivamente pelo painel web. O número de WhatsApp do bot é dedicado à Evolution API — profissional não consegue responder por ele para confirmar; app mobile é somente leitura nesta fase (ver DL-018).
+- FR-B2: Confirmação/recusa pelas **telas do painel** — não pelo WhatsApp do bot (o número é dedicado à Evolution API; o profissional não responde por ele). O painel é acessível **também no celular** (responsivo/PWA — DL-051), com as **ações completas**: não há restrição de "somente leitura" (a premissa do canal WhatsApp segue; a limitação do app mobile de DL-018 foi **revogada**).
 - FR-B3: Confirmado → status *confirmado* + mensagem de confirmação automática à cliente.
 - FR-B4: Recusa exige justificativa obrigatória; sem justificativa, recusa não processada.
 - FR-B5: Recusa com justificativa → bot notifica cliente com motivo e sugere outras datas/horários.
@@ -85,13 +85,13 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - FR-G5: Dono define/altera nível de permissão de cada usuário.
 - FR-G6: Dono acessa configurações de personalização da instalação (ver FR-J).
 
-**FR-H: App Mobile do Profissional**
+**FR-H: Acesso mobile do painel (responsivo/PWA)** *(reformulado por DL-051 — antes "App Mobile do Profissional, somente leitura")*
 
-- FR-H1: Agenda do usuário autenticado em visões dia/semana.
-- FR-H2: Lista agendamentos *aguardando confirmação* para consulta. Confirmação e recusa não são feitas pelo app no MVP — exclusivo do painel web (ver FR-B2, DL-018).
-- FR-H3: *(Removido — recusa não ocorre pelo app no MVP, ver DL-018.)*
-- FR-H4: Disponível para iOS e Android.
-- Nota MVP: app não cria agendamentos. Origem `app` reservada para uso futuro.
+- FR-H1: Agenda do usuário autenticado em visões dia/semana, **no painel responsivo pelo celular** (mesma tela do desktop).
+- FR-H2: Lista **e tratamento** dos pendentes (confirmar/recusar) pelo celular — as mesmas telas do painel (DL-051; revoga a restrição de "somente leitura" de DL-018).
+- FR-H3: *(**Reabilitado por DL-051** — a recusa está disponível no celular por ser a mesma tela Pendentes do painel; havia sido removido por DL-018.)*
+- FR-H4: **Instalável como PWA** (adicionar à tela inicial) em iOS e Android; **sem app nativo separado** no MVP.
+- Nota MVP: acesso mobile = **painel responsivo instalável**, com **funcionalidade completa** (não somente leitura). Agendamentos criados pelo celular usam a mesma origem/telas do painel (origem `manual`), não uma origem `app` à parte.
 
 **FR-I: Permissões e Controle de Acesso**
 
@@ -136,7 +136,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 
 *(extraídos de architecture.md e addendum.md)*
 
-- Monorepo com `pnpm` workspaces: `apps/api` (NestJS), `apps/web` (React+Vite), `apps/mobile` (React Native+Expo), `packages/shared-types`, `packages/shared-utils`. Sem starter template de terceiros — estrutura definida do zero pela arquitetura (ver architecture.md seção 2).
+- Monorepo com `pnpm` workspaces: `apps/api` (NestJS), `apps/web` (React+Vite), `packages/shared-types`, `packages/shared-utils`. *(O antigo `apps/mobile` (React Native+Expo) foi **descartado por DL-051** — o acesso mobile passou a ser o próprio `apps/web` responsivo/PWA, não um app nativo separado. Ver Épico 7.)* Sem starter template de terceiros — estrutura definida do zero pela arquitetura (ver architecture.md seção 2).
 - Backend como monolito modular NestJS com módulos de fronteira clara: Auth, Tenant, Users, Clients, Services, Schedules, Appointments, Notifications, WhatsApp, Payments, Reports, Installation.
 - Modelo de dados MySQL 8 completo: `companies`, `users`, `clients`, `salon_services`, `professional_services`, `professional_schedules`, `appointments`, `payments`, `whatsapp_conversations` — com índices compostos liderados por `company_id`.
 - Multi-tenancy: `TenantMiddleware` injeta `company_id` via `AsyncLocalStorage`; `TenantAwareRepository<T>` aplica filtro automático em toda query.
@@ -155,7 +155,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - Teste de carga simples no VPS antes do go-live, medindo conversas WhatsApp simultâneas suportadas; definir limite de alerta para escalar.
 - `professional_id` nullable em `appointments` desde o schema inicial — suporta atribuição futura sem migração (addendum C.4-bis); validar necessidade após os primeiros 5 clientes.
 - Provider WhatsApp (Evolution API vs. Cloud API Meta) é selecionado por Renato no setup de cada instalação — sem UI de troca pelo cliente no MVP (addendum A.3).
-- Confirmar/recusar pendentes via endpoints REST compartilhados (`PATCH /appointments/:id/confirm` e `/refuse`), consumidos pelo painel web no MVP. App mobile já consome a API para leitura; a ação de confirmar/recusar pelo app é feature futura que reaproveita esses mesmos endpoints, sem mudança de backend (ver DL-018).
+- Confirmar/recusar pendentes via endpoints REST compartilhados (`PATCH /appointments/:id/confirm` e `/refuse`), consumidos pelas **telas do painel** — disponíveis **também no celular** (painel responsivo/PWA — DL-051). Não há app nativo separado nem paridade reduzida: as mesmas ações do desktop valem no mobile, sem mudança de backend.
 - Notificação de pendentes no painel via polling REST (`GET /appointments/pending-count`, intervalo 15–30s, em background, sem reload) — ver NFR-A3, ADR-011, DL-019. WebSocket/SSE é evolução futura.
 
 ### UX Design Requirements
@@ -164,9 +164,9 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 
 - UX-DR1: Implementar a máquina de estados completa do bot (IDLE → SERVIÇO → DIA → HORÁRIO → AGUARD. CONFIRMAÇÃO → CONFIRMADO/RECUSADO; IDLE → CANCELAMENTO → CONFIRMA CANCELAMENTO) conforme diagrama da seção 3.1.
 - UX-DR2: Implementar a biblioteca completa de mensagens de agendamento do bot (MSG-A01 a MSG-A07), incluindo regra de pular seleção quando há só 1 serviço e paginação de até 8 serviços. Inclui o passo de confirmação da cliente "1 sim / 2 não" (MSG-A05b, estado `AWAITING_CONFIRMATION`): após escolher o horário, a cliente confirma "Confirma agendar [serviço] em [dia] às [hora]?" antes de o pré-agendamento ser criado; "2" volta à seleção. Só com "1" o pré-agendamento é gravado e a cliente recebe "foi enviado ao salão, pode haver ajuste, você será avisada do aceite/recusa" (MSG-A06).
-- UX-DR3: Implementar as mensagens de notificação ao profissional/dono sobre nova solicitação (MSG-B01 solo / MSG-B02 multi — ambas direcionam ao painel, sem "1/2" pelo WhatsApp, ver DL-018) e as mensagens enviadas à cliente como resultado da decisão tomada **no painel web**: confirmação (MSG-B04), recusa com alternativas (MSG-B05), timeout (MSG-B06). MSG-B03 e FB-07 removidos (justificativa de recusa é digitada no modal do painel, não via WhatsApp). `[OK — corrigido no ux-spec.md]` Distinção importante: o "1/2" da cliente (confirmando o próprio agendamento, MSG-A05b/UX-DR2) é mantido; o que foi removido é o "1/2" do profissional.
+- UX-DR3: Implementar as mensagens de notificação ao profissional/dono sobre nova solicitação (MSG-B01 solo / MSG-B02 multi — ambas direcionam **ao painel**, sem "1/2" pelo WhatsApp; premissa do canal mantida sob DL-051, antes citada como DL-018) e as mensagens enviadas à cliente como resultado da decisão tomada **no painel** (que agora inclui o celular via PWA): confirmação (MSG-B04), recusa com alternativas (MSG-B05), timeout (MSG-B06). MSG-B03 e FB-07 removidos (justificativa de recusa é digitada no modal do painel, não via WhatsApp). `[OK — corrigido no ux-spec.md]` Distinção importante: o "1/2" da cliente (confirmando o próprio agendamento, MSG-A05b/UX-DR2) é mantido; o que foi removido é o "1/2" do profissional.
 - UX-DR4: Implementar mensagens de cancelamento pela cliente (MSG-C01 a MSG-C06), incluindo seleção entre múltiplos agendamentos futuros (MSG-C02) e exceção de cliente sem WhatsApp (MSG-C06).
-- UX-DR5: Implementar os fallbacks do bot FB-01 a FB-06, incluindo mensagem fora do fluxo (FB-05). `[CORRIGIDO — DL-018]` FB-07 (profissional respondendo texto livre em vez de 1/2) removido — premissa inválida, profissional não confirma/recusa pelo WhatsApp do bot.
+- UX-DR5: Implementar os fallbacks do bot FB-01 a FB-06, incluindo mensagem fora do fluxo (FB-05). `[CORRIGIDO — DL-018; premissa do canal mantida por DL-051]` FB-07 (profissional respondendo texto livre em vez de 1/2) **segue removido** — o profissional não confirma/recusa pelo WhatsApp do bot; ele trata pelas telas do painel (agora também no celular, via PWA). O que DL-051 revoga é a limitação de "app somente leitura", **não** essa premissa do canal WhatsApp.
 - UX-DR6: Aplicar regras de copy globalmente: zero emojis, "você" não "tu", frases curtas, datas no formato `Dia, DD/MM`, horas em `HH:MM` 24h, variáveis sempre entre colchetes.
 - UX-DR7: Navegação responsiva do painel — sidebar fixa em desktop (≥768px), tabs no rodapé em mobile (<768px) com menu "+" de ações rápidas e badge numérico vermelho de pendentes. Badge é atualizado por polling em segundo plano (15–30s, ver NFR-A3/DL-019), permanece visível até o salão tratar o pendente (nunca resetado por reload de página), e a chegada de um novo pendente dispara um toast momentâneo além da atualização do badge.
 - UX-DR8: Tela Agenda — visões dia/semana/mês; indicadores de cor por status (amarelo/pendente, verde/confirmado, cinza/concluído, vermelho riscado/cancelado); ícone de origem (balão = whatsapp, lápis = manual); filtro por origem (`[Todos] [WhatsApp] [Manual]`); FAB "Novo agendamento"; label "Não atribuído" em itálico cinza quando `professional_id` nulo.
@@ -177,7 +177,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - UX-DR13: Tela Configurações (somente Dono) — 4 subseções: Serviços (CRUD com duração/preço), Horários de atendimento (por profissional, toggle de dia + intervalo entre atendimentos), Equipe e permissões (convite por link, troca de papel via radio), Identidade visual (nome, logo upload, cor primária).
 - UX-DR14: Fluxo de convite de equipe — link de convite enviado, usuário cria a própria senha no primeiro acesso.
 - UX-DR15: Tema claro/escuro como preferência individual do usuário (tela "Perfil", não em Configurações da instalação).
-- UX-DR16: App mobile — navegação por 3 tabs (Agenda/Pendentes/Perfil). `[CORRIGIDO — DL-018]` Tab Pendentes é somente leitura: lista os agendamentos *aguardando confirmação* sem ação de confirmar/recusar; tela orienta o usuário a tratar pelo painel web. Sem paridade de ações com o painel nesta fase.
+- UX-DR16: Acesso mobile = **painel responsivo instalável (PWA)**, com a **mesma navegação** do painel (UX-DR7: tabs no rodapé em <768px, com badge numérico de pendentes) e as **mesmas ações**. `[REVOGADO — DL-018 → DL-051]` Cai a antiga restrição "Tab Pendentes é somente leitura": no celular, Pendentes **confirma/recusa** como no desktop. Não há app nativo de 3 tabs separado; é o próprio painel no celular, com **paridade total** de ações.
 - UX-DR17: Estados vazios padronizados para Agenda, Pendentes, Clientes e Histórico de cliente (textos especificados na seção 6.1).
 - UX-DR18: Modal de cancelamento com texto condicional — aviso de notificação automática se cliente tem WhatsApp cadastrado; aviso de "comunicação por sua conta" se não tem.
 - UX-DR19: Toast de feedback padronizado para toda ação de mutação (confirmar, recusar, cancelar, criar agendamento, registrar pagamento) — sempre com confirmação textual do que aconteceu.
@@ -195,7 +195,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - FR-E1–E4 → **Épico 4** (cadastro e histórico de clientes)
 - FR-F1–F5 → **Épico 5** (registro manual de pagamentos)
 - FR-G1–G6 → **Épico 1** (configurações da instalação)
-- FR-H1, FR-H2, FR-H4 → **Épico 7** (app mobile somente leitura; FR-H3 removido — DL-018)
+- FR-H1, FR-H2, FR-H3, FR-H4 → **Épico 7** (painel responsivo instalável/PWA, **funcionalidade completa** — DL-051; FR-H3 **reabilitado**)
 - FR-I1–I4 → **Épico 1** (permissões e isolamento de tenant)
 - FR-J1, FR-J3, FR-J4, FR-J5 → **Épico 1** (identidade visual, tema); FR-J2 → **Épico 6** (assinatura do bot)
 - FR-K1–K5 → **Épico 3** (rastreabilidade de origem, exibida na agenda)
@@ -250,21 +250,21 @@ Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda 
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
-### Épico 7: App Mobile do Profissional (somente leitura)
-O profissional consulta a própria agenda no celular (iOS/Android), em visões dia/semana, e vê os pendentes — sem ações de confirmar/recusar/criar no MVP (DL-018; escopo "só leitura" a rediscutir). O app consome a API já consolidada. Por último.
-**FRs cobertas:** FR-H1, FR-H2, FR-H4
-**UX-DRs:** UX-DR16, UX-DR17
+### Épico 7: Acesso mobile — painel responsivo instalável (PWA)
+O dono/profissional opera o **painel completo pelo celular**, instalável como **PWA** (adicionar à tela inicial), com as **mesmas ações** do desktop (confirmar/recusar pendentes, criar/cancelar/remarcar, clientes, configurações). **Não** é app nativo somente leitura — **revoga DL-018 e o P7 do plano 5B (DL-051)**. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação completa no celular o produto não é vendável para esse perfil. **Deixou de ser "por último"** — responsividade do painel é **pré-requisito de venda** (nova posição no roadmap a fechar com o Renato).
+**FRs cobertas:** FR-H1, FR-H2, FR-H3, FR-H4
+**UX-DRs:** UX-DR7 (navegação mobile do painel), UX-DR16, UX-DR17
 
 ---
 
-## Estado de implementação — retrato (2026-07-29)
+## Estado de implementação — retrato (2026-07-30)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
-**Épico 1 — Provisionamento & acesso (fila obrigatória):**
-- 🔵 **1.9** Provisionamento de estabelecimento (`POST /platform/companies`, `x-platform-key`) — **PR aberto** (e2e verde, inclui isolamento de 2 empresas). Só cria; reusa `user_invites` para convidar o owner.
-- 🐛 **1.2.01** Login multi-tenant — **bug bloqueador**; **DL-050 decidido** (slug na ROTA do painel, `/app/{slug}/login`), **correção pendente** (spec `1-2-01`). É o que **libera o uso real da 1.9**.
-- **Fila:** 1.9 → **fix 1.2.01** → provisionar o 1º cliente real. ⚠️ Provisionar cliente real ANTES do fix cria uma empresa cujo dono não consegue logar.
+**Épico 1 — Provisionamento & acesso:**
+- ✅ **1.9** Provisionamento de estabelecimento (`POST /platform/companies`, `x-platform-key`) — **mergeada (PR #45)** (e2e verde, inclui isolamento de 2 empresas). Só cria; reusa `user_invites` para convidar o owner.
+- ✅ **1.2.01** Login multi-tenant por **slug na rota** (`/app/{slug}/login`, **DL-050**) — **mergeada (PR #46)**; `AUTH_ALLOW_SINGLE_TENANT` **fail-closed** (ausente = slug obrigatório), slug guardado no navegador para sessão expirada/logout, e2e de isolamento com 2 empresas.
+- ✅ **Provisionamento de clientes reais liberado** — o fix está no `main`; clientes já foram provisionados em **dev**. A antiga fila obrigatória (1.9 → fix → cliente real) está **cumprida**.
 
 **Épico 3 — Agendamento manual (painel) — ✅ COMPLETO (CRUD inteiro):**
 - ✅ **3.1** Base de agendamento + disponibilidade — mergeada
@@ -283,8 +283,8 @@ O profissional consulta a própria agenda no celular (iOS/Android), em visões d
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
-- 🔵 **5B.2** Disponibilidade pública + POST hostil-por-padrão — PR #42 aberto (CI verde), aguardando merge
-- 🔵 **5B.3** Pendentes no painel (confirmar/recusar + contador) — PR #43 aberto, aguardando merge — **fecha o Épico 5B**
+- ✅ **5B.2** Disponibilidade pública + POST hostil-por-padrão — mergeada (PR #42)
+- ✅ **5B.3** Pendentes no painel (confirmar/recusar + contador) — mergeada (PR #43) — **fecha o Épico 5B**
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
@@ -528,14 +528,7 @@ So that eu provisione um cliente vendido sem mexer no banco na mão.
 
 **Escopo:** `POST /api/platform/companies`, protegido por header **`x-platform-key`** (valor no `.env` `PLATFORM_KEY`, **nunca** no repo; sem a chave → 401). Body `{ name, slug, ownerName, ownerEmail }`. Faz: (a) cria a company; (b) cria o **convite do owner** reusando o fluxo de `user_invites` (o mesmo do `POST /users/invite`); (c) retorna `{ slug, painelUrl, publicUrl, inviteUrl }`. **NÃO** cria serviços/horários/exemplo; **NÃO** define senha (o dono define pelo aceite — `/aceitar-convite`). Slug **kebab-case ASCII** (minúsculas/dígitos/hífen; 409 se duplicado — é a URL pública, não muda depois). Rate limit por IP. **Superfície mínima: só cria** (sem listar/editar/deletar). Pré-tenant (`PRE_TENANT_CONTROLLERS`, DL-027). Fora de escopo: tela de admin (uso Insomnia) e signup self-service.
 
-> ⚠️ **LIMITE OPERACIONAL — a 1.9 NÃO provisiona cliente real ainda.** O login do painel só resolve o tenant no modo tenant-único hoje; com 2+ empresas o dono não consegue logar (bug **1.2.01**, spec `1-2-01-login-multi-tenant-resolucao.md`, **DL-050**: decidido, ainda **não implementado**). O `painelUrl` já aponta para `/app/{slug}/login` (destino do fix), mas essa rota só funciona depois dele.
->
-> **Fila obrigatória:**
-> 1. **1.9** — endpoint de provisionamento *(feito)*
-> 2. **Fix do login multi-tenant** (spec `1-2-01` / DL-050: slug na ROTA do painel) — é o que **libera** o uso real da 1.9
-> 3. **Só então** provisionar o primeiro cliente de verdade
->
-> Provisionar um 2º estabelecimento antes do passo 2 cria uma empresa cujo dono **não consegue entrar no painel**.
+> ✅ **Provisionamento de clientes reais liberado (2026-07-30).** A fila obrigatória foi **cumprida**: **1.9** (PR #45) + **fix do login multi-tenant** (**1.2.01** / **DL-050**, slug na rota `/app/{slug}/login`, PR #46) estão no `main`. O `painelUrl` (`/app/{slug}/login`) funciona; com 2+ empresas cada dono loga pelo próprio slug (e2e de isolamento verde). Clientes já foram provisionados em **dev**. Não há mais o bloqueio de "dono não consegue entrar".
 
 **Acceptance Criteria:**
 
@@ -1023,7 +1016,7 @@ So that eu controle quais agendamentos aceito.
 
 **Given** um pré-agendamento criado (FR-B1)
 **When** o `NotificationsModule` consome o evento
-**Then** notifica o salão via WhatsApp (MSG-B01 solo / MSG-B02 multi) direcionando ao painel — sem "1/2" por WhatsApp (DL-018); o painel exibe o pendente
+**Then** notifica o salão via WhatsApp (MSG-B01 solo / MSG-B02 multi) direcionando ao painel — sem "1/2" por WhatsApp (premissa do canal, mantida por DL-051; antes DL-018); o painel exibe o pendente
 
 **Given** a tela Pendentes (UX-DR9)
 **When** confirmo um pendente (FR-B2, FR-B3)
@@ -1173,68 +1166,63 @@ ativo e da resiliência da Story 6.8.)
 
 ---
 
-## Épico 7: App Mobile do Profissional (somente leitura)
+## Épico 7: Acesso mobile — painel responsivo instalável (PWA)
 
-**Objetivo:** dar ao profissional consulta da própria agenda e dos pendentes no celular (iOS/Android), somente leitura no MVP (DL-018; escopo a rediscutir). O app consome a API já consolidada. Por último no roadmap (DL-035).
+**Objetivo:** entregar o **painel completo no celular** — o mesmo painel web, **responsivo** e **instalável como PWA** (adicionar à tela inicial, ícone, splash, shell offline mínimo), com **funcionalidade completa** (as mesmas ações do desktop). **Não** é um app nativo separado somente leitura.
 
-**FRs:** FR-H1, FR-H2, FR-H4 · **UX-DRs:** UX-DR16, UX-DR17
+> **Reformulado por DL-051 (2026-07-30), que revoga DL-018 e o P7 do plano 5B.** Antes: app React Native/Expo, somente leitura, "por último no roadmap (DL-035)". Agora: responsividade + PWA do painel existente, ações completas. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação plena no celular o produto não é vendável para esse perfil — por isso **deixa de ser o último** e sobe de prioridade (posição exata a fechar com o Renato). A base técnica já existe: o painel tem navegação responsiva (UX-DR7, tabs no rodapé <768px) e todas as ações (5B.3, 3.3, 3.4, 3.6) — o épico é **completar a responsividade das telas** e **empacotar como PWA**, sem backend novo. As stories abaixo foram reescritas nesse sentido; os ACs finos serão fechados na story de execução.
 
-### Story 7.1: Autenticação e navegação do app mobile
+**FRs:** FR-H1, FR-H2, FR-H3, FR-H4 · **UX-DRs:** UX-DR7, UX-DR16, UX-DR17
 
-As a profissional,
-I want entrar no app e navegar entre minhas telas no celular,
-So that eu acesse minha agenda de qualquer lugar.
+### Story 7.1: Painel instalável como PWA
 
-**Acceptance Criteria:**
+As a dono/profissional que opera pelo celular,
+I want instalar o painel na tela inicial do celular e abri-lo como um app,
+So that eu acesse o sistema sem depender de um computador.
 
-**Given** o app React Native + Expo (FR-H4)
-**When** instalo e abro em iOS ou Android
-**Then** o app sobe nas duas plataformas
+**Acceptance Criteria (a detalhar na execução):**
 
-**Given** minhas credenciais
-**When** faço login no app
-**Then** autentico contra a mesma API do painel (JWT, Épico 1), reaproveitando os endpoints existentes
+**Given** o painel web servido em produção
+**When** abro no navegador do celular (iOS/Android) e escolho "adicionar à tela inicial"
+**Then** o painel instala como PWA (manifest com nome/ícone/tema; abre em tela cheia, sem barra do navegador)
 
-**Given** o app autenticado (UX-DR16)
-**When** navego
-**Then** vejo 3 tabs — Agenda / Pendentes / Perfil
+**Given** o PWA instalado
+**When** abro sem conexão momentânea
+**Then** o shell básico carrega (offline mínimo) e as ações que exigem rede exibem estado claro de "sem conexão" — sem tela branca
 
-### Story 7.2: Consulta da agenda no app
+### Story 7.2: Paridade de ações do painel no celular
 
-As a profissional,
-I want ver minha agenda no celular em dia e semana,
-So that eu acompanhe meus atendimentos fora do balcão.
+As a dono/profissional no celular,
+I want as mesmas ações do desktop nas telas do painel,
+So that eu confirme/recuse pendentes, crie, cancele e remarque agendamentos sem trocar de dispositivo.
 
-**Acceptance Criteria:**
+**Acceptance Criteria (a detalhar na execução):**
 
-**Given** a tab Agenda (FR-H1, UX-DR16)
+**Given** o painel no celular (UX-DR16, DL-051)
+**When** navego pelas telas (Agenda, Pendentes, Clientes, Configurações)
+**Then** cada tela é operável em telas pequenas (layout responsivo, alvos de toque adequados), com a mesma navegação do painel (UX-DR7)
+
+**Given** a tela Pendentes no celular (FR-H2, FR-H3)
+**When** trato um pendente
+**Then** **confirmo e recuso** ali mesmo (as mesmas ações do desktop) — **sem** restrição de "somente leitura"
+
+**Given** as ações de agendamento (criar/cancelar/remarcar — FR-D, 3.3/3.4/3.6)
+**When** as executo pelo celular
+**Then** funcionam como no desktop, reaproveitando os mesmos endpoints (sem backend novo)
+
+### Story 7.3: Consulta e estados no celular
+
+As a dono/profissional no celular,
+I want ver a agenda e os pendentes com estados claros no celular,
+So that eu acompanhe o dia mesmo fora do balcão.
+
+**Acceptance Criteria (a detalhar na execução):**
+
+**Given** a Agenda no celular (FR-H1, UX-DR16)
 **When** acesso
-**Then** vejo a agenda do usuário autenticado em visões dia e semana
+**Then** vejo a agenda do usuário autenticado em visões dia e semana, legível no celular
 
-**Given** que o app é somente leitura no MVP (DL-018)
-**When** abro um agendamento
-**Then** vejo os detalhes para consulta, sem ações de confirmar/recusar/cancelar/criar
-
-**Given** um dia sem agendamentos (UX-DR17)
-**When** abro a agenda
+**Given** um dia/tab sem itens (UX-DR17)
+**When** abro Agenda ou Pendentes
 **Then** vejo o estado vazio padronizado
 
-### Story 7.3: Consulta de pendentes no app
-
-As a profissional,
-I want ver os agendamentos aguardando confirmação no celular,
-So that eu saiba o que está pendente, ciente de que o tratamento é pelo painel.
-
-**Acceptance Criteria:**
-
-**Given** a tab Pendentes (FR-H2, UX-DR16, DL-018)
-**When** acesso
-**Then** vejo a lista de agendamentos *aguardando confirmação* somente para consulta — sem ações de confirmar/recusar no app
-
-**Given** a tela de pendentes
-**When** visualizo um item
-**Then** a tela orienta que o tratamento (confirmar/recusar) é feito pelo painel web
-
-**Given** nenhum pendente (UX-DR17)
-**When** abro a tab
-**Then** vejo o estado vazio padronizado
