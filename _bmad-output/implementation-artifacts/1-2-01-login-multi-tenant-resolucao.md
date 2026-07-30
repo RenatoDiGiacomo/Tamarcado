@@ -1,6 +1,8 @@
 # Bug crítico 1.2.01 — Resolução de tenant no login com N empresas
 
-> **Classificação:** bug **bloqueador** para deploy **multi-tenant compartilhado** (N salões numa mesma instalação). **Não** é regressão da 5B.3 — é uma lacuna herdada da decisão de login da Story 1.2 (DL-026). **Não corrigir dentro da 5B.3.** Story de origem: **1.2** (Autenticação do dono). Spec própria para investigação/decisão + correção posterior.
+> **Classificação:** bug **bloqueador** para deploy **multi-tenant compartilhado** (N salões numa mesma instalação). **Não** é regressão da 5B.3 — é uma lacuna herdada da decisão de login da Story 1.2 (DL-026). **Não corrigir dentro da 5B.3.** Story de origem: **1.2** (Autenticação do dono).
+>
+> **Status:** **decidido (DL-050, 2026-07-29)** — resolução por **slug na rota do painel** (`/app/{slug}/login`). Ver §4. Falta a **story de correção** (roteamento no front + e2e + remoção do fallback). Este doc é a spec dessa correção.
 
 ## 1. Sintoma observado
 
@@ -55,24 +57,43 @@ Com 2+ empresas e sem slug, **estoura aqui** — a query de senha (`bcrypt.compa
 
 A tela de Login ([Login.tsx](../../apps/web/src/pages/Login.tsx)) **não tem campo de instalação** e chama `login(email, password)` **sem `companySlug`** ([AuthContext.tsx](../../apps/web/src/auth/AuthContext.tsx)). No `catch`, mostra sempre "E-mail ou senha incorretos" — escondendo o "Informe a instalação". Por isso pareceu senha errada.
 
-## 4. Por que isto é (ou não é) bloqueador — questão de produto em aberto
+## 4. Decisão (DL-050) — slug na ROTA do painel
 
-O backend **já** suporta N tenants **via slug**. O gap é **como o front obtém o tenant** no login em produção. Depende do **modelo de deployment**, que precisa ser decidido:
+**Resolução por slug na rota do painel:** `/app/{slug}/login` (e demais telas do painel sob `/app/{slug}/…`). O front **extrai o slug da URL** e o envia no `POST /auth/login`; o backend **já** resolve por slug (`resolveCompanyId(companySlug)`) — **provado** no §2 (com slug = 200 para owner-a e owner-b). **Zero mudança de backend.**
 
-- **Uma instalação por salão** (banco/subdomínio dedicado, tenant único por deploy) → o fallback atual é **suficiente**; **não é bloqueador**.
-- **Multi-tenant compartilhado** (N salões numa instalação) → **é bloqueador**: todo login precisa do tenant, e hoje a UI não fornece.
+- **Por que rota e não subdomínio:** sem DNS/certificado wildcard, sem infra nova. É a variação enxuta da "opção A".
+- **Subdomínio por marca** (`fernanda.tamarcado.app`) fica como **evolução futura**: quando entrar, muda só o roteamento (derivar o slug do host) — o backend continua idêntico.
 
-## 5. Opções de correção (para decidir na spec — **não implementar agora**)
+### (a) Slug da URL inexistente
 
-- **A. Subdomínio → slug.** `fernanda.tamarcado.app` deriva o slug do host e envia no login. Sem campo extra para a dona. (Requer wildcard DNS/roteamento.)
-- **B. Campo "instalação" no login.** A dona digita/seleciona o salão; o front envia `companySlug`. Simples, mas expõe o slug na UX.
-- **C. Assumir tenant único por deploy.** Formaliza o fallback; remove ambiguidade documentando que cada salão é um deploy. Zero código no login, mas fecha a porta do multi-tenant compartilhado.
+`resolveCompanyId(companySlug)` com slug que não casa **já** lança `401 "Credenciais inválidas"` (§3b, caso 5) — **não** revela se o tenant existe (não vaza enumeração de salões). O front, em `/app/{slug}/*` com slug desconhecido, renderiza a **tela de login com erro genérico** ("E-mail ou senha incorretos") — mesma resposta de credencial errada, sem distinguir "salão não existe" de "senha errada". Nunca redireciona para um "salão não encontrado" que confirme a ausência.
 
-## 6. Guard-rails
+### (b) e2e de isolamento com 2+ empresas (critério de aceite da correção)
 
-- **Fora do escopo da 5B.3.** Nada aqui deve ser corrigido dentro daquela story.
-- **Não corrigir de improviso.** A escolha A/B/C é decisão de produto/arquitetura (atualiza DL-026); a implementação vira sua própria story.
-- O e2e de multi-tenant login **já cobre** o caminho com slug (A/B/C do 1.3). Falta cobrir o caminho de produção escolhido.
+A story de correção **deve** incluir e2e que, com **2 empresas** semeadas (cada uma com owner + dados próprios), prove:
+
+1. `POST /auth/login` com `{email: owner-a, companySlug: salao-a}` → 200; o JWT carrega `companyId` de **salao-a**.
+2. Com esse token, `GET /appointments` (e demais rotas tenant-aware) retorna **só** dados de salao-a — **nenhum** de salao-b.
+3. `owner-a` com `companySlug: salao-b` → **401** (não existe naquele tenant); e um token de salao-a **jamais** enxerga `salao-b` (o `TenantMiddleware`/`TenantAwareRepository` já filtra por `companyId` do JWT — DL-022/DL-026).
+4. Login **sem** slug (contrato novo) → **401** determinístico (ver §c).
+
+> Já existe `tenant-isolation.e2e` (Story 1.3) provando o isolamento **pós-login** por `companyId` do JWT. O que falta e esta correção adiciona é o e2e do **caminho de login por slug de rota** com 2+ empresas (itens 1, 3-sem-slug e 4 acima).
+
+### (c) Fallback de tenant único — **REMOVER** (recomendado)
+
+Hoje `resolveCompanyId` sem slug retorna a única empresa se `companies.length === 1` ([auth.service.ts:40-44](../../apps/api/src/modules/auth/auth.service.ts#L40-L44)). **Recomendo remover** (contrato: **sem slug → 401 sempre**), porque:
+
+- Com o slug **sempre** na rota do painel, produção **nunca** depende do fallback.
+- O fallback é um caminho **silencioso e dependente de estado**: o login "funciona" com 1 empresa e **muda de comportamento** quando surge uma 2a — foi exatamente o que **mascarou este incidente** (o 401 parecia senha errada).
+- Contrato explícito é mais simples de testar e raciocinar; elimina a classe de bug "resolve o tenant errado por acaso".
+
+**Conveniência de dev** (login local sem digitar slug) fica atrás de flag **`AUTH_ALLOW_SINGLE_TENANT`** (default **off**; ligada só em `.env` de dev, se desejado). Assim o default de produção é seguro e o dev não perde ergonomia.
+
+## 5. Guard-rails
+
+- **Fora do escopo da 5B.3.** Nada aqui é corrigido dentro daquela story.
+- **A correção é story própria** (deriva de 1.2). Backend praticamente não muda (só a possível remoção do fallback + flag); o grosso é **roteamento no front** (`/app/{slug}/…`, extrair slug, enviar no login) + os e2e do §b.
+- **DL-050** registra a decisão; atualiza **DL-026** no ponto do fallback.
 
 ## 7. Nota operacional (como o bug apareceu aqui)
 
