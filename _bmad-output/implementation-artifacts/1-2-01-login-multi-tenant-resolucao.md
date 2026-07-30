@@ -2,7 +2,7 @@
 
 > **Classificação:** bug **bloqueador** para deploy **multi-tenant compartilhado** (N salões numa mesma instalação). **Não** é regressão da 5B.3 — é uma lacuna herdada da decisão de login da Story 1.2 (DL-026). **Não corrigir dentro da 5B.3.** Story de origem: **1.2** (Autenticação do dono).
 >
-> **Status:** **decidido (DL-050, 2026-07-29)** — resolução por **slug na rota do painel** (`/app/{slug}/login`). Ver §4. Falta a **story de correção** (roteamento no front + e2e + remoção do fallback). Este doc é a spec dessa correção.
+> **Status:** **corrigido (PR #46, 2026-07-30)** — resolução por **slug na rota do painel** (`/app/{slug}/login`), decisão **DL-050** (2026-07-29). Ver §4 (decisão) e **§6 (as-built)**. A correção — roteamento no front, slug guardado para sessão expirada, remoção do fallback atrás de flag, e2e de isolamento — está implementada e validada (smoke real + suites verdes). Falta só o **merge** (do Renato).
 
 ## 1. Sintoma observado
 
@@ -94,6 +94,43 @@ Hoje `resolveCompanyId` sem slug retorna a única empresa se `companies.length =
 - **Fora do escopo da 5B.3.** Nada aqui é corrigido dentro daquela story.
 - **A correção é story própria** (deriva de 1.2). Backend praticamente não muda (só a possível remoção do fallback + flag); o grosso é **roteamento no front** (`/app/{slug}/…`, extrair slug, enviar no login) + os e2e do §b.
 - **DL-050** registra a decisão; atualiza **DL-026** no ponto do fallback.
+
+## 6. Como foi construído (as-built, PR #46 — `fix/1.2.01-login-tenant`)
+
+> Registro do que a correção **efetivamente** entregou, para a spec sobreviver ao corpo do PR. Confere com a decisão do §4 e detalha as bordas que só surgiram na implementação (sessão expirada, slug guardado). Evidência: smoke real no navegador (5 prints, `salao-teste`) + suites verdes.
+
+### 6.1 Backend — `resolveCompanyId` (contrato final)
+
+- **Com slug:** `findOne({ where: { slug } })`; não achou → **401 "Credenciais inválidas"** (sem 500, sem enumeração).
+- **Sem slug:** resolve a única empresa **somente** se `AUTH_ALLOW_SINGLE_TENANT` estiver **ligada** *e* existir **exatamente 1** empresa; caso contrário → **401 "Informe a instalação (companySlug)"**.
+- Fallback de tenant único do §4(c) **removido do caminho padrão** e movido para trás da flag. `singleTenantLoginAllowed()` aceita só `"1"` ou `"true"`; **ausente (`undefined`), `"0"`, `"false"` e `""` = desligado** — **fail-closed** (ausente = slug obrigatório). Travado por unit (`auth.service.spec.ts`, incl. `it.each(["0","false",""])` + caso variável ausente).
+
+### 6.2 Front — roteamento e slug na URL
+
+- Rota **`/app/:slug/login`** ([App.tsx](../../apps/web/src/App.tsx)); a `Login` lê o slug com `useParams` e envia no `login(email, password, slug)` ([Login.tsx](../../apps/web/src/pages/Login.tsx)). Rota `/login` genérica mantida para dev tenant-único e primeiro acesso sem link.
+- **Slug inexistente em `/app/{slug}/login`:** a tela renderiza normalmente; o submit recebe **401 genérico** ("E-mail ou senha incorretos. Tente novamente.") — sem 500, sem confirmar se o salão existe. Verificado no smoke (`/app/salao-fantasma/login`).
+
+### 6.3 Bordas de sessão (o que o §4 não previa e a implementação resolveu)
+
+As rotas internas do painel (`/`, `/clientes`, …) **não** carregam o slug na URL — então, ao expirar o token, o front precisa saber para qual `/app/{slug}/login` voltar. Resolvido guardando o slug no navegador:
+
+- No **login bem-sucedido com slug**, grava `localStorage["tamarcado.slug"]` ([AuthContext.tsx](../../apps/web/src/auth/AuthContext.tsx)).
+- **`loginPath()`** devolve `/app/{slug}/login` quando há slug guardado; senão, `/login` genérico.
+- **`Protected`** ([App.tsx](../../apps/web/src/App.tsx)) redireciona por `loginPath()` — cobre **sessão expirada**, **logout** e **acesso direto a rota interna sem sessão**.
+- O slug **persiste no logout** (identifica o tenant daquele navegador para o próximo login).
+- **Sem sessão e sem slug guardado** (navegador novo, acesso direto a rota interna): vai para o **`/login` genérico**. Em produção (flag off) esse login sem slug dá 401 determinístico — o dono reentra pelo **`painelUrl`** que a Story 1.9 emite (`/app/{slug}/login`). Em dev (flag on) o `/login` resolve a instalação única.
+
+### 6.4 Testes e CI
+
+- **Unit** `auth.service.spec.ts` (14): senha ok/errada, inativo, múltiplas instalações → 401, **sem slug + flag off/ausente/`"0"`/`"false"`/`""` → 401**, sem slug + flag on → resolve, slug inexistente → 401.
+- **e2e** `login-multi-tenant.e2e-spec.ts`: 2 empresas, cada owner loga pelo próprio slug e vê só os próprios dados; slug do outro → 401; sem slug com 2+ → 401; slug inexistente → 401.
+- **Front**: `Login.test` (lê/envia slug da rota; `/login` genérico envia `undefined`), `AuthContext.test` (`loginPath()`, persistência do slug).
+- **CI**: `turbo.json` (`test.env`) passou a declarar `AUTH_ALLOW_SINGLE_TENANT` e `PLATFORM_KEY` — o env-mode strict do Turbo só repassa ao processo de teste as variáveis da allowlist; sem isso a flag chegava vazia e os e2e sem slug caíam em 401 no CI.
+
+### 6.5 Nota de deploy (VPS)
+
+- **`AUTH_ALLOW_SINGLE_TENANT` fica OFF** em produção (ausente ou `0`) — o contrato multi-tenant exige slug na rota. A flag é **conveniência de dev/CI apenas**.
+- **`PLATFORM_KEY`** (Story 1.9) é **gerada nova e longa no VPS**, **fora do repositório** — o valor de dev do `.env` **não** vai para produção. Ver também a "Nota de deploy" no `epics.md` (Épico 1).
 
 ## 7. Nota operacional (como o bug apareceu aqui)
 
