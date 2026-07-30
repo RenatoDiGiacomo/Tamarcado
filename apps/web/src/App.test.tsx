@@ -13,8 +13,9 @@ describe("App", () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    expect(
-      await screen.findByRole("heading", { name: /Tamarcado/i }),
-    ).toBeInTheDocument();
+    // A marca virou o logo SVG (ajuste 2.1.NN): variações clara/escura, ambas
+    // com aria-label "Tamarcado" (uma some por CSS conforme o tema).
+    const logos = await screen.findAllByRole("img", { name: /Tamarcado/i });
+    expect(logos.length).toBeGreaterThan(0);
   });
 });

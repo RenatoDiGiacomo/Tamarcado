@@ -50,7 +50,7 @@ describe("AppShell", () => {
     usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
   });
 
-  it("desktop (≥768px): sidebar com Pagamentos e Configurações para owner", () => {
+  it("desktop (≥768px): sidebar com Configurações para owner; Pagamentos oculto (2.1.NN)", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
@@ -60,11 +60,13 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("navigation", { name: /lateral/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Pagamentos")).toBeInTheDocument();
+    // Pagamentos foi ocultado (volta depois, provavelmente como "Financeiro") —
+    // o item segue no código, só não renderiza.
+    expect(screen.queryByText("Pagamentos")).toBeNull();
     expect(screen.getByText("Configurações")).toBeInTheDocument();
   });
 
-  it("desktop: Clientes navega (4.1); Pagamentos fica 'em breve'", () => {
+  it("desktop: Clientes navega (4.1); Pagamentos está oculto (2.1.NN)", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
@@ -73,9 +75,10 @@ describe("AppShell", () => {
     renderShell();
     // Clientes agora tem tela (Story 4.1) → é link navegável.
     expect(screen.getByRole("link", { name: /Clientes/ })).toBeInTheDocument();
-    // Pagamentos ainda sem tela → "em breve", não navegável.
+    // Pagamentos oculto: nem link, nem rótulo, nem "em breve".
     expect(screen.queryByRole("link", { name: /Pagamentos/ })).toBeNull();
-    expect(screen.getByText("em breve")).toBeInTheDocument();
+    expect(screen.queryByText("Pagamentos")).toBeNull();
+    expect(screen.queryByText("em breve")).toBeNull();
     expect(screen.getByRole("link", { name: /Agenda/ })).toBeInTheDocument();
   });
 

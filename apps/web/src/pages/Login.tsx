@@ -2,10 +2,17 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { APP_VERSION } from "../lib/version";
+// Logo vertical (ícone TM + wordmark empilhados) — variação por tema:
+// wordmark preto no tema claro, branco no escuro. O check roxo é o mesmo nas
+// duas. Importados como componente SVG (herdam layout/cor, sem requisição
+// extra). O par é trocado por CSS (dark:) — ver globals/tailwind.
+import LogoVerticalClaro from "../logos/logo-vertical-claro.svg?react";
+import LogoVerticalEscuro from "../logos/logo-vertical-escuro.svg?react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function Login() {
   const { login } = useAuth();
@@ -34,13 +41,25 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/40 p-4">
+      <div className="flex flex-col items-center gap-2">
+        <LogoVerticalClaro
+          aria-label="Tamarcado"
+          role="img"
+          className="h-24 w-auto dark:hidden"
+        />
+        <LogoVerticalEscuro
+          aria-label="Tamarcado"
+          role="img"
+          className="hidden h-24 w-auto dark:block"
+        />
+        <p className="text-sm text-muted-foreground">
+          Sua Agenda Mais que Completa
+        </p>
+      </div>
+
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Tamarcado</h1>
-          <p className="text-sm text-muted-foreground">Entre para gerenciar sua agenda</p>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">E-mail</Label>
@@ -91,8 +110,17 @@ export function Login() {
               {submitting ? "Entrando..." : "Entrar"}
             </Button>
           </form>
+          {/* Versão discreta no canto inferior direito do card (lida do
+              package.json na build — ver src/lib/version.ts). */}
+          <p className="mt-4 text-right text-[11px] text-muted-foreground">
+            {APP_VERSION}
+          </p>
         </CardContent>
       </Card>
+
+      <footer className="text-xs text-muted-foreground">
+        Desenvolvido por Nordiq.tech
+      </footer>
     </main>
   );
 }

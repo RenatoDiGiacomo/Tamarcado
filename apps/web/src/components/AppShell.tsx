@@ -6,8 +6,14 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
 import { usePendentes } from "../lib/usePendentes";
 import { hexToHslTriplet } from "../lib/theme";
+import { APP_VERSION } from "../lib/version";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
+
+// Itens da nav mantidos no código mas NÃO renderizados por ora. Pagamentos
+// volta depois (provavelmente como "Financeiro") — por isso o item segue em
+// NAV_ITEMS, só é filtrado da renderização. — ajuste 2.1.NN
+const HIDDEN_NAV_KEYS = new Set(["pagamentos"]);
 
 interface NavItem {
   key: string;
@@ -72,7 +78,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     NAV_ITEMS[0],
     ...(canSeePendentes ? [pendItem] : []),
     ...NAV_ITEMS.slice(1),
-  ];
+  ].filter((item) => !HIDDEN_NAV_KEYS.has(item.key));
   const items: NavItem[] = [
     ...mainItems,
     ...(isOwner
@@ -161,6 +167,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         </nav>
         <main className="flex-1 p-6">{children}</main>
+        {/* Versão discreta no canto inferior direito do painel (lida do
+            package.json na build — ver src/lib/version.ts). */}
+        <span className="pointer-events-none fixed bottom-2 right-3 text-[11px] text-muted-foreground">
+          {APP_VERSION}
+        </span>
       </div>
     );
   }
@@ -248,6 +259,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </ul>
         )}
       </nav>
+      {/* Versão discreta acima da nav inferior (lida do package.json na build). */}
+      <span className="pointer-events-none fixed bottom-14 right-3 text-[11px] text-muted-foreground">
+        {APP_VERSION}
+      </span>
     </div>
   );
 }
