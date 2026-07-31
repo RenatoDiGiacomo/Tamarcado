@@ -100,7 +100,7 @@ Celular (≤767px)                     Desktop (≥768px)
 - **Direita:** **avatar circular** com as iniciais do usuário (`RD`). É o acesso a **Perfil/menu**.
 - **Some do topo:** nome por extenso e “Sair” — migram para **Perfil** (§4.4).
 - Borda inferior **hairline** (`border-border`), não a faixa grossa `border-primary` de hoje — leitura mais limpa/app.
-- A **identidade do estabelecimento** (nome + logo) aparece no **Perfil** e no topo da tela **Agenda** (subtítulo pequeno), não como chrome fixo em toda tela.
+- **Sem o nome do estabelecimento no AppBar** — a dona já sabe em qual estabelecimento está (é o dela); o nome/logo/cor vivem **só em Perfil**, onde ela confere quando quer. Fica **apenas o título da tela** + avatar. *(O caso em que o nome faria sentido — um usuário gerenciar mais de um estabelecimento — não existe hoje: cada usuário pertence a uma company só. Se surgir, reavaliamos.)*
 
 ### 4.2 Tab bar (4 abas) + FAB direto (resolve #2)
 
@@ -118,7 +118,10 @@ Celular (≤767px)                     Desktop (≥768px)
 └───────┴───────┴───────┴───────┴────────┘  ↑ safe-area
 ```
 - **Remove** o botão flutuante “+ Novo agendamento” da tela de Agenda. **Sobra o FAB central** como **única** entrada de criação.
-- **FAB “+” → abre DIRETO o sheet de Novo agendamento** (§6.3). **Sem** menu “Criar” intermediário: criar agendamento é a ação dominante do dia; “Nova cliente” já tem botão próprio dentro de **Clientes**. Um menu de duas opções para sempre escolher a mesma seria um toque desperdiçado. (Se entrar “Registrar pagamento” com o Financeiro, reavaliamos um menu — anotado.)
+- **FAB → abre DIRETO o sheet de Novo agendamento** (§6.3). **Sem** menu “Criar” intermediário: criar agendamento é a ação dominante do dia; “Nova cliente” já tem botão próprio dentro de **Clientes**. Um menu de duas opções para sempre escolher a mesma seria um toque desperdiçado. (Se entrar “Registrar pagamento” com o Financeiro, reavaliamos um menu — anotado.)
+- **Tamanho do FAB: 44px** (visível **e** alvo de toque na mesma medida). Não descer abaixo disso (mínimo Apple HIG / WCAG — mão menor pede alvo **alcançável**, não menor). O 56px inicial dominava a tela.
+- **Ícone: `calendar-plus`** (calendário com “+”), não o “+” genérico — diz **novo agendamento**. **Evitar relógio com “+”** (parece adicionar horário de funcionamento, que é outra coisa e vive em Configurações).
+- **FAB não cobre o conteúdo:** o container rolável leva **padding inferior** = overhang do FAB + `env(safe-area-inset-bottom)` (a altura da tab bar já é descontada pelo layout). Assim o **último card da agenda cheia** nunca fica coberto pelo FAB nem pela tab bar ao rolar até o fim (era um bug do painel atual).
 - **4 abas:** **Agenda · Pendentes (badge) · Clientes · Configurações** (com o FAB no centro, entre Pendentes e Clientes). **Configurações é aba** — uso frequente (horário de atendimento dos profissionais muda toda semana). Ver §4.5.
 - **Perfil NÃO é aba** — mora no **avatar** do AppBar (§4.4), uso raro.
 - Badge de pendentes: pastilha numérica no ícone de Pendentes (já existe).
@@ -187,8 +190,7 @@ Acessada **só pelo avatar** do AppBar (uso raro). **Primeira leva = versão mí
 **Proposta — uma linha de controle, sticky, e a grade já visível:**
 ```
 ┌───────────────────────────────────────┐
-│  Agenda                           (RD) │
-│  Salão Teste                           │  ← subtítulo pequeno (identidade)
+│  Agenda                           (RD) │  ← só título + avatar (sem nome do salão)
 ├───────────────────────────────────────┤
 │  ‹  Qui, 30/07  ›     [ Dia | Semana ] │  ← toolbar única, sticky (1ª leva)
 ├───────────────────────────────────────┤
@@ -350,7 +352,7 @@ Trocar o texto puro “Sair” por **ícone de logout (porta/seta saindo) em ver
 
 | Área | Arquivo(s) atuais | Mudança |
 |---|---|---|
-| Casca mobile | `components/AppShell.tsx` (branch mobile) | AppBar slim (título+avatar → Perfil); tab bar de **4 abas** (Agenda·Pendentes·Clientes·**Configurações**) + FAB central; **FAB abre DIRETO Novo agendamento**; remover versão flutuante no mobile |
+| Casca mobile | `components/AppShell.tsx` (branch mobile) | AppBar slim = **só título + avatar** (sem nome do salão); tab bar de **4 abas** (Agenda·Pendentes·Clientes·**Configurações**) + FAB central **44px, ícone `calendar-plus`**, abre **direto** Novo agendamento; **padding inferior no scroller** (overhang FAB + safe-area) p/ não cobrir o último card; remover versão flutuante no mobile |
 | Bottom Sheet | **novo** `components/ui/sheet.tsx` | wrapper responsivo sobre `@radix-ui/react-dialog`; **sheet no mobile, Dialog no desktop** (ver §9 — screenshots obrigatórios) |
 | Agenda | `pages/Agenda.tsx`, `AgendaGrid` | **toolbar única** (data + Dia/Semana), sticky; remover a 2ª barra de filtro e o botão flutuante; “Mês em breve” oculto no mobile |
 | Ações | `pages/Agenda.tsx`, `Pendentes.tsx`, `NovoAgendamento.tsx` | trocar `Dialog` por `ActionSheet` responsivo (detalhe, confirmar/recusar, novo/editar, cancelar) |
