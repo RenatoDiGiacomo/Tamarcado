@@ -1215,6 +1215,20 @@ So that eu confirme/recuse pendentes, crie, cancele e remarque agendamentos sem 
 **When** as executo pelo celular
 **Then** funcionam como no desktop, reaproveitando os mesmos endpoints (sem backend novo)
 
+> **Escopo em 2 levas (Sally + Renato, 2026-07-30).** A 7.2 vai à Amelia como **1ª leva** (casca app + bottom sheets essenciais + toolbar única + Configurações usável + Perfil mínima); ver `ux/…/painel-mobile-ux-spec.md` §11.
+
+### Story 7.2.NN: Painel mobile — 2ª leva (agenda cheia + refinos)
+
+Ajuste fora de escopo da 7.2 (versionamento DL-028: X.Y.NN vinculado à story de origem), **registrado para não sumir do roadmap**. Detalhe em `ux/…/painel-mobile-ux-spec.md` (§5.2/§5.3/§5.4/§11.2).
+
+- **Overlap lado-a-lado + indicador “+N”** para horários sobrepostos (encaixe/overbooking, D1).
+- **Timeline mesclada multi-profissional** com chips coloridos por profissional + **filtro por profissional**.
+- **Linha de “agora” + auto-scroll** ao horário atual.
+- **Sheet de filtros** por origem/profissional (ícone `⚲` na toolbar) — reintroduz o filtro Todos/WhatsApp/Manual que a 1ª leva deixou de fora.
+- **Perfil completa** (mais preferências, além de identidade/tema/versão/Sair).
+
+**Critério do corte:** overlap e multi-profissional resolvem **agenda cheia** — cenário que ainda não temos. Prioridade da 1ª leva é o app **parecer app** e ser usável no dia a dia. Sem dependência de backend novo.
+
 ### Story 7.3: Consulta e estados no celular
 
 As a dono/profissional no celular,
