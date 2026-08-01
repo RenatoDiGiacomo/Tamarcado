@@ -182,65 +182,90 @@ Acessada **só pelo avatar** do AppBar (uso raro). **Primeira leva = versão mí
 
 ---
 
-## 5. Tela: Agenda (mobile) — resolve #4 e #6
+## 5. Tela: Agenda (mobile) — **calendário do mês + LISTA do dia** (redesenho)
 
-### 5.1 Toolbar consolidada (resolve #4)
+> **Redesenho (Sally + Renato, 2026-07-31), a partir de referências de apps de agendamento reais.** A 1ª leva da 7.2 entregou a **casca** (AppBar, tab bar, FAB, sheets), mas a agenda em si continuou sendo a **grade de horário do desktop espremida**, que **não funciona em 412px**: desenha 08:00–18:00 inteiro mesmo num dia com um agendamento só — gasta a tela com horas vazias. **Nas referências de mercado nenhum app de agendamento usa grade no celular; todos usam lista.** Para "onde tenho espaço livre" o fluxo já é o **Novo agendamento**, que mostra os horários disponíveis.
 
-**Problema hoje:** duas barras empilhadas (Dia/Semana/Mês **e** Todos/WhatsApp/Manual) antes da agenda.
+### 5.1 DECISÃO ESTRUTURAL — dois componentes para a mesma rota
 
-**Proposta — uma linha de controle, sticky, e a grade já visível:**
+**No mobile a agenda é LISTA; no desktop continua GRADE.** São **dois componentes distintos** para a rota `/`, **não** um componente só tentando servir aos dois:
+
+| Breakpoint | Componente | Forma |
+|---|---|---|
+| Mobile (< md) | **`AgendaList`** *(novo)* | calendário do mês + lista do dia |
+| Desktop (≥ md) | **`AgendaGrid`** *(atual, inalterado)* | grade de horário (funciona bem no PC) |
+
+- A página `Agenda` **escolhe o componente por breakpoint** (o `useMediaQuery`/`DESKTOP_QUERY` que a casca já usa). Uma renderiza `AgendaList`, a outra `AgendaGrid`.
+- **Isto precisa estar escrito** (e é o motivo desta seção): sem a decisão explícita, a implementação volta a "uma grade responsiva" — exatamente o problema atual. **Grade espremida não é responsividade; é a tela errada no celular.**
+- **Compartilham** o mesmo carregamento de dados (`GET /appointments`), o mesmo mapa de status/`StatusChip` (3.7) e o **mesmo detalhe em bottom sheet** (§6.1). Só a **apresentação da lista de agendamentos** difere.
+
+### 5.2 Layout do `AgendaList` (mobile)
+
 ```
 ┌───────────────────────────────────────┐
-│  Agenda                           (RD) │  ← só título + avatar (sem nome do salão)
+│  Agenda                           (RD) │  ← AppBar (só título + avatar)
 ├───────────────────────────────────────┤
-│  ‹  Qui, 30/07  ›     [ Dia | Semana ] │  ← toolbar única, sticky (1ª leva)
+│  ‹        Julho 2026            ›       │  ← navegação de mês
+│   S   T   Q   Q   S   S   D            │  ← cabeçalho de semana
+│      1   2   3   4   5   6             │
+│   7   8   9  10  11 [12] 13            │  ← [12] = dia selecionado (destaque)
+│  14  15  16  17  18  19  20            │
+│  21  22  23  24 •25  26  27            │  ← • = ponto: dia TEM agendamento
+│  28  29  30  31                        │
 ├───────────────────────────────────────┤
-│  08 ─────────────────────────────────  │
-│  09 ┌─────────────────────────────┐    │
-│     │● Maria das Dores  09:30–10:30│   │
-│     │  Corte · Não atribuído       │   │
-│     │                    Confirmado│   │
-│  10 └─────────────────────────────┘    │
-│  11 ─────────────────────────────────  │
-│  ...                                    │
+│  [ Dia | Semana ]                      │  ← toolbar única (mantida)
+├───────────────────────────────────────┤
+│  Sex, 25/07                            │  ← cabeçalho do dia (na visão Dia)
+│  ┌─────────────────────────────────┐   │
+│  │ 09:30  Maria das Dores    ● Conf.│   │  ← card da LISTA
+│  │ 09:30–10:30 · Corte             │   │
+│  │ Fernanda                         │   │
+│  └─────────────────────────────────┘   │
+│  ┌─────────────────────────────────┐   │
+│  │ 11:00  João Souza      ● Pendente│   │
+│  │ 11:00–11:30 · Barba             │   │
+│  │ Não atribuído                    │   │
+│  └─────────────────────────────────┘   │
 └───────────────────────────────────────┘
 ```
-- **1ª leva — uma barra só:** navegação de data (`‹ [Qui, 30/07] ›`) + **segmented Dia/Semana**. **“Mês — em breve” some no mobile** (é ruído; volta quando existir). Toolbar **sticky**; a grade rola sob ela. **Some a segunda barra** de origem.
-- **Filtro por origem/profissional fica para a 2ª leva** (§5.2 / 7.2.NN): vira o **ícone de filtro `⚲`** nesta mesma barra, abrindo um sheet — sem reintroduzir a segunda barra fixa. **Trade-off consciente da 1ª leva:** o mobile fica **sem** filtro Todos/WhatsApp/Manual até a 2ª leva; a agenda do dia é curta hoje, então a perda é pequena e o ganho de limpeza compensa.
-- A **linha de “agora”** e o **auto-scroll** também são **2ª leva** (§5.3).
 
-### 5.2 Sheet de filtros — *(2ª leva, 7.2.NN)*
+**Comportamento:**
+- **Calendário do mês (topo):** grade compacta `S T Q Q S S D`. **Dia selecionado em destaque** (preenchido, cor primária); **hoje** contornado; **ponto/indicador** nos dias que têm agendamento. **`‹ ›` navega meses.** Tocar num dia seleciona-o e a lista abaixo atualiza.
+- **Toolbar única mantida — `Dia | Semana`:**
+  - **Dia** (default): lista dos agendamentos do **dia selecionado**, ordenados por horário.
+  - **Semana:** lista da **semana** do dia selecionado, **agrupada por dia** (cabeçalhos `Seg 21/07`, `Ter 22/07`…), cada grupo com seus cards. O calendário destaca a semana inteira.
+- **Sem grade de horário, sem horas vazias.** A lista mostra **só o que existe**.
+- Tocar num card → **detalhe em bottom sheet** (§6.1, inalterado).
+
+### 5.3 Card da lista
+
+Cada item é um card (não uma faixa proporcional à duração) com:
+- **Horário** em destaque (início; o intervalo `09:30–10:30` na 2ª linha).
+- **Nome da cliente** (1 linha, truncado).
+- **Serviço**.
+- **Profissional** — nome, ou **"Não atribuído"** em itálico cinza.
+- **Status** — o **badge existente** da 3.7 (`StatusChip`: pendente/confirmado/concluído/cancelado/não compareceu).
+- Ícone de origem (balão WhatsApp / lápis manual / link) como hoje, discreto.
+
+### 5.4 Empty state — ilustrado e compacto
+
+Quando o dia selecionado não tem nada: **estado vazio ilustrado, pequeno** — um ícone/ilustração leve + uma linha ("Nenhum agendamento neste dia") + atalho para o Novo agendamento. **Não ocupa meia tela** (o atual é grande demais): fica logo abaixo da toolbar, deixando o calendário e o resto respirando.
 
 ```
 ┌───────────────────────────┐
-│  ══   Filtrar agenda       │
-│  ─────────────────────     │
-│  Origem                    │
-│  ( Todos ) WhatsApp  Manual│  ← segmented
-│  Profissional              │  ← só multi-profissional (§5.4)
-│  [ Todos os profissionais ▾]│
-│  ─────────────────────     │
-│  [ Limpar ]   [ Aplicar ]  │
+│        (ilustração)        │  ← compacta
+│  Nenhum agendamento hoje   │
+│  [ + Novo agendamento ]    │  ← opcional; o FAB já cobre
 └───────────────────────────┘
 ```
-- Reúne **origem** e (quando houver mais de um profissional) **profissional** num lugar só, acionado pelo `⚲` da toolbar. Quando um filtro está ativo, o ícone ganha **ponto** e um **chip removível** aparece abaixo da toolbar (`WhatsApp ✕`). Isso evita empilhar controles na tela.
 
-### 5.3 Grade — dias cheios (resolve #6, parte 1)
+### 5.5 Sheet de filtros — *(2ª leva, 7.2.NN)*
 
-- **1ª leva — mantém a timeline de coluna única** (08:00–18:00 ou o horário de funcionamento configurado) — é o padrão certo pro celular; multi-coluna não cabe em 412px. Cards com **altura proporcional à duração** (como hoje), layout compacto (nome truncado, `serviço · profissional`, status à direita), **barra de cor à esquerda por status** (tokens `--status-*`), e **estado vazio** por período (já existe). Isso é o que vai agora.
-- **2ª leva (7.2.NN)** — melhorias para **agenda cheia**, adiadas de propósito (o critério do corte: ainda não temos esse problema):
-  - **Linha de “agora”** + **auto-scroll** ao horário atual.
-  - **Sobreposição no mesmo horário** (encaixe/overbooking, D1): dois cards **lado a lado** em meia-largura; **3+** → 2 + pílula **“+N”** que abre um **sheet-lista** daquele horário.
-- **Densidade alternativa (futuro, sem leva definida):** toggle **Lista** (cronológica compacta) para dias muito cheios.
+Filtro por **origem** (Todos/WhatsApp/Manual) e, quando houver mais de um profissional, por **profissional** — acionado por um ícone `⚲` na toolbar, abrindo um sheet. **Fora desta entrega.**
 
-### 5.4 Multi-profissional (resolve #6, parte 2) — *(2ª leva, 7.2.NN)*
+### 5.6 Fora de escopo (segue na 7.2.NN)
 
-> Adiado com o overlap: resolve **salão cheio com vários profissionais**, cenário que ainda não temos. Na 1ª leva a agenda já mostra o profissional no corpo do card (`serviço · profissional`) — sem chips coloridos nem filtro por profissional.
-
-- **Default:** timeline **única com todos os profissionais mesclados**. Cada card mostra um **chip do profissional** (nome curto + cor por profissional) para diferenciar. “Não atribuído” em itálico cinza (como hoje).
-- **Filtrar por profissional:** no sheet de filtros (§5.2), selector **“Todos os profissionais ▾”** → escolher um deixa a timeline **só daquele profissional** (leitura limpa num salão cheio). O chip removível aparece na toolbar (`Fernanda ✕`).
-- **Por que não colunas paralelas:** não cabem legíveis em 412px e brigam com o toque. A combinação **mescla + filtro por profissional** dá a visão geral e o foco individual, sem coluna horizontal.
-- Confirmar um pendente que exige escolher profissional continua igual ao desktop, dentro do sheet de confirmação (§6.2).
+Overlap **"+N"**, **multi-profissional com chips coloridos** e **linha de "agora"** eram melhorias da *grade* para dias cheios. Com a **lista**, a maioria perde sentido (a lista já lida bem com dia cheio, rolando). Ficam registradas na **7.2.NN** caso voltem a fazer sentido; **não** entram neste redesenho.
 
 ---
 
@@ -355,7 +380,8 @@ Trocar o texto puro “Sair” por **ícone de logout (porta/seta saindo) em ver
 |---|---|---|
 | Casca mobile | `components/AppShell.tsx` (branch mobile) | AppBar slim = **só título + avatar** (sem nome do salão); tab bar de **4 abas** (Agenda·Pendentes·Clientes·**Configurações**) + FAB central **44px, ícone `calendar-plus`**, abre **direto** Novo agendamento; **padding inferior no scroller** (overhang FAB + safe-area) p/ não cobrir o último card; remover versão flutuante no mobile |
 | Bottom Sheet | **novo** `components/ui/sheet.tsx` | wrapper responsivo sobre `@radix-ui/react-dialog`; **sheet no mobile, Dialog no desktop** (ver §9 — screenshots obrigatórios) |
-| Agenda | `pages/Agenda.tsx`, `AgendaGrid` | **toolbar única** (data + Dia/Semana), sticky; remover a 2ª barra de filtro e o botão flutuante; “Mês em breve” oculto no mobile |
+| Agenda (casca) | `pages/Agenda.tsx`, `AgendaGrid` | **toolbar única** (data + Dia/Semana); remover 2ª barra de filtro e botão flutuante; “Mês em breve” oculto no mobile *(já entregue na 7.2)* |
+| **Agenda mobile = LISTA** | **novo `AgendaList`** + `pages/Agenda.tsx` escolhe por breakpoint | calendário do mês (dots) + **lista do dia** (não grade); empty state compacto; detalhe em bottom sheet. Desktop segue `AgendaGrid` **inalterado**. Ver **§5** (decisão estrutural: dois componentes, não um responsivo) |
 | Ações | `pages/Agenda.tsx`, `Pendentes.tsx`, `NovoAgendamento.tsx` | trocar `Dialog` por `ActionSheet` responsivo (detalhe, confirmar/recusar, novo/editar, cancelar) |
 | Configurações | `pages/Configuracoes*.tsx` | abas em **segmented rolável** no mobile; foco na tela **Horários** (profissional + dias + intervalo), Salvar sticky; edição de intervalo em sheet |
 | Perfil | `pages/Perfil.tsx` | **mínima**: identidade do estabelecimento + usuário + tema + versão + **Sair** (§8.1). **Sem** linha de Configurações (é aba) |
