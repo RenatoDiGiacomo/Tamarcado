@@ -279,6 +279,40 @@ export function useAgenda() {
   };
 }
 
+/**
+ * Dias do mês que têm ≥1 agendamento — só para os PONTOS do calendário do
+ * `AgendaList` (mobile). Read-only, separado do fluxo principal para não alargar
+ * a busca do período. `month` = "YYYY-MM". Fica no módulo compartilhado (não no
+ * componente) para manter a busca de dados fora da apresentação.
+ */
+export function useMonthAppointments(month: string): Set<string> {
+  const [days, setDays] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    let alive = true;
+    const from = `${month}-01`;
+    const [y, m] = month.split("-").map(Number);
+    const last = new Date(y, m, 0).getDate(); // dia 0 do próximo mês = último deste
+    const to = `${month}-${String(last).padStart(2, "0")}`;
+    void (async () => {
+      try {
+        const res = await apiRequest(`/appointments?from=${from}&to=${to}`, {
+          token: token(),
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { appointments: ApiAppointment[] };
+        if (!alive) return;
+        setDays(new Set(body.appointments.map((a) => a.date)));
+      } catch {
+        /* pontos são um extra; falha silenciosa não quebra a agenda */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [month]);
+  return days;
+}
+
 /** Extrai a mensagem real da API (Nest: `{ message }`) — não esconde a causa. */
 export async function cancelErrorMessage(res: Response): Promise<string> {
   try {

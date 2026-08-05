@@ -10,9 +10,13 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { AgendaGrid } from "../components/agenda/AgendaGrid";
+import { AgendaList } from "../components/agenda/AgendaList";
 import { useAgenda } from "../components/agenda/useAgenda";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { NovoAgendamento } from "./NovoAgendamento";
 import { formatDateLabel, toAgendaAppointment } from "./agendaMap";
+
+const DESKTOP_QUERY = "(min-width: 768px)";
 
 /**
  * Agenda do painel. A LÓGICA (busca, período, permissões, status, cancelamento)
@@ -22,6 +26,9 @@ import { formatDateLabel, toAgendaAppointment } from "./agendaMap";
  */
 export function Agenda() {
   const a = useAgenda();
+  // Duas VISTAS da mesma lógica (painel-mobile §5.1): desktop = grade,
+  // mobile = lista. Mesmo breakpoint da casca (AppShell).
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   const emptyState = (
     <EmptyState
@@ -43,7 +50,7 @@ export function Agenda() {
         <p role="alert" className="text-sm text-destructive">
           Não foi possível carregar a agenda.
         </p>
-      ) : (
+      ) : isDesktop ? (
         <AgendaGrid
           dateLabel={formatDateLabel(a.anchor, a.view)}
           businessHours={a.businessHours}
@@ -54,6 +61,16 @@ export function Agenda() {
           onPrev={a.prev}
           onNext={a.next}
           onSelect={a.setSelectedId}
+          onNew={() => a.setNovoOpen(true)}
+        />
+      ) : (
+        <AgendaList
+          anchor={a.anchor}
+          view={a.view}
+          onViewChange={a.setView}
+          appointments={a.appointments}
+          onSelectDay={a.setAnchor}
+          onSelectAppointment={a.setSelectedId}
           onNew={() => a.setNovoOpen(true)}
         />
       )}
