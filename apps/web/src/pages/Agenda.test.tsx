@@ -91,6 +91,19 @@ describe("Agenda", () => {
   beforeEach(() => {
     apiMock.mockReset();
     localStorage.setItem("tamarcado.access", "tok");
+    // A Agenda escolhe a vista por breakpoint (Épico 7). Estes testes exercitam
+    // o DESKTOP (grade) → matchMedia = desktop. A vista mobile (AgendaList) tem
+    // testes próprios em AgendaList.test.
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
   });
 
   it("carrega e renderiza os agendamentos do período com nomes e status", async () => {
