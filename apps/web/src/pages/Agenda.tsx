@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { CalendarDays, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
@@ -65,6 +66,17 @@ export function Agenda() {
   const [marking, setMarking] = useState(false);
   // Confirmar pendente (Story 5B.3/DL-046): caso presencial, direto no detalhe.
   const [confirming, setConfirming] = useState(false);
+
+  // FAB do celular (Épico 7 §4.2): navega para "/" com state.novo e abre o Novo
+  // agendamento aqui. Limpa o history state para não reabrir ao voltar/recarregar.
+  const location = useLocation();
+  useEffect(() => {
+    const state = location.state as { novo?: number } | null;
+    if (state?.novo) {
+      setNovoOpen(true);
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   const load = useCallback(async () => {
     setLoading(true);

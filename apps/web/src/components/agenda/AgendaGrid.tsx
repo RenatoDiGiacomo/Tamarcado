@@ -300,24 +300,29 @@ export function AgendaGrid({
             value={view}
             onChange={setView}
           />
+          {/* "Mês — em breve" é ruído no mobile (Épico 7 §5.1): só no desktop. */}
           <button
             type="button"
             disabled
             title="Em breve"
-            className="cursor-not-allowed text-xs text-muted-foreground/70"
+            className="hidden cursor-not-allowed text-xs text-muted-foreground/70 md:inline"
           >
             Mês — em breve
           </button>
         </div>
-        <Segmented
-          options={[
-            { value: "todos", label: "Todos" },
-            { value: "whatsapp", label: "WhatsApp" },
-            { value: "manual", label: "Manual" },
-          ]}
-          value={filter}
-          onChange={setFilter}
-        />
+        {/* Filtro por origem: no mobile fica para a 2ª leva (sheet de filtros,
+            7.2.NN). Toolbar única no celular = data + Dia/Semana. */}
+        <div className="hidden md:block">
+          <Segmented
+            options={[
+              { value: "todos", label: "Todos" },
+              { value: "whatsapp", label: "WhatsApp" },
+              { value: "manual", label: "Manual" },
+            ]}
+            value={filter}
+            onChange={setFilter}
+          />
+        </div>
       </div>
 
       {/* Grade — corpo rolável (o cabeçalho de controles acima fica fixo) */}
@@ -428,9 +433,10 @@ export function AgendaGrid({
         </div>
       </div>
 
-      {/* FAB */}
+      {/* Botão de novo agendamento: só no desktop. No mobile a criação é o FAB
+          central da tab bar (Épico 7 §4.2) — sem botão flutuante duplicado. */}
       {onNew && (
-        <div className="flex justify-end">
+        <div className="hidden justify-end md:flex">
           <button
             type="button"
             onClick={onNew}

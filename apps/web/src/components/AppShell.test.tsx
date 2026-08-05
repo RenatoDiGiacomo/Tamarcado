@@ -129,7 +129,7 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: /Pendentes/ })).toBeNull();
   });
 
-  it("mobile (<768px): tabs no rodapé com botão de ações rápidas", () => {
+  it("mobile (<768px): tab bar de 4 abas + FAB direto para Novo agendamento (Épico 7)", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
@@ -139,9 +139,15 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("navigation", { name: /inferior/i }),
     ).toBeInTheDocument();
+    // FAB único (calendar-plus) — sem mais o botão "Ações rápidas".
     expect(
-      screen.getByRole("button", { name: /ações rápidas/i }),
+      screen.getByRole("button", { name: /novo agendamento/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /ações rápidas/i }),
+    ).toBeNull();
+    // Configurações vira aba no mobile (owner).
+    expect(screen.getByRole("link", { name: /Configurações/ })).toBeInTheDocument();
   });
 
   it("tem ação Sair", () => {

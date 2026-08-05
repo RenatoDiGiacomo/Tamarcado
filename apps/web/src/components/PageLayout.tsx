@@ -15,8 +15,18 @@ export function PageLayout({
 }) {
   return (
     <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+      {/* No mobile o título vive na AppBar (Épico 7); aqui só aparece no desktop,
+          para não duplicar. Sem ação, a linha some no mobile (evita espaço vazio);
+          com ação, a linha aparece (a ação é útil no celular). */}
+      <div
+        className={cn(
+          "items-center justify-between gap-4",
+          action ? "flex" : "hidden md:flex",
+        )}
+      >
+        <h1 className="hidden text-2xl font-semibold text-foreground md:block">
+          {title}
+        </h1>
         {action}
       </div>
       {children}

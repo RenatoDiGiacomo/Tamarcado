@@ -22,6 +22,13 @@ vi.mock("../auth/AuthContext", () => ({
 // Toast (UX-DR19) — sem Toaster montado no teste.
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// Agenda passou a ler useLocation (FAB do celular, Épico 7). Sem sessão de
+// navegação no teste, devolvemos um location neutro (state null → não abre Novo).
+vi.mock("react-router-dom", async (orig) => ({
+  ...(await orig<typeof import("react-router-dom")>()),
+  useLocation: () => ({ state: null, pathname: "/", search: "", hash: "", key: "t" }),
+}));
+
 /** Data civil (YYYY-MM-DD) deslocada em `days` a partir de hoje. */
 function isoOffset(days: number): string {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);

@@ -1,6 +1,14 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { CalendarDays, CreditCard, Inbox, Settings, Users } from "lucide-react";
+import { useEffect, type ComponentType, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  CalendarDays,
+  CalendarPlus,
+  CreditCard,
+  Inbox,
+  LogOut,
+  Settings,
+  Users,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
@@ -26,35 +34,45 @@ interface NavItem {
   badge?: number;
 }
 
-/**
- * Navegação principal. "Pendentes" entra só para owner/gerente (Story 5B.3, o
- * link público passa a gerar solicitações a tratar) e é montado à parte, logo
- * após a Agenda. Clientes ativa na Story 4.1; Pagamentos ainda não tem tela —
- * fica "em breve" (vira pacote de venda à parte), mesmo tratamento das abas de
- * Configurações.
- */
 const NAV_ITEMS: NavItem[] = [
   { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
   { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
   { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard, disabled: true },
 ];
 
+/** Título da tela para a AppBar mobile (Épico 7). */
+function screenTitle(pathname: string): string {
+  if (pathname === "/") return "Agenda";
+  if (pathname.startsWith("/pendentes")) return "Pendentes";
+  if (pathname.startsWith("/clientes")) return "Clientes";
+  if (pathname.startsWith("/configuracoes")) return "Configurações";
+  if (pathname.startsWith("/perfil")) return "Perfil";
+  return "Tamarcado";
+}
+
+/** Iniciais do usuário para o avatar. */
+function initials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
 export function AppShell({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
   const installation = useInstallation();
   const { count: pendingCount } = usePendentes();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const navigate = useNavigate();
+  const location = useLocation();
   const isOwner = user?.accessLevel === "owner";
   const canSeePendentes =
     user?.accessLevel === "owner" || user?.accessLevel === "manager";
-  const [quickOpen, setQuickOpen] = useState(false);
 
   // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
   useEffect(() => {
     document.documentElement.dataset.theme = user?.theme ?? "light";
   }, [user?.theme]);
   useEffect(() => {
-    // Cor primária do salão em canais HSL (shadcn/Tailwind, DL-037).
     const triplet = installation?.primaryColor
       ? hexToHslTriplet(installation.primaryColor)
       : null;
@@ -65,8 +83,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
     }
   }, [installation?.primaryColor]);
 
-  // Pendentes (Story 5B.3): só owner/gerente; badge com o contador. Entra logo
-  // após a Agenda (é o tratamento das solicitações que caem na agenda).
   const pendItem: NavItem = {
     key: "pendentes",
     label: "Pendentes",
@@ -74,24 +90,20 @@ export function AppShell({ children }: { children?: ReactNode }) {
     icon: Inbox,
     badge: pendingCount,
   };
+  const configItem: NavItem = {
+    key: "config",
+    label: "Configurações",
+    to: "/configuracoes",
+    icon: Settings,
+  };
+  // Itens principais (sem Pagamentos oculto). Pendentes só owner/gerente.
   const mainItems: NavItem[] = [
     NAV_ITEMS[0],
     ...(canSeePendentes ? [pendItem] : []),
     ...NAV_ITEMS.slice(1),
   ].filter((item) => !HIDDEN_NAV_KEYS.has(item.key));
-  const items: NavItem[] = [
-    ...mainItems,
-    ...(isOwner
-      ? [
-          {
-            key: "config",
-            label: "Configurações",
-            to: "/configuracoes",
-            icon: Settings,
-          },
-        ]
-      : []),
-  ];
+  // Desktop: sidebar inclui Configurações (owner) ao fim.
+  const items: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
 
   const brand = installation?.logoUrl ? (
     <img src={installation.logoUrl} alt={installation.name} className="h-7" />
@@ -157,18 +169,21 @@ export function AppShell({ children }: { children?: ReactNode }) {
             >
               {user?.name}
             </Link>
+            {/* Sair: ícone porta em vermelho (danger) + rótulo; §8.1 — mais leve
+                que o destrutivo real "Cancelar agendamento". */}
             <button
               type="button"
               onClick={logout}
-              className="text-muted-foreground hover:text-foreground"
+              aria-label="Sair"
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
             >
+              <LogOut className="size-4 text-destructive" aria-hidden="true" />
               Sair
             </button>
           </div>
         </nav>
         <main className="flex-1 p-6">{children}</main>
-        {/* Versão discreta no canto inferior direito do painel (lida do
-            package.json na build — ver src/lib/version.ts). */}
+        {/* Versão discreta no canto inferior direito — só desktop. */}
         <span className="pointer-events-none fixed bottom-2 right-3 text-[11px] text-muted-foreground">
           {APP_VERSION}
         </span>
@@ -176,93 +191,83 @@ export function AppShell({ children }: { children?: ReactNode }) {
     );
   }
 
+  // ---- MOBILE (Épico 7): AppBar enxuta + tab bar 4 abas + FAB central ----
+  // Tabs para a tab bar: mainItems (+ Configurações para owner). O FAB fica no
+  // meio; nome do estabelecimento NÃO aparece no topo (vive em Perfil).
+  const tabs: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
+  const mid = Math.ceil(tabs.length / 2);
+  const leftTabs = tabs.slice(0, mid);
+  const rightTabs = tabs.slice(mid);
+
+  const renderTab = (item: NavItem) => {
+    const active =
+      item.to === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(item.to);
+    return (
+      <Link
+        key={item.key}
+        to={item.to}
+        aria-current={active ? "page" : undefined}
+        className={`flex flex-1 flex-col items-center gap-0.5 text-[11px] font-medium no-underline ${
+          active ? "text-primary" : "text-muted-foreground"
+        }`}
+      >
+        <span className="relative">
+          <item.icon className="size-5 shrink-0" />
+          {item.badge ? (
+            <span
+              aria-label={`${item.badge} pendentes`}
+              className="absolute -right-2 -top-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground"
+            >
+              {item.badge}
+            </span>
+          ) : null}
+        </span>
+        {item.label}
+      </Link>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between border-b-2 border-primary bg-card px-4 py-2">
-        <Link to="/" aria-label="Início" className="no-underline">
-          {brand}
-        </Link>
-        <div className="flex items-center gap-3 text-sm">
-          <Link to="/perfil" className="text-muted-foreground no-underline">
-            {user?.name}
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="text-muted-foreground"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <main className="p-4 pb-20">{children}</main>
-
-      <nav
-        aria-label="Navegação inferior"
-        className="fixed inset-x-0 bottom-0 flex items-center justify-around border-t border-border bg-card py-2"
-      >
-        {mainItems.map((item) =>
-          item.disabled ? (
-            <span
-              key={item.key}
-              aria-disabled="true"
-              title="Em breve"
-              className="flex cursor-not-allowed flex-col items-center gap-0.5 text-xs text-muted-foreground opacity-50"
-            >
-              <item.icon className="size-5 shrink-0" />
-              {item.label}
-            </span>
-          ) : (
-            <Link
-              key={item.key}
-              to={item.to}
-              className="relative flex flex-col items-center gap-0.5 text-xs text-foreground no-underline"
-            >
-              <span className="relative">
-                <item.icon className="size-5 shrink-0" />
-                {item.badge ? (
-                  <span
-                    aria-label={`${item.badge} pendentes`}
-                    className="absolute -right-2 -top-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground"
-                  >
-                    {item.badge}
-                  </span>
-                ) : null}
-              </span>
-              {item.label}
-            </Link>
-          ),
-        )}
+      {/* AppBar enxuta: título da tela + avatar (→ Perfil). Sem nome do salão. */}
+      <header className="fixed inset-x-0 top-0 z-20 flex h-[52px] items-center justify-between border-b border-border bg-background px-4">
+        <span className="text-lg font-semibold">{screenTitle(location.pathname)}</span>
         <button
           type="button"
-          aria-label="Ações rápidas"
-          onClick={() => setQuickOpen((v) => !v)}
-          className="rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground"
+          onClick={() => navigate("/perfil")}
+          aria-label="Perfil"
+          className="grid size-9 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
         >
-          +
+          {initials(user?.name)}
         </button>
-        {quickOpen && (
-          <ul
-            role="menu"
-            className="fixed bottom-14 right-4 flex flex-col gap-1 rounded-md border border-border bg-popover p-2 text-sm shadow-lg"
+      </header>
+
+      {/* Conteúdo. Padding inferior = folga do FAB + safe-area (não cobre o
+          último card). Padding superior = altura da AppBar. */}
+      <main className="px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-16">
+        {children}
+      </main>
+
+      {/* Tab bar de 4 abas + FAB central (44px, calendar-plus, direto p/ Novo). */}
+      <nav
+        aria-label="Navegação inferior"
+        className="fixed inset-x-0 bottom-0 z-20 flex items-start justify-around border-t border-border bg-card pt-[9px] pb-[calc(0.375rem+env(safe-area-inset-bottom))]"
+      >
+        {leftTabs.map(renderTab)}
+        <div className="relative flex-1 self-stretch">
+          <button
+            type="button"
+            aria-label="Novo agendamento"
+            onClick={() => navigate("/", { state: { novo: Date.now() } })}
+            className="absolute left-1/2 top-[-11px] grid size-11 -translate-x-1/2 place-items-center rounded-full border-[3px] border-background bg-primary text-primary-foreground shadow-lg shadow-primary/40"
           >
-            <li role="menuitem" className="px-2 py-1">
-              Novo agendamento
-            </li>
-            <li role="menuitem" className="px-2 py-1">
-              Nova cliente
-            </li>
-            <li role="menuitem" className="px-2 py-1">
-              Registrar pagamento
-            </li>
-          </ul>
-        )}
+            <CalendarPlus className="size-[21px]" aria-hidden="true" />
+          </button>
+        </div>
+        {rightTabs.map(renderTab)}
       </nav>
-      {/* Versão discreta acima da nav inferior (lida do package.json na build). */}
-      <span className="pointer-events-none fixed bottom-14 right-3 text-[11px] text-muted-foreground">
-        {APP_VERSION}
-      </span>
     </div>
   );
 }
