@@ -1,8 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { CalendarDays, MessageCircle } from "lucide-react";
-import { toast } from "sonner";
-import { apiRequest } from "../lib/api";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { StatusChip } from "../components/StatusChip";
@@ -13,336 +9,110 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  AgendaGrid,
-  type AgendaView,
-} from "../components/agenda/AgendaGrid";
-import { NovoAgendamento, type EditingAppointment } from "./NovoAgendamento";
-import { useAuth } from "../auth/AuthContext";
-import { usePendentes } from "../lib/usePendentes";
-import {
-  formatDateLabel,
-  periodRange,
-  shiftAnchor,
-  todayIso,
-  toAgendaAppointment,
-  type ApiAppointment,
-} from "./agendaMap";
-
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
-
-interface AgendaResponse {
-  appointments: ApiAppointment[];
-  businessHours: { start: string; end: string };
-}
+import { AgendaGrid } from "../components/agenda/AgendaGrid";
+import { useAgenda } from "../components/agenda/useAgenda";
+import { NovoAgendamento } from "./NovoAgendamento";
+import { formatDateLabel, toAgendaAppointment } from "./agendaMap";
 
 /**
- * Agenda do painel (Story 3.2). Consome `GET /appointments` do período atual e
- * alimenta a casca `AgendaGrid` (DL-036). A visão Dia/Semana é controlada aqui
- * (D6) para buscar 1 dia × 7 dias. Clicar num card abre um detalhe read-only (D3).
+ * Agenda do painel. A LÓGICA (busca, período, permissões, status, cancelamento)
+ * vive em `useAgenda` — esta página só orquestra a apresentação e os sheets
+ * compartilhados. Desktop = `AgendaGrid` (grade). *(Mobile = `AgendaList` — lista;
+ * ligado por breakpoint num passo seguinte.)*
  */
 export function Agenda() {
-  const { user } = useAuth();
-  const { refresh: refreshPending } = usePendentes();
-  const [anchor, setAnchor] = useState<string>(() => todayIso());
-  const [view, setView] = useState<AgendaView>("dia");
-  const [data, setData] = useState<AgendaResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [novoOpen, setNovoOpen] = useState(false);
-  // Edição (Story 3.6): reusa o formulário de Novo agendamento pré-preenchido.
-  const [editing, setEditing] = useState<EditingAppointment | null>(null);
-  // Bump para forçar recarga mesmo quando o período não muda (ex.: criar um
-  // agendamento no dia já aberto — senão a agenda manteria a lista antiga).
-  const [refreshKey, setRefreshKey] = useState(0);
-  // Cancelamento (Story 3.4): o detalhe read-only vira confirmação destrutiva.
-  const [cancelMode, setCancelMode] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelSubmitting, setCancelSubmitting] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  // Marcar comparecimento (Story 3.7): evita duplo-clique enquanto envia.
-  const [marking, setMarking] = useState(false);
-  // Confirmar pendente (Story 5B.3/DL-046): caso presencial, direto no detalhe.
-  const [confirming, setConfirming] = useState(false);
-
-  // FAB do celular (Épico 7 §4.2): navega para "/" com state.novo e abre o Novo
-  // agendamento aqui. Limpa o history state para não reabrir ao voltar/recarregar.
-  const location = useLocation();
-  useEffect(() => {
-    const state = location.state as { novo?: number } | null;
-    if (state?.novo) {
-      setNovoOpen(true);
-      window.history.replaceState({}, "");
-    }
-  }, [location.state]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    const { from, to } = periodRange(anchor, view);
-    try {
-      const res = await apiRequest(`/appointments?from=${from}&to=${to}`, {
-        token: token(),
-      });
-      if (!res.ok) throw new Error("load");
-      setData((await res.json()) as AgendaResponse);
-    } catch {
-      setError(true);
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [anchor, view, refreshKey]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const appointments = useMemo(
-    () => (data?.appointments ?? []).map(toAgendaAppointment),
-    [data],
-  );
-  // Faixa da grade = horário de funcionamento do salão, ESTENDIDO para cobrir
-  // qualquer agendamento fora dele (encaixe às 20:15 com salão fechando 19:00
-  // não pode ficar invisível). O funcionamento é configurável em Identidade.
-  const businessHours = useMemo(() => {
-    const base = data?.businessHours ?? { start: "08:00", end: "19:00" };
-    let start = base.start;
-    let end = base.end;
-    for (const a of appointments) {
-      if (a.start < start) start = a.start;
-      if (a.end > end) end = a.end;
-    }
-    return { start, end };
-  }, [data, appointments]);
-  const selected = data?.appointments.find((a) => a.id === selectedId) ?? null;
-  const isActiveStatus =
-    selected?.status === "pending" || selected?.status === "confirmed";
-  const canCancel = isActiveStatus;
-  // Editar (Story 3.6/DL-044/D-B1): owner/gerente editam qualquer ativo; `basic`
-  // edita o próprio OU assume um não atribuído (professional_id nulo, caso do bot).
-  const canEdit =
-    isActiveStatus &&
-    (user?.accessLevel !== "basic" ||
-      selected?.professionalId === user?.id ||
-      selected?.professionalId === null);
-  // Marcar comparecimento (Story 3.7): só em confirmado cujo horário já COMEÇOU
-  // (D1/D2). Permissão simétrica ao cancelamento (D3): basic só o próprio.
-  const hasStarted = selected
-    ? new Date(`${selected.date}T${selected.start}`).getTime() <= Date.now()
-    : false;
-  const canMark =
-    selected?.status === "confirmed" &&
-    hasStarted &&
-    (user?.accessLevel !== "basic" || selected?.professionalId === user?.id);
-  // Confirmar (Story 5B.3/DL-046): pendente → confirmado, direto no detalhe
-  // (caso presencial, mesmo lugar do Editar/Cancelar). Só owner/gerente.
-  const canConfirm =
-    selected?.status === "pending" &&
-    (user?.accessLevel === "owner" || user?.accessLevel === "manager");
-
-  const closeDetail = useCallback(() => {
-    setSelectedId(null);
-    setCancelMode(false);
-    setCancelReason("");
-    setCancelError(null);
-    setCancelSubmitting(false);
-  }, []);
-
-  // Abre o Editar (3.6): captura os dados do agendamento e fecha o detalhe.
-  const openEdit = useCallback(() => {
-    if (!selected) return;
-    setEditing({
-      appointmentId: selected.id,
-      clientName: selected.clientName,
-      serviceId: selected.serviceId,
-      professionalId: selected.professionalId,
-      date: selected.date,
-      time: selected.start,
-    });
-    closeDetail();
-  }, [selected, closeDetail]);
-
-  // Marca comparecimento (Story 3.7): PATCH :id/status → refetch + toast.
-  const markStatus = useCallback(
-    async (to: "completed" | "no_show") => {
-      if (!selectedId || marking) return;
-      setMarking(true);
-      try {
-        const res = await apiRequest(`/appointments/${selectedId}/status`, {
-          method: "PATCH",
-          body: { to },
-          token: token(),
-        });
-        if (!res.ok) {
-          toast.error(await statusErrorMessage(res));
-          return;
-        }
-        closeDetail();
-        setRefreshKey((k) => k + 1); // card repinta com o novo StatusChip
-        toast.success(
-          to === "completed"
-            ? "Atendimento concluído."
-            : "Marcado como não compareceu.",
-        );
-      } catch {
-        toast.error("Não foi possível marcar. Verifique sua conexão.");
-      } finally {
-        setMarking(false);
-      }
-    },
-    [selectedId, marking, closeDetail],
-  );
-
-  // Confirma um pendente (Story 5B.3/DL-046): PATCH :id/confirm → vira o badge
-  // "Confirmado" (3.7). Profissional fica opcional (atribui depois em Editar).
-  const confirmAppointment = useCallback(async () => {
-    if (!selectedId || confirming) return;
-    setConfirming(true);
-    try {
-      const res = await apiRequest(`/appointments/${selectedId}/confirm`, {
-        method: "PATCH",
-        body: {},
-        token: token(),
-      });
-      if (!res.ok) {
-        toast.error(await statusErrorMessage(res));
-        return;
-      }
-      closeDetail();
-      setRefreshKey((k) => k + 1); // card repinta com o StatusChip "Confirmado"
-      refreshPending(); // some da fila de Pendentes → atualiza o contador
-      toast.success("Agendamento confirmado.");
-    } catch {
-      toast.error("Não foi possível confirmar. Verifique sua conexão.");
-    } finally {
-      setConfirming(false);
-    }
-  }, [selectedId, confirming, closeDetail, refreshPending]);
-
-  const cancelAppointment = useCallback(async () => {
-    if (!selectedId) return;
-    setCancelSubmitting(true);
-    setCancelError(null);
-    try {
-      const reason = cancelReason.trim();
-      const res = await apiRequest(`/appointments/${selectedId}/cancel`, {
-        method: "PATCH",
-        body: reason !== "" ? { reason } : {},
-        token: token(),
-      });
-      if (!res.ok) {
-        setCancelError(await cancelErrorMessage(res));
-        return;
-      }
-      closeDetail();
-      setRefreshKey((k) => k + 1); // recarrega: o card vira Cancelado, slot volta
-      toast.success("Agendamento cancelado.");
-    } catch {
-      setCancelError("Não foi possível cancelar. Verifique sua conexão.");
-    } finally {
-      setCancelSubmitting(false);
-    }
-  }, [selectedId, cancelReason, closeDetail]);
+  const a = useAgenda();
 
   const emptyState = (
     <EmptyState
       icon={CalendarDays}
-      title={view === "dia" ? "Nenhum agendamento neste dia" : "Nenhum agendamento nesta semana"}
+      title={
+        a.view === "dia"
+          ? "Nenhum agendamento neste dia"
+          : "Nenhum agendamento nesta semana"
+      }
       description="Os agendamentos deste período aparecem aqui. Use ‹ › para navegar ou crie um novo."
     />
   );
 
   return (
     <PageLayout title="Agenda">
-      {loading && !data ? (
+      {a.loading && !a.hasData ? (
         <p className="text-sm text-muted-foreground">Carregando agenda…</p>
-      ) : error ? (
+      ) : a.error ? (
         <p role="alert" className="text-sm text-destructive">
           Não foi possível carregar a agenda.
         </p>
       ) : (
         <AgendaGrid
-          dateLabel={formatDateLabel(anchor, view)}
-          businessHours={businessHours}
-          appointments={appointments}
-          view={view}
-          onViewChange={setView}
+          dateLabel={formatDateLabel(a.anchor, a.view)}
+          businessHours={a.businessHours}
+          appointments={a.appointments}
+          view={a.view}
+          onViewChange={a.setView}
           emptyState={emptyState}
-          onPrev={() => setAnchor((a) => shiftAnchor(a, view, -1))}
-          onNext={() => setAnchor((a) => shiftAnchor(a, view, 1))}
-          onSelect={setSelectedId}
-          onNew={() => setNovoOpen(true)}
+          onPrev={a.prev}
+          onNext={a.next}
+          onSelect={a.setSelectedId}
+          onNew={() => a.setNovoOpen(true)}
         />
       )}
 
       {/* Novo agendamento manual (Story 3.3) — modal sobre a agenda (D4). */}
       <NovoAgendamento
-        open={novoOpen}
-        onOpenChange={setNovoOpen}
-        date={anchor}
-        onCreated={(created) => {
-          setView("dia");
-          setAnchor(created);
-          // Recarrega sempre — mesmo criando no dia já aberto (anchor igual).
-          setRefreshKey((k) => k + 1);
-        }}
+        open={a.novoOpen}
+        onOpenChange={a.setNovoOpen}
+        date={a.anchor}
+        onCreated={a.onSaved}
       />
 
       {/* Editar agendamento (Story 3.6) — mesmo formulário, pré-preenchido. */}
       <NovoAgendamento
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
-        date={anchor}
-        editing={editing}
+        open={a.editing !== null}
+        onOpenChange={(open) => !open && a.setEditing(null)}
+        date={a.anchor}
+        editing={a.editing}
         onCreated={(saved) => {
-          setView("dia");
-          setAnchor(saved);
-          setRefreshKey((k) => k + 1);
-          setEditing(null);
+          a.onSaved(saved);
+          a.setEditing(null);
         }}
       />
 
       {/* Detalhe read-only (D3) → confirmação de cancelamento (Story 3.4). */}
       <Dialog
-        open={selected !== null}
-        onOpenChange={(open) => !open && closeDetail()}
+        open={a.selected !== null}
+        onOpenChange={(open) => !open && a.closeDetail()}
       >
         <DialogContent>
-          {selected && !cancelMode && (
+          {a.selected && !a.cancelMode && (
             <>
               <DialogHeader>
-                {/* Título: nome + ícone de origem (só WhatsApp) + badge de status. */}
                 <DialogTitle className="flex flex-wrap items-center gap-2">
-                  <span>{selected.clientName}</span>
-                  {selected.source === "whatsapp" && (
+                  <span>{a.selected.clientName}</span>
+                  {a.selected.source === "whatsapp" && (
                     <MessageCircle
                       className="size-4 shrink-0 text-muted-foreground"
                       aria-label="WhatsApp"
                     />
                   )}
-                  <StatusChip status={toAgendaAppointment(selected).status} />
+                  <StatusChip status={toAgendaAppointment(a.selected).status} />
                 </DialogTitle>
               </DialogHeader>
               <dl className="flex flex-col gap-3 text-sm">
-                <Row label="Serviço" value={selected.serviceName} />
+                <Row label="Serviço" value={a.selected.serviceName} />
                 <Row
                   label="Horário"
-                  value={`${selected.date.split("-").reverse().join("/")} · ${selected.start}–${selected.end}`}
+                  value={`${a.selected.date.split("-").reverse().join("/")} · ${a.selected.start}–${a.selected.end}`}
                 />
                 <Row
                   label="Profissional"
-                  value={selected.professionalName ?? "Não atribuído"}
-                  muted={!selected.professionalName}
+                  value={a.selected.professionalName ?? "Não atribuído"}
+                  muted={!a.selected.professionalName}
                 />
               </dl>
-              {(canConfirm || canMark || canEdit || canCancel) && (
+              {(a.canConfirm || a.canMark || a.canEdit || a.canCancel) && (
                 <div className="flex flex-col gap-3 pt-1">
-                  {/* CONFIRMAR (Story 5B.3/DL-046): solicitação pendente vira
-                      confirmada direto no detalhe (caso presencial). Ação primária. */}
-                  {canConfirm && (
+                  {a.canConfirm && (
                     <div className="flex flex-col gap-3">
                       <div className="border-t border-border" />
                       <div className="flex items-center gap-2">
@@ -350,18 +120,15 @@ export function Agenda() {
                           Confirmar esta solicitação?
                         </span>
                         <Button
-                          disabled={confirming}
-                          onClick={() => void confirmAppointment()}
+                          disabled={a.confirming}
+                          onClick={() => void a.confirmAppointment()}
                         >
-                          {confirming ? "Confirmando…" : "Confirmar"}
+                          {a.confirming ? "Confirmando…" : "Confirmar"}
                         </Button>
                       </div>
                     </div>
                   )}
-                  {/* DESFECHO — "Como foi?": só quando o horário já passou. "Concluído"
-                      é a ação primária; "Não compareceu" fica DISCRETO (ghost) — no-show
-                      cedo demais é fácil de marcar sem querer. */}
-                  {canMark && (
+                  {a.canMark && (
                     <div className="flex flex-col gap-3">
                       <div className="border-t border-border" />
                       <div className="flex items-center gap-2">
@@ -369,38 +136,37 @@ export function Agenda() {
                           Como foi?
                         </span>
                         <Button
-                          disabled={marking}
-                          onClick={() => void markStatus("completed")}
+                          disabled={a.marking}
+                          onClick={() => void a.markStatus("completed")}
                         >
                           Concluído
                         </Button>
                         <Button
                           variant="ghost"
                           className="text-muted-foreground"
-                          disabled={marking}
-                          onClick={() => void markStatus("no_show")}
+                          disabled={a.marking}
+                          onClick={() => void a.markStatus("no_show")}
                         >
                           Não compareceu
                         </Button>
                       </div>
                     </div>
                   )}
-                  {/* GESTÃO: Editar à esquerda, Cancelar à direita. */}
-                  {(canEdit || canCancel) && (
+                  {(a.canEdit || a.canCancel) && (
                     <div className="flex flex-col gap-3">
                       <div className="border-t border-border" />
                       <div className="flex items-center justify-between gap-2">
-                        {canEdit ? (
-                          <Button variant="secondary" onClick={openEdit}>
+                        {a.canEdit ? (
+                          <Button variant="secondary" onClick={a.openEdit}>
                             Editar
                           </Button>
                         ) : (
                           <span />
                         )}
-                        {canCancel && (
+                        {a.canCancel && (
                           <Button
                             variant="destructive"
-                            onClick={() => setCancelMode(true)}
+                            onClick={() => a.setCancelMode(true)}
                           >
                             Cancelar agendamento
                           </Button>
@@ -413,7 +179,7 @@ export function Agenda() {
             </>
           )}
 
-          {selected && cancelMode && (
+          {a.selected && a.cancelMode && (
             <>
               <DialogHeader>
                 <DialogTitle>Cancelar agendamento</DialogTitle>
@@ -422,10 +188,10 @@ export function Agenda() {
                 <p className="text-muted-foreground">
                   Cancelar o atendimento de{" "}
                   <strong className="text-foreground">
-                    {selected.clientName}
+                    {a.selected.clientName}
                   </strong>{" "}
-                  ({selected.serviceName} · {selected.start}–{selected.end}). O
-                  horário volta a ficar disponível e a ação não pode ser desfeita.
+                  ({a.selected.serviceName} · {a.selected.start}–{a.selected.end}).
+                  O horário volta a ficar disponível e a ação não pode ser desfeita.
                 </p>
                 <label className="flex flex-col gap-1.5">
                   <span className="font-medium text-foreground">
@@ -435,34 +201,34 @@ export function Agenda() {
                     aria-label="Motivo do cancelamento"
                     rows={3}
                     maxLength={500}
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
+                    value={a.cancelReason}
+                    onChange={(e) => a.setCancelReason(e.target.value)}
                     placeholder="Ex.: cliente pediu para remarcar"
                     className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </label>
-                {cancelError && (
+                {a.cancelError && (
                   <p role="alert" className="text-sm text-destructive">
-                    {cancelError}
+                    {a.cancelError}
                   </p>
                 )}
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      setCancelMode(false);
-                      setCancelError(null);
+                      a.setCancelMode(false);
+                      a.setCancelError(null);
                     }}
-                    disabled={cancelSubmitting}
+                    disabled={a.cancelSubmitting}
                   >
                     Voltar
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={() => void cancelAppointment()}
-                    disabled={cancelSubmitting}
+                    onClick={() => void a.cancelAppointment()}
+                    disabled={a.cancelSubmitting}
                   >
-                    {cancelSubmitting ? "Cancelando…" : "Confirmar cancelamento"}
+                    {a.cancelSubmitting ? "Cancelando…" : "Confirmar cancelamento"}
                   </Button>
                 </div>
               </div>
@@ -472,32 +238,6 @@ export function Agenda() {
       </Dialog>
     </PageLayout>
   );
-}
-
-/** Extrai a mensagem real da API (Nest: `{ message }`) — não esconde a causa. */
-async function cancelErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { message?: string | string[] };
-    const m = body?.message;
-    if (Array.isArray(m) && m.length > 0) return m.join(" · ");
-    if (typeof m === "string" && m.trim() !== "") return m;
-  } catch {
-    /* sem corpo JSON */
-  }
-  return "Não foi possível cancelar o agendamento.";
-}
-
-/** Mensagem real da API para o marcar-comparecimento (Story 3.7). */
-async function statusErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { message?: string | string[] };
-    const m = body?.message;
-    if (Array.isArray(m) && m.length > 0) return m.join(" · ");
-    if (typeof m === "string" && m.trim() !== "") return m;
-  } catch {
-    /* sem corpo JSON */
-  }
-  return "Não foi possível marcar o atendimento.";
 }
 
 function Row({
