@@ -108,4 +108,32 @@ describe("AgendaList (agenda mobile em lista)", () => {
       ),
     );
   });
+
+  it("colore o dia/ponto do calendário pela cor do status", async () => {
+    // Mês com 1 pendente em 10/07 → o dia ganha o ponto na cor do status.
+    apiMock.mockResolvedValue(
+      jsonRes({
+        appointments: [
+          {
+            id: "9",
+            clientName: "X",
+            serviceId: "1",
+            serviceName: "Corte",
+            professionalId: null,
+            professionalName: null,
+            date: "2026-07-10",
+            start: "09:00",
+            end: "09:30",
+            status: "pending",
+            source: "manual",
+          },
+        ],
+      }),
+    );
+    setup();
+    const day = await screen.findByRole("button", { name: "2026-07-10" });
+    await waitFor(() =>
+      expect(day.querySelector(".bg-status-pending")).toBeTruthy(),
+    );
+  });
 });

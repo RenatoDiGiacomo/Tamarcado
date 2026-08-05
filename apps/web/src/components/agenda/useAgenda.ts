@@ -12,6 +12,7 @@ import {
   type ApiAppointment,
 } from "../../pages/agendaMap";
 import type { EditingAppointment } from "../../pages/NovoAgendamento";
+import type { AppointmentStatus } from "../StatusChip";
 import type { AgendaView } from "./AgendaGrid";
 
 const ACCESS_KEY = "tamarcado.access";
@@ -279,14 +280,28 @@ export function useAgenda() {
   };
 }
 
+// Prioridade do status "representativo" de um dia (quando há vários): o que
+// pede mais atenção aparece primeiro — pendente (aguarda ação) > confirmado >
+// concluído > não compareceu > cancelado. Define a COR do dia no calendário.
+const STATUS_PRIORITY: Record<AppointmentStatus, number> = {
+  pending: 1,
+  confirmed: 2,
+  done: 3,
+  noshow: 4,
+  cancelled: 5,
+};
+
 /**
- * Dias do mês que têm ≥1 agendamento — só para os PONTOS do calendário do
- * `AgendaList` (mobile). Read-only, separado do fluxo principal para não alargar
- * a busca do período. `month` = "YYYY-MM". Fica no módulo compartilhado (não no
- * componente) para manter a busca de dados fora da apresentação.
+ * Status representativo por DIA do mês — para colorir os dias/pontos do
+ * calendário do `AgendaList` (mobile) conforme o status (não sempre o roxo).
+ * Read-only, separado do fluxo do período. `month` = "YYYY-MM". Fica no módulo
+ * compartilhado (não no componente) para manter a busca de dados fora da
+ * apresentação.
  */
-export function useMonthAppointments(month: string): Set<string> {
-  const [days, setDays] = useState<Set<string>>(() => new Set());
+export function useMonthAppointments(month: string): Map<string, AppointmentStatus> {
+  const [days, setDays] = useState<Map<string, AppointmentStatus>>(
+    () => new Map(),
+  );
   useEffect(() => {
     let alive = true;
     const from = `${month}-01`;
@@ -301,7 +316,15 @@ export function useMonthAppointments(month: string): Set<string> {
         if (!res.ok) return;
         const body = (await res.json()) as { appointments: ApiAppointment[] };
         if (!alive) return;
-        setDays(new Set(body.appointments.map((a) => a.date)));
+        const map = new Map<string, AppointmentStatus>();
+        for (const a of body.appointments) {
+          const st = toAgendaAppointment(a).status;
+          const cur = map.get(a.date);
+          if (cur === undefined || STATUS_PRIORITY[st] < STATUS_PRIORITY[cur]) {
+            map.set(a.date, st);
+          }
+        }
+        setDays(map);
       } catch {
         /* pontos são um extra; falha silenciosa não quebra a agenda */
       }

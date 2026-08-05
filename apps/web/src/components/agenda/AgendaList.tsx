@@ -125,6 +125,15 @@ const STATUS_BORDER: Record<AgendaAppointment["status"], string> = {
   noshow: "border-l-status-noshow",
 };
 
+/** Preenchimento pela cor do status — dia selecionado e ponto do calendário. */
+const STATUS_BG: Record<AgendaAppointment["status"], string> = {
+  pending: "bg-status-pending",
+  confirmed: "bg-status-confirmed",
+  done: "bg-status-done",
+  cancelled: "bg-status-cancelled",
+  noshow: "bg-status-noshow",
+};
+
 export interface AgendaListProps {
   /** Dia selecionado, "YYYY-MM-DD". */
   anchor: string;
@@ -207,7 +216,8 @@ export function AgendaList({
           ))}
           {cells.map((c) => {
             const selected = c.date === anchor;
-            const hasAppt = withAppts.has(c.date);
+            // Status representativo do dia (§5): define a COR do dia/ponto.
+            const status = withAppts.get(c.date);
             return (
               <button
                 key={c.date}
@@ -220,16 +230,23 @@ export function AgendaList({
                   !c.inMonth && "text-muted-foreground/40",
                   c.date === today && !selected && "ring-1 ring-inset ring-primary",
                   selected
-                    ? "bg-primary font-bold text-primary-foreground"
+                    ? // Dia selecionado: preenche com a COR DO STATUS (roxo só
+                      // quando não há agendamento). Texto branco para contraste.
+                      cn(
+                        "font-bold text-white",
+                        status ? STATUS_BG[status] : "bg-primary text-primary-foreground",
+                      )
                     : "text-foreground",
                 )}
               >
                 {c.day}
-                {hasAppt && (
+                {status && (
                   <span
                     className={cn(
                       "absolute bottom-1 size-1 rounded-full",
-                      selected ? "bg-primary-foreground" : "bg-primary",
+                      // ponto segue o status; no dia selecionado (fundo colorido)
+                      // vira branco para não sumir.
+                      selected ? "bg-white" : STATUS_BG[status],
                     )}
                   />
                 )}
