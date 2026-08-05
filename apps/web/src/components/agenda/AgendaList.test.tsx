@@ -132,8 +132,58 @@ describe("AgendaList (agenda mobile em lista)", () => {
     );
     setup();
     const day = await screen.findByRole("button", { name: "2026-07-10" });
+    // A cor do status fica NO PRÓPRIO dia (não num ponto): dia 10 (não
+    // selecionado) com pendente → bg-status-pending, mesmo sem seleção.
     await waitFor(() =>
-      expect(day.querySelector(".bg-status-pending")).toBeTruthy(),
+      expect(day.classList.contains("bg-status-pending")).toBe(true),
     );
+  });
+
+  it("seleção é anel (ring), sem virar roxo nem perder a cor do status", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({
+        appointments: [
+          {
+            id: "9",
+            clientName: "X",
+            serviceId: "1",
+            serviceName: "Corte",
+            professionalId: null,
+            professionalName: null,
+            date: "2026-07-25", // = anchor (dia selecionado), confirmado
+            start: "09:00",
+            end: "09:30",
+            status: "confirmed",
+            source: "manual",
+          },
+        ],
+      }),
+    );
+    setup(); // anchor = 2026-07-25
+    const day = await screen.findByRole("button", { name: "2026-07-25" });
+    await waitFor(() =>
+      expect(day.classList.contains("bg-status-confirmed")).toBe(true),
+    );
+    // seleção = anel; NÃO vira bg-primary
+    expect(day.className).toMatch(/ring-2/);
+    expect(day.classList.contains("bg-primary")).toBe(false);
+  });
+
+  it("recarrega os pontos/cores do mês quando dataVersion muda (após mutação)", async () => {
+    const props = {
+      anchor: "2026-07-25",
+      view: "dia" as const,
+      appointments: [],
+      onViewChange: vi.fn(),
+      onSelectDay: vi.fn(),
+      onSelectAppointment: vi.fn(),
+      onNew: vi.fn(),
+      dataVersion: 0,
+    };
+    const { rerender } = render(<AgendaList {...props} />);
+    await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(1));
+    // Uma mutação bumpa dataVersion → o mês refaz o fetch sozinho.
+    rerender(<AgendaList {...props} dataVersion={1} />);
+    await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(2));
   });
 });

@@ -242,6 +242,11 @@ export function useAgenda() {
     businessHours,
     loading,
     hasData: data !== null,
+    // Sinal de recarga: bumpa a CADA mutação bem-sucedida (criar/editar/
+    // remarcar/cancelar/confirmar/marcar). A lista já refaz via `load`; o mapa
+    // de status do mês (calendário) recebe isto para refazer junto — ver
+    // useMonthAppointments(month, dataVersion).
+    dataVersion: refreshKey,
     error,
     // seleção + detalhe
     selected,
@@ -298,7 +303,11 @@ const STATUS_PRIORITY: Record<AppointmentStatus, number> = {
  * compartilhado (não no componente) para manter a busca de dados fora da
  * apresentação.
  */
-export function useMonthAppointments(month: string): Map<string, AppointmentStatus> {
+export function useMonthAppointments(
+  month: string,
+  /** Bumpa a cada mutação (useAgenda.dataVersion) → recarrega o mês na hora. */
+  version = 0,
+): Map<string, AppointmentStatus> {
   const [days, setDays] = useState<Map<string, AppointmentStatus>>(
     () => new Map(),
   );
@@ -332,7 +341,7 @@ export function useMonthAppointments(month: string): Map<string, AppointmentStat
     return () => {
       alive = false;
     };
-  }, [month]);
+  }, [month, version]);
   return days;
 }
 

@@ -72,6 +72,7 @@ export function Agenda() {
           onSelectDay={a.setAnchor}
           onSelectAppointment={a.setSelectedId}
           onNew={() => a.setNovoOpen(true)}
+          dataVersion={a.dataVersion}
         />
       )}
 

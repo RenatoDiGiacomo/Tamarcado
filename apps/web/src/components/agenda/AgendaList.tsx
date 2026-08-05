@@ -14,8 +14,18 @@ import { useMonthAppointments } from "./useAgenda";
 const WEEKDAYS = ["S", "T", "Q", "Q", "S", "S", "D"]; // Seg-first
 const WD_FULL = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 /** "YYYY-MM-DD" → Date local (meio-dia, evita salto de fuso). */
@@ -54,8 +64,17 @@ function monthGrid(ym: string): CalCell[] {
   const start = new Date(y, m - 1, 1 - lead, 12);
   const cells: CalCell[] = [];
   for (let i = 0; i < 42; i++) {
-    const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
-    cells.push({ date: iso(dt), day: dt.getDate(), inMonth: dt.getMonth() === m - 1 });
+    const dt = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate() + i,
+      12,
+    );
+    cells.push({
+      date: iso(dt),
+      day: dt.getDate(),
+      inMonth: dt.getMonth() === m - 1,
+    });
   }
   // corta a 6ª semana se ela for inteiramente do próximo mês
   return cells.slice(0, cells.slice(35).every((c) => !c.inMonth) ? 35 : 42);
@@ -63,9 +82,15 @@ function monthGrid(ym: string): CalCell[] {
 
 function OriginIcon({ origin }: { origin: "whatsapp" | "manual" }) {
   return origin === "manual" ? (
-    <Pencil className="size-3.5 shrink-0 text-muted-foreground" aria-label="Manual" />
+    <Pencil
+      className="size-3.5 shrink-0 text-muted-foreground"
+      aria-label="Manual"
+    />
   ) : (
-    <MessageCircle className="size-3.5 shrink-0 text-muted-foreground" aria-label="WhatsApp" />
+    <MessageCircle
+      className="size-3.5 shrink-0 text-muted-foreground"
+      aria-label="WhatsApp"
+    />
   );
 }
 
@@ -125,7 +150,7 @@ const STATUS_BORDER: Record<AgendaAppointment["status"], string> = {
   noshow: "border-l-status-noshow",
 };
 
-/** Preenchimento pela cor do status — dia selecionado e ponto do calendário. */
+/** Preenchimento do dia no calendário pela cor do status. */
 const STATUS_BG: Record<AgendaAppointment["status"], string> = {
   pending: "bg-status-pending",
   confirmed: "bg-status-confirmed",
@@ -144,6 +169,8 @@ export interface AgendaListProps {
   onSelectDay: (date: string) => void;
   onSelectAppointment: (id: string) => void;
   onNew: () => void;
+  /** Bumpa a cada mutação → recarrega os pontos/cores do mês na hora. */
+  dataVersion?: number;
 }
 
 /**
@@ -159,25 +186,39 @@ export function AgendaList({
   onSelectDay,
   onSelectAppointment,
   onNew,
+  dataVersion,
 }: AgendaListProps) {
   const [month, setMonth] = useState(() => anchor.slice(0, 7));
   // O calendário segue o mês do dia selecionado quando ele muda.
   useEffect(() => setMonth(anchor.slice(0, 7)), [anchor]);
-  const withAppts = useMonthAppointments(month);
+  // `dataVersion` bumpa a cada mutação → recarrega os pontos/cores do mês.
+  const withAppts = useMonthAppointments(month, dataVersion);
   const cells = monthGrid(month);
   const [my, mm] = month.split("-").map(Number);
   const today = iso(new Date());
 
-  const sorted = [...appointments].sort((x, y) => x.start.localeCompare(y.start));
+  const sorted = [...appointments].sort((x, y) =>
+    x.start.localeCompare(y.start),
+  );
 
   // Visão Semana: agrupa por dia (weekday 0=Seg..6=Dom) com cabeçalho de data.
   const weekStartDt = (() => {
     const dt = parse(anchor);
-    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - mondayIdx(dt), 12);
+    return new Date(
+      dt.getFullYear(),
+      dt.getMonth(),
+      dt.getDate() - mondayIdx(dt),
+      12,
+    );
   })();
   const weekGroups = WD_FULL.map((_, i) => {
     const dayIso = iso(
-      new Date(weekStartDt.getFullYear(), weekStartDt.getMonth(), weekStartDt.getDate() + i, 12),
+      new Date(
+        weekStartDt.getFullYear(),
+        weekStartDt.getMonth(),
+        weekStartDt.getDate() + i,
+        12,
+      ),
     );
     const items = sorted.filter((ap) => (ap.weekday ?? -1) === i);
     return { dayIso, items };
@@ -210,13 +251,16 @@ export function AgendaList({
         </div>
         <div className="grid grid-cols-7 text-center">
           {WEEKDAYS.map((w, i) => (
-            <span key={i} className="pb-1 text-[10px] font-bold text-muted-foreground">
+            <span
+              key={i}
+              className="pb-1 text-[10px] font-bold text-muted-foreground"
+            >
               {w}
             </span>
           ))}
           {cells.map((c) => {
             const selected = c.date === anchor;
-            // Status representativo do dia (§5): define a COR do dia/ponto.
+            // Status representativo do dia (§5): define a COR do dia.
             const status = withAppts.get(c.date);
             return (
               <button
@@ -227,29 +271,21 @@ export function AgendaList({
                 aria-current={selected ? "date" : undefined}
                 className={cn(
                   "relative mx-auto grid size-9 place-items-center rounded-[10px] text-[13px]",
-                  !c.inMonth && "text-muted-foreground/40",
-                  c.date === today && !selected && "ring-1 ring-inset ring-primary",
-                  selected
-                    ? // Dia selecionado: preenche com a COR DO STATUS (roxo só
-                      // quando não há agendamento). Texto branco para contraste.
-                      cn(
-                        "font-bold text-white",
-                        status ? STATUS_BG[status] : "bg-primary text-primary-foreground",
-                      )
-                    : "text-foreground",
+                  // COR = status, SEMPRE (selecionado ou não). Dia sem
+                  // agendamento = neutro.
+                  status
+                    ? cn(STATUS_BG[status], "text-white")
+                    : c.inMonth
+                      ? "text-foreground"
+                      : "text-muted-foreground/40",
+                  // Hoje: número em negrito (marca leve, não conflita com o anel).
+                  c.date === today && "font-bold",
+                  // SELEÇÃO = anel; o dia mantém a cor do próprio status por baixo.
+                  selected &&
+                    "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 )}
               >
                 {c.day}
-                {status && (
-                  <span
-                    className={cn(
-                      "absolute bottom-1 size-1 rounded-full",
-                      // ponto segue o status; no dia selecionado (fundo colorido)
-                      // vira branco para não sumir.
-                      selected ? "bg-white" : STATUS_BG[status],
-                    )}
-                  />
-                )}
               </button>
             );
           })}
@@ -286,7 +322,11 @@ export function AgendaList({
             </p>
             <div className="flex flex-col gap-2.5">
               {sorted.map((ap) => (
-                <ApptCard key={ap.id} appt={ap} onSelect={onSelectAppointment} />
+                <ApptCard
+                  key={ap.id}
+                  appt={ap}
+                  onSelect={onSelectAppointment}
+                />
               ))}
             </div>
           </>
@@ -302,7 +342,11 @@ export function AgendaList({
               </p>
               <div className="flex flex-col gap-2.5">
                 {g.items.map((ap) => (
-                  <ApptCard key={ap.id} appt={ap} onSelect={onSelectAppointment} />
+                  <ApptCard
+                    key={ap.id}
+                    appt={ap}
+                    onSelect={onSelectAppointment}
+                  />
                 ))}
               </div>
             </div>
@@ -317,7 +361,10 @@ export function AgendaList({
 function ListEmpty({ onNew, plural }: { onNew: () => void; plural?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-2 py-6 text-center">
-      <CalendarDays className="size-10 text-muted-foreground/40" aria-hidden="true" />
+      <CalendarDays
+        className="size-10 text-muted-foreground/40"
+        aria-hidden="true"
+      />
       <p className="text-sm text-muted-foreground">
         Nenhum agendamento {plural ? "nesta semana" : "neste dia"}
       </p>
