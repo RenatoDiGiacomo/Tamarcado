@@ -1,7 +1,9 @@
 import { CalendarDays, MessageCircle } from "lucide-react";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState } from "../components/ErrorState";
 import { StatusChip } from "../components/StatusChip";
+import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -33,23 +35,27 @@ export function Agenda() {
   const emptyState = (
     <EmptyState
       icon={CalendarDays}
+      compact={!isDesktop}
       title={
         a.view === "dia"
           ? "Nenhum agendamento neste dia"
           : "Nenhum agendamento nesta semana"
       }
       description="Os agendamentos deste período aparecem aqui. Use ‹ › para navegar ou crie um novo."
+      action={
+        <Button onClick={() => a.setNovoOpen(true)}>
+          <CalendarDays className="size-4" /> Novo agendamento
+        </Button>
+      }
     />
   );
 
   return (
     <PageLayout title="Agenda">
       {a.loading && !a.hasData ? (
-        <p className="text-sm text-muted-foreground">Carregando agenda…</p>
-      ) : a.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar a agenda.
-        </p>
+        <AgendaSkeleton desktop={isDesktop} />
+      ) : a.errorKind ? (
+        <ErrorState kind={a.errorKind} resource="a agenda" onRetry={a.retry} />
       ) : isDesktop ? (
         <AgendaGrid
           dateLabel={formatDateLabel(a.anchor, a.view)}
@@ -273,6 +279,40 @@ function Row({
       <dd className={muted ? "italic text-muted-foreground" : "text-foreground"}>
         {value}
       </dd>
+    </div>
+  );
+}
+
+/**
+ * Esqueleto de carregamento da agenda (Story 7.3 §2) — no lugar do conteúdo, não
+ * um spinner na tela toda. Mobile imita o calendário do mês + a lista do dia;
+ * desktop, a barra de período + a grade.
+ */
+function AgendaSkeleton({ desktop }: { desktop: boolean }) {
+  if (desktop) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+        <Skeleton className="h-[420px] w-full" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Calendário do mês */}
+      <div className="grid grid-cols-7 gap-y-2">
+        {Array.from({ length: 35 }).map((_, i) => (
+          <Skeleton key={i} className="mx-auto size-8 rounded-[10px]" />
+        ))}
+      </div>
+      <Skeleton className="h-8 w-28" />
+      {/* Cards da lista do dia */}
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="h-20 w-full rounded-xl" />
+      ))}
     </div>
   );
 }

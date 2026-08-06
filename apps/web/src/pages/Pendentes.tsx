@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
+import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -12,6 +14,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { usePendentes } from "../lib/usePendentes";
+import { bumpAppointments } from "../lib/appointmentsSignal";
 
 const ACCESS_KEY = "tamarcado.access";
 const token = (): string | null => localStorage.getItem(ACCESS_KEY);
@@ -47,7 +50,7 @@ export function Pendentes() {
   const [items, setItems] = useState<PendingAppointment[]>([]);
   const [attenders, setAttenders] = useState<Attender[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
   // Profissional escolhido (opcional) por pendente, antes de confirmar.
   const [chosen, setChosen] = useState<Record<string, string>>({});
   // Evita duplo-clique enquanto a ação de uma linha está em voo.
@@ -60,19 +63,23 @@ export function Pendentes() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setErrorKind(null);
     try {
       const [pend, att] = await Promise.all([
         apiRequest("/appointments/pending", { token: token() }),
         apiRequest("/users/attenders", { token: token() }),
       ]);
-      if (!pend.ok) throw new Error("load");
+      if (!pend.ok) {
+        setErrorKind("server");
+        setItems([]);
+        return;
+      }
       setItems(((await pend.json()) as { appointments: PendingAppointment[] }).appointments);
       if (att.ok) {
         setAttenders(((await att.json()) as { users: Attender[] }).users);
       }
-    } catch {
-      setError(true);
+    } catch (e) {
+      setErrorKind(errorKindFrom(e));
       setItems([]);
     } finally {
       setLoading(false);
@@ -100,6 +107,8 @@ export function Pendentes() {
         }
         setItems((prev) => prev.filter((a) => a.id !== item.id));
         refreshCount();
+        // Confirmar cria um agendamento na agenda → sinaliza a recarga dela.
+        bumpAppointments();
         toast.success("Agendamento confirmado.");
       } catch {
         toast.error("Não foi possível confirmar. Verifique sua conexão.");
@@ -132,6 +141,9 @@ export function Pendentes() {
       const id = rejecting.id;
       setItems((prev) => prev.filter((a) => a.id !== id));
       refreshCount();
+      // §5: recusar também é mutação de agendamento → a agenda recarrega junto
+      // (o calendário e a lista deixam de mostrar o pendente recusado).
+      bumpAppointments();
       closeReject();
       toast.success("Agendamento recusado.");
     } catch {
@@ -151,14 +163,13 @@ export function Pendentes() {
   return (
     <PageLayout title="Pendentes">
       {loading ? (
-        <p className="text-sm text-muted-foreground">Carregando pendentes…</p>
-      ) : error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar os pendentes.
-        </p>
+        <ListRowsSkeleton />
+      ) : errorKind ? (
+        <ErrorState kind={errorKind} resource="os pendentes" onRetry={() => void load()} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={Inbox}
+          compact
           title="Nenhuma solicitação pendente"
           description="As solicitações feitas pelo link de agendamento aparecem aqui para você confirmar ou recusar."
         />
@@ -322,6 +333,17 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-4">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+/** Esqueleto de carregamento (Story 7.3 §2) — cards no formato dos pendentes. */
+function ListRowsSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="h-32 w-full rounded-lg" />
+      ))}
     </div>
   );
 }

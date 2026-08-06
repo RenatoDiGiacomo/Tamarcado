@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, Scissors } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "../components/EmptyState";
+import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
 
 const ACCESS_KEY = "tamarcado.access";
 const NEW = "__new__";
@@ -63,6 +66,9 @@ export function ConfiguracoesServicos() {
   const [attenders, setAttenders] = useState<Attender[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<SaveStatus>("idle");
+  const [loading, setLoading] = useState(true);
+  const [loadErrorKind, setLoadErrorKind] = useState<ErrorKind | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Formulário. `duration`/`price` guardam SÓ DÍGITOS (price em centavos);
   // o valor enviado à API é o número puro, não o texto com máscara.
@@ -81,21 +87,36 @@ export function ConfiguracoesServicos() {
     return data.services;
   }, []);
 
-  // Carrega serviços + profissionais que atendem clientes.
+  // Carrega serviços + profissionais que atendem clientes. Distingue erro de
+  // rede/servidor para o estado de erro (Story 7.3 §3); `reloadKey` = tentar de novo.
   useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setLoadErrorKind(null);
     void (async () => {
-      const [list, attRes] = await Promise.all([
-        loadServices(),
-        apiRequest("/users/attenders", { token: token() }),
-      ]);
-      setServices(list);
-      if (attRes.ok) {
-        const data = (await attRes.json()) as { users: Attender[] };
-        setAttenders(data.users);
+      try {
+        const [svcRes, attRes] = await Promise.all([
+          apiRequest("/services", { token: token() }),
+          apiRequest("/users/attenders", { token: token() }),
+        ]);
+        if (!svcRes.ok) throw new Error("server");
+        const list = ((await svcRes.json()) as { services: ServiceDto[] }).services;
+        if (!alive) return;
+        setServices(list);
+        if (attRes.ok) {
+          setAttenders(((await attRes.json()) as { users: Attender[] }).users);
+        }
+        setSelected(list.length > 0 ? list[0].id : NEW);
+      } catch (e) {
+        if (alive) setLoadErrorKind(errorKindFrom(e));
+      } finally {
+        if (alive) setLoading(false);
       }
-      setSelected(list.length > 0 ? list[0].id : NEW);
     })();
-  }, [loadServices]);
+    return () => {
+      alive = false;
+    };
+  }, [reloadKey]);
 
   // Preenche o formulário ao trocar a seleção.
   useEffect(() => {
@@ -207,6 +228,24 @@ export function ConfiguracoesServicos() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+        <Skeleton className="h-64 w-full md:w-72 md:shrink-0" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+  if (loadErrorKind) {
+    return (
+      <ErrorState
+        kind={loadErrorKind}
+        resource="os serviços"
+        onRetry={() => setReloadKey((k) => k + 1)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start">
       {/* Lista */}
@@ -224,6 +263,15 @@ export function ConfiguracoesServicos() {
             <Plus className="size-4" aria-hidden="true" />
             Novo serviço
           </Button>
+          {services.length === 0 ? (
+            <EmptyState
+              icon={Scissors}
+              compact
+              title="Nenhum serviço cadastrado"
+              description="Cadastre o primeiro serviço no formulário ao lado."
+              className="border-0 py-6"
+            />
+          ) : null}
           <ul className="flex flex-col">
             {services.map((svc) => {
               const active = svc.id === selected;

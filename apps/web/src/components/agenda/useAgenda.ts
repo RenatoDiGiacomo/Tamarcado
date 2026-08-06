@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { apiRequest } from "../../lib/api";
+import { errorKindFrom, type ErrorKind } from "../ErrorState";
+import {
+  bumpAppointments,
+  useAppointmentsVersion,
+} from "../../lib/appointmentsSignal";
 import { useAuth } from "../../auth/AuthContext";
 import { usePendentes } from "../../lib/usePendentes";
 import {
@@ -37,11 +42,13 @@ export function useAgenda() {
   const [view, setView] = useState<AgendaView>("dia");
   const [data, setData] = useState<AgendaResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
   const [editing, setEditing] = useState<EditingAppointment | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  // Sinal global de mutação (Story 7.3 §5): mutações daqui E de Pendentes
+  // bumpam; a busca depende dele, então a lista e o mapa do mês recarregam.
+  const version = useAppointmentsVersion();
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
@@ -51,21 +58,27 @@ export function useAgenda() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setErrorKind(null);
     const { from, to } = periodRange(anchor, view);
     try {
       const res = await apiRequest(`/appointments?from=${from}&to=${to}`, {
         token: token(),
       });
-      if (!res.ok) throw new Error("load");
+      // 4xx/5xx = erro do SERVIDOR (respondeu, mas mal); rede/timeout cai no
+      // catch como conexão. Mensagens distintas na tela (Story 7.3 §3).
+      if (!res.ok) {
+        setErrorKind("server");
+        setData(null);
+        return;
+      }
       setData((await res.json()) as AgendaResponse);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setErrorKind(errorKindFrom(e));
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [anchor, view, refreshKey]);
+  }, [anchor, view, version]);
 
   useEffect(() => {
     void load();
@@ -153,7 +166,7 @@ export function useAgenda() {
           return;
         }
         closeDetail();
-        setRefreshKey((k) => k + 1);
+        bumpAppointments();
         toast.success(
           to === "completed"
             ? "Atendimento concluído."
@@ -182,7 +195,7 @@ export function useAgenda() {
         return;
       }
       closeDetail();
-      setRefreshKey((k) => k + 1);
+      bumpAppointments();
       refreshPending();
       toast.success("Agendamento confirmado.");
     } catch {
@@ -208,7 +221,7 @@ export function useAgenda() {
         return;
       }
       closeDetail();
-      setRefreshKey((k) => k + 1);
+      bumpAppointments();
       toast.success("Agendamento cancelado.");
     } catch {
       setCancelError("Não foi possível cancelar. Verifique sua conexão.");
@@ -230,7 +243,7 @@ export function useAgenda() {
   const onSaved = useCallback((savedDate: string) => {
     setView("dia");
     setAnchor(savedDate);
-    setRefreshKey((k) => k + 1);
+    bumpAppointments();
   }, []);
 
   return {
@@ -246,8 +259,10 @@ export function useAgenda() {
     // remarcar/cancelar/confirmar/marcar). A lista já refaz via `load`; o mapa
     // de status do mês (calendário) recebe isto para refazer junto — ver
     // useMonthAppointments(month, dataVersion).
-    dataVersion: refreshKey,
-    error,
+    dataVersion: version,
+    errorKind,
+    // Tenta carregar de novo após um erro (Story 7.3 §3) — reusa o sinal.
+    retry: bumpAppointments,
     // seleção + detalhe
     selected,
     setSelectedId,

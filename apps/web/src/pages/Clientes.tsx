@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
+import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
+import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -56,7 +58,7 @@ export function Clientes() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Modal de cadastro/edição (editingId=null → cadastro).
@@ -77,7 +79,7 @@ export function Clientes() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setErrorKind(null);
     const q = new URLSearchParams({
       page: String(page),
       pageSize: String(PAGE_SIZE),
@@ -87,12 +89,17 @@ export function Clientes() {
       const res = await apiRequest(`/clients?${q.toString()}`, {
         token: token(),
       });
-      if (!res.ok) throw new Error("load");
+      if (!res.ok) {
+        setErrorKind("server");
+        setClients([]);
+        setTotal(0);
+        return;
+      }
       const data = (await res.json()) as ClientListResponse;
       setClients(data.clients);
       setTotal(data.total);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setErrorKind(errorKindFrom(e));
       setClients([]);
       setTotal(0);
     } finally {
@@ -162,14 +169,13 @@ export function Clientes() {
       </div>
 
       {loading && clients.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Carregando clientes…</p>
-      ) : error ? (
-        <p role="alert" className="text-sm text-destructive">
-          Não foi possível carregar os clientes.
-        </p>
+        <ClientesSkeleton />
+      ) : errorKind ? (
+        <ErrorState kind={errorKind} resource="os clientes" onRetry={() => void load()} />
       ) : clients.length === 0 ? (
         <EmptyState
           icon={Users}
+          compact
           title={
             debounced ? "Nenhuma cliente encontrada" : "Nenhuma cliente cadastrada"
           }
@@ -177,6 +183,13 @@ export function Clientes() {
             debounced
               ? "Tente outro nome ou telefone."
               : "Cadastre a primeira cliente no botão acima."
+          }
+          action={
+            debounced ? undefined : (
+              <Button onClick={openCreate}>
+                <Plus className="size-4" /> Nova cliente
+              </Button>
+            )
           }
         />
       ) : (
@@ -278,5 +291,19 @@ export function Clientes() {
         </DialogContent>
       </Dialog>
     </PageLayout>
+  );
+}
+
+/** Esqueleto de carregamento (Story 7.3 §2) — linhas no formato da lista. */
+function ClientesSkeleton() {
+  return (
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between gap-4 px-4 py-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      ))}
+    </div>
   );
 }
