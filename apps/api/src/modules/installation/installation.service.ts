@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -55,6 +56,23 @@ export class InstallationService {
         "O horário de fechamento deve ser após a abertura.",
       );
     }
+    return this.companies.save(company);
+  }
+
+  /**
+   * Troca o slug do link público. Rejeita (409) se já estiver em uso por OUTRA
+   * empresa. Sem redirect do antigo (DL-049) — a confirmação/aviso é do front.
+   */
+  async updateSlug(companyId: string, slug: string): Promise<Company> {
+    const company = await this.get(companyId);
+    if (slug === company.slug) {
+      return company; // sem troca — nada a validar
+    }
+    const existing = await this.companies.findOne({ where: { slug } });
+    if (existing && existing.id !== companyId) {
+      throw new ConflictException("Este endereço já está em uso.");
+    }
+    company.slug = slug;
     return this.companies.save(company);
   }
 }
