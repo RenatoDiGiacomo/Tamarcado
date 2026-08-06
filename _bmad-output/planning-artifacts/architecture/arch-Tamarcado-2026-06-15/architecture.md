@@ -450,12 +450,13 @@ appointments (1) ── (N) payments
 **Responsabilidade:** autenticação e autorização.
 
 - Login com email + senha → JWT (access 15 min + refresh 7 dias)
+- **Resolução de tenant no login pelo e-mail (DL-052):** o painel tem **URL única, sem slug**. O `AuthService` descobre a empresa a partir do **e-mail** informado (a checagem de senha vem **depois** de resolver o tenant, pois o e-mail é único **por empresa** — `UNIQUE (company_id, email)`, DL-026, não global). **E-mail em >1 empresa → desambiguação:** o backend responde com as empresas daquele e-mail e o front pede a **escolha do estabelecimento**; o login então valida a senha no tenant escolhido e emite o JWT. *(Revoga o DL-050 — slug na rota `/app/{slug}/login`; o slug permanece só no link público `/agendar/{slug}`.)*
 - `JwtStrategy`: valida token, extrai `{ userId, companyId, accessLevel, attendsClients }` (DL-022)
 - `JwtAuthGuard`: aplica em todos os endpoints protegidos
 - `RolesGuard`: valida `@Roles(...)` decorator por endpoint, comparando contra `access_level`
 - Refresh token endpoint
 
-**Não faz:** multi-tenant lookup — isso é `TenantModule`.
+**Faz um lookup de tenant SÓ no login** (resolver a empresa pelo e-mail, acima). O multi-tenant lookup **por request** (JWT → `company_id` → `AsyncLocalStorage`) continua no `TenantModule`.
 
 ---
 
