@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 
 const ACCESS_KEY = "tamarcado.access";
 const token = (): string | null => localStorage.getItem(ACCESS_KEY);
@@ -226,26 +227,36 @@ export function ConfiguracoesEquipe() {
         </p>
       )}
 
-      {/* Lista da equipe */}
-      <Card>
-        <CardContent className="flex flex-col p-0">
-          {members.map((m) => {
-            const isOwner = m.accessLevel === "owner";
-            const lockOwner = isOwner && ownerCount <= 1; // único Dono (FR-I3)
-            return (
-              <div
-                key={m.id}
-                className={cn(
-                  "flex flex-wrap items-center gap-4 border-b border-border px-4 py-3 last:border-b-0",
-                  !m.isActive && "opacity-60",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-foreground">{m.name}</div>
+      {/* Lista da equipe — um CARD por pessoa (como a agenda, sem cores de
+          status): tipo de conta, atende clientes e ativar/desativar legíveis. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {members.map((m) => {
+          const isOwner = m.accessLevel === "owner";
+          const lockOwner = isOwner && ownerCount <= 1; // único Dono (FR-I3)
+          return (
+            <div
+              key={m.id}
+              className={cn(
+                "flex flex-col gap-3 rounded-lg border border-border bg-card p-4",
+                !m.isActive && "opacity-60",
+              )}
+            >
+              {/* Cabeçalho: nome + e-mail; selo "Inativa" quando sem acesso */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-foreground">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground">{m.email}</div>
                 </div>
+                {!m.isActive && (
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    Inativa
+                  </span>
+                )}
+              </div>
 
-                {/* Papel */}
+              {/* Tipo de conta (papel) — Dono é fixo; demais editáveis */}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">Tipo de conta</span>
                 {isOwner ? (
                   <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold text-foreground">
                     {ROLE_LABEL.owner}
@@ -253,7 +264,7 @@ export function ConfiguracoesEquipe() {
                 ) : (
                   <select
                     aria-label={`Papel de ${m.name}`}
-                    className={cn(inputCls, "w-32")}
+                    className={cn(inputCls, "w-36")}
                     value={m.accessLevel}
                     onChange={(e) =>
                       void patchMember(m.id, {
@@ -265,55 +276,56 @@ export function ConfiguracoesEquipe() {
                     <option value="manager">Gerente</option>
                   </select>
                 )}
+              </div>
 
-                {/* Atende clientes */}
-                <label className="flex w-28 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
-                    checked={m.attendsClients}
-                    aria-label={`Atende clientes — ${m.name}`}
-                    onChange={(e) =>
-                      void patchMember(m.id, { attendsClients: e.target.checked })
-                    }
-                  />
-                  Atende
-                </label>
+              {/* Atende clientes — toggle (mais legível que checkbox) */}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">Atende clientes</span>
+                <ToggleSwitch
+                  checked={m.attendsClients}
+                  onChange={(v) => void patchMember(m.id, { attendsClients: v })}
+                  label={`Atende clientes — ${m.name}`}
+                />
+              </div>
 
-                {/* Ativo/inativo — desativar exige confirmação (D2) */}
-                <div className="flex w-44 shrink-0 flex-col items-end gap-1">
-                  {m.isActive ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={lockOwner}
-                      onClick={() => setConfirmOff(m.id)}
-                    >
-                      Desativar
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => void patchMember(m.id, { isActive: true })}
-                    >
-                      Ativar
-                    </Button>
-                  )}
-                  {lockOwner && (
-                    <span className="text-[11px] text-muted-foreground">
-                      Único Dono — transfira a titularidade antes.
-                    </span>
-                  )}
-                </div>
+              {/* Ativar/desativar — desativar exige confirmação (D2) */}
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                <span className="text-sm text-muted-foreground">
+                  {m.isActive ? "Na equipe" : "Sem acesso"}
+                </span>
+                {m.isActive ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={lockOwner}
+                    onClick={() => setConfirmOff(m.id)}
+                  >
+                    Desativar
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void patchMember(m.id, { isActive: true })}
+                  >
+                    Ativar
+                  </Button>
+                )}
+              </div>
+              {lockOwner && (
+                <span className="text-[11px] text-muted-foreground">
+                  Único Dono — transfira a titularidade antes.
+                </span>
+              )}
 
-                {/* Confirmação de desativação (revogação imediata) */}
-                {confirmOff === m.id && (
-                  <div className="flex w-full flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
-                    <p className="text-sm text-foreground">
-                      Desativar <strong>{m.name}</strong>? Ela sai da sessão na hora e perde o acesso.
-                    </p>
+              {/* Confirmação de desativação (revogação imediata) */}
+              {confirmOff === m.id && (
+                <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
+                  <p className="text-sm text-foreground">
+                    Desativar <strong>{m.name}</strong>? Ela sai da sessão na hora e perde o acesso.
+                  </p>
+                  <div className="flex gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -334,12 +346,12 @@ export function ConfiguracoesEquipe() {
                       Cancelar
                     </Button>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
