@@ -401,6 +401,8 @@ O atributo **atende clientes** determina se o usuário aparece no cálculo de di
 
 **NFR-S3.** Autenticação no painel (desktop e celular) deve utilizar mecanismo seguro com controle de sessão e expiração de token.
 
+> **Acesso ao painel — URL única, tenant resolvido pelo backend (DL-052).** O painel tem **uma única URL de acesso** para todos os estabelecimentos — **sem slug na rota**. O tenant é resolvido no **backend**, a partir do **e-mail** informado no login (a separação multi-tenant é responsabilidade do servidor, não da URL — requisito para funcionar no **PWA**, para quem digita o endereço e em aparelho onde a pessoa nunca logou). Como o e-mail é único **por empresa** (não global), quando ele existir em **mais de uma** empresa o login **pergunta em qual estabelecimento entrar**. **O slug permanece** no **link público de agendamento** `/agendar/{slug}` — a mudança é exclusiva do login.
+
 ---
 
 ### NFR-O: Operação e Extensibilidade
