@@ -1,61 +1,59 @@
+import type { ComponentType } from "react";
 import { NavLink } from "react-router-dom";
+import { Clock, Palette, Scissors, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Abas horizontais da seção Configurações — mesmo visual do toggle `[Dia|Semana]`
- * da Agenda (Segmented). São route-driven: a aba ativa reflete a URL (NavLink).
- * Todas as abas ativas: Serviços/Identidade (2.1.03), Horários (3.3.2), Equipe (3.3.3).
+ * Abas da seção Configurações — route-driven (NavLink reflete a URL).
+ * DESKTOP: segmented em pill (como antes, há espaço de sobra).
+ * MOBILE (< md): ícone em cima + rótulo embaixo + sublinhado na aba ativa —
+ * o ícone carrega o reconhecimento, então o texto cabe inteiro (sem truncate).
  */
 interface Tab {
   label: string;
-  to: string | null;
+  /** Rótulo curto para o mobile (quando o longo não caberia). */
+  short?: string;
+  to: string;
+  Icon: ComponentType<{ className?: string }>;
 }
 
 const TABS: Tab[] = [
-  { label: "Serviços", to: "/configuracoes/servicos" },
-  { label: "Horários", to: "/configuracoes/horarios" },
-  { label: "Equipe", to: "/configuracoes/equipe" },
-  { label: "Identidade visual", to: "/configuracoes/identidade" },
+  { label: "Serviços", to: "/configuracoes/servicos", Icon: Scissors },
+  { label: "Horários", to: "/configuracoes/horarios", Icon: Clock },
+  { label: "Equipe", to: "/configuracoes/equipe", Icon: Users },
+  { label: "Identidade visual", short: "Identidade", to: "/configuracoes/identidade", Icon: Palette },
 ];
-
-const ITEM = "px-3 py-1.5 text-sm font-semibold transition-colors";
 
 export function ConfiguracoesTabs() {
   return (
     <div
       role="tablist"
       aria-label="Seções de Configurações"
-      className="inline-flex overflow-hidden rounded-md border border-border"
+      className="flex border-b border-border md:inline-flex md:rounded-md md:border md:border-border"
     >
-      {TABS.map((tab) =>
-        tab.to ? (
-          <NavLink
-            key={tab.label}
-            to={tab.to}
-            role="tab"
-            className={({ isActive }) =>
-              cn(
-                ITEM,
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent",
-              )
-            }
-          >
-            {tab.label}
-          </NavLink>
-        ) : (
-          <span
-            key={tab.label}
-            role="tab"
-            aria-disabled="true"
-            title="Em breve"
-            className={cn(ITEM, "cursor-not-allowed text-muted-foreground opacity-50")}
-          >
-            {tab.label}
-          </span>
-        ),
-      )}
+      {TABS.map((tab) => (
+        <NavLink
+          key={tab.label}
+          to={tab.to}
+          role="tab"
+          aria-label={tab.label}
+          className={({ isActive }) =>
+            cn(
+              // MOBILE: coluna ícone+rótulo, sublinhado; DESKTOP: pill horizontal.
+              "-mb-px flex flex-1 flex-col items-center gap-1 border-b-2 border-transparent px-2 py-2 text-[12px] font-semibold transition-colors no-underline",
+              "md:mb-0 md:flex-none md:flex-row md:gap-0 md:border-b-0 md:px-3 md:py-1.5 md:text-sm",
+              isActive
+                ? "border-primary text-primary md:bg-primary md:text-primary-foreground"
+                : "text-muted-foreground md:hover:bg-accent",
+            )
+          }
+        >
+          <tab.Icon className="size-5 shrink-0 md:hidden" />
+          {/* Rótulo curto no mobile, longo no desktop (ex.: Identidade[ visual]). */}
+          <span className="md:hidden">{tab.short ?? tab.label}</span>
+          <span className="hidden md:inline">{tab.label}</span>
+        </NavLink>
+      ))}
     </div>
   );
 }
