@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { NavLink } from "react-router-dom";
-import { Clock, Palette, Scissors, Users } from "lucide-react";
+import { Clock, Link2, Palette, Scissors, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,6 +22,7 @@ const TABS: Tab[] = [
   { label: "Horários", to: "/configuracoes/horarios", Icon: Clock },
   { label: "Equipe", to: "/configuracoes/equipe", Icon: Users },
   { label: "Identidade visual", short: "Identidade", to: "/configuracoes/identidade", Icon: Palette },
+  { label: "Link", to: "/configuracoes/link", Icon: Link2 },
 ];
 
 export function ConfiguracoesTabs() {
@@ -40,7 +41,8 @@ export function ConfiguracoesTabs() {
           className={({ isActive }) =>
             cn(
               // MOBILE: coluna ícone+rótulo, sublinhado; DESKTOP: pill horizontal.
-              "-mb-px flex flex-1 flex-col items-center gap-1 border-b-2 border-transparent px-2 py-2 text-[12px] font-semibold transition-colors no-underline",
+              // Ícone/rótulo menores para caber 5 abas sem truncar em 412px.
+              "-mb-px flex flex-1 flex-col items-center gap-1 border-b-2 border-transparent px-1 py-2 text-[11px] font-semibold transition-colors no-underline",
               "md:mb-0 md:flex-none md:flex-row md:gap-0 md:border-b-0 md:px-3 md:py-1.5 md:text-sm",
               isActive
                 ? "border-primary text-primary md:bg-primary md:text-primary-foreground"
@@ -48,7 +50,7 @@ export function ConfiguracoesTabs() {
             )
           }
         >
-          <tab.Icon className="size-5 shrink-0 md:hidden" />
+          <tab.Icon className="size-[18px] shrink-0 md:hidden" />
           {/* Rótulo curto no mobile, longo no desktop (ex.: Identidade[ visual]). */}
           <span className="md:hidden">{tab.short ?? tab.label}</span>
           <span className="hidden md:inline">{tab.label}</span>

@@ -20,6 +20,7 @@ import { UsersService } from "./users.service";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateMeDto } from "./dto/update-me.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 
 interface UserProfile {
   id: string;
@@ -71,6 +72,23 @@ export class UsersController {
     @Body() dto: UpdateMeDto,
   ): Promise<UserProfile> {
     return toProfile(await this.users.setTheme(authUser.userId, dto.theme));
+  }
+
+  /**
+   * Troca a própria senha (Perfil). Valida a senha atual; 400 se não conferir.
+   * Nova senha usa a política do aceite de convite (mín. 8). Antes de :id.
+   */
+  @Patch("me/password")
+  async changePassword(
+    @CurrentUser() authUser: AuthUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ ok: true }> {
+    await this.users.changeOwnPassword(
+      authUser.userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { ok: true };
   }
 
   /** Lista os usuários do tenant atual (nunca de outro tenant — NFR-S1). */

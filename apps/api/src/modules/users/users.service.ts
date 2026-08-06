@@ -96,6 +96,29 @@ export class UsersService {
   }
 
   /**
+   * Troca a própria senha (Perfil). Valida a senha ATUAL antes de aceitar
+   * (400 "Senha atual incorreta." se não confere). A nova senha já vem validada
+   * pela política do DTO (mín. 8, igual ao aceite de convite). Não há revogação
+   * de tokens hoje (sem versionamento de sessão) — a sessão atual segue válida.
+   */
+  async changeOwnPassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.tenantUsers.findById(id);
+    if (!user) {
+      throw new NotFoundException();
+    }
+    const ok = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!ok) {
+      throw new BadRequestException("Senha atual incorreta.");
+    }
+    user.password_hash = await bcrypt.hash(newPassword, 10);
+    await this.tenantUsers.save(user);
+  }
+
+  /**
    * Cria um convite tenant-scoped e devolve o link de aceite (AC1, DL-029).
    * O token em claro só existe aqui; o banco guarda só o hash. Re-convidar o
    * mesmo e-mail substitui o convite pendente anterior.
