@@ -249,7 +249,7 @@ export function AgendaList({
             <ChevronRight className="size-5" />
           </button>
         </div>
-        <div className="grid grid-cols-7 text-center">
+        <div className="grid grid-cols-7 gap-y-1 text-center">
           {WEEKDAYS.map((w, i) => (
             <span
               key={i}
@@ -270,7 +270,7 @@ export function AgendaList({
                 aria-label={c.date}
                 aria-current={selected ? "date" : undefined}
                 className={cn(
-                  "relative mx-auto grid size-9 place-items-center rounded-[10px] text-[13px]",
+                  "relative mx-auto grid size-8 place-items-center rounded-[10px] text-[13px]",
                   // COR = status, SEMPRE (selecionado ou não). Dia sem
                   // agendamento = neutro.
                   status
@@ -280,9 +280,9 @@ export function AgendaList({
                       : "text-muted-foreground/40",
                   // Hoje: número em negrito (marca leve, não conflita com o anel).
                   c.date === today && "font-bold",
-                  // SELEÇÃO = anel; o dia mantém a cor do próprio status por baixo.
-                  selected &&
-                    "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  // SELEÇÃO = anel INSET (dentro da célula) — mantém a cor do
+                  // status e NÃO invade os dias vizinhos (evita sobreposição).
+                  selected && "ring-2 ring-inset ring-primary",
                 )}
               >
                 {c.day}

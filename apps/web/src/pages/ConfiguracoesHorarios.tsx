@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import {
   buildWeek,
   hasSchedule,
@@ -32,38 +33,6 @@ const inputCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50";
 
 const onlyDigits = (v: string): string => v.replace(/\D/g, "");
-
-/** Interruptor liga/desliga (switch). */
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-        checked ? "bg-primary" : "bg-border",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-all",
-          checked ? "left-[18px]" : "left-0.5",
-        )}
-      />
-    </button>
-  );
-}
 
 async function apiError(res: Response, fallback: string): Promise<string> {
   try {
@@ -238,7 +207,7 @@ export function ConfiguracoesHorarios() {
               <span className="text-sm font-medium text-foreground">
                 Aplicar a todos os dias
               </span>
-              <div className="flex items-end gap-2">
+              <div className="flex gap-2">
                 <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
                   Início
                   <Input
@@ -257,10 +226,17 @@ export function ConfiguracoesHorarios() {
                     onChange={(e) => setBulkEnd(e.target.value)}
                   />
                 </label>
-                <Button type="button" variant="secondary" onClick={applyToAllDays}>
-                  Aplicar
-                </Button>
               </div>
+              {/* Botão em linha própria (largura total) — alinha limpo, sem
+                  ficar "solto" ao lado dos campos rotulados. */}
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={applyToAllDays}
+              >
+                Aplicar
+              </Button>
               <span className="text-xs text-muted-foreground">
                 Replica o horário acima para todos os dias ativos.
               </span>
@@ -283,7 +259,7 @@ export function ConfiguracoesHorarios() {
                     >
                       {DAY_LABELS[i]}
                     </span>
-                    <Toggle
+                    <ToggleSwitch
                       checked={d.active}
                       onChange={(v) => setDay(i, { active: v })}
                       label={DAY_LABELS[i]}

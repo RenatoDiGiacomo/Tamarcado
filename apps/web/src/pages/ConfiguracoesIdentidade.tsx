@@ -224,8 +224,9 @@ export function ConfiguracoesIdentidade() {
         </CardContent>
       </Card>
 
-      {/* Prévia ao vivo */}
-      <Card className="w-full lg:max-w-sm">
+      {/* Prévia ao vivo — só no desktop (coluna lateral). No mobile não encaixa
+          (apareceria empilhada, sem função), então fica oculta. */}
+      <Card className="hidden w-full lg:block lg:max-w-sm">
         <CardHeader>
           <CardTitle className="text-sm text-muted-foreground">
             Prévia ao vivo
