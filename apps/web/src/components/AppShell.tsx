@@ -246,7 +246,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
       {/* Conteúdo. Padding inferior = folga do FAB + safe-area (não cobre o
           último card). Padding superior = altura da AppBar. */}
-      <main className="px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-16">
+      <main className="px-4 pb-[calc(76px+env(safe-area-inset-bottom))] pt-16">
         {children}
       </main>
 
