@@ -60,10 +60,10 @@ export class PlatformService {
     );
     return {
       slug: company.slug,
-      // Rota de login do painel por slug (DL-050) — funcional após o fix do
-      // login multi-tenant (spec 1-2-01). Até lá, provisionar cliente real
-      // fica bloqueado (ver epics.md).
-      painelUrl: `${base}/app/${company.slug}/login`,
+      // URL ÚNICA do painel (DL-052): o dono entra pelo e-mail; o backend
+      // resolve o tenant. Não há mais slug na rota do painel. O slug segue só
+      // no publicUrl (/agendar/{slug}), que é o endereço da cliente final.
+      painelUrl: `${base}/login`,
       publicUrl: `${base}/agendar/${company.slug}`,
       inviteUrl,
     };

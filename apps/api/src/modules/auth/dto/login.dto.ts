@@ -9,10 +9,13 @@ export class LoginDto {
   password!: string;
 
   /**
-   * Identificador da instalação (slug da company). Opcional: em deploy de
-   * tenant único o login resolve a única company existente (DL-026).
+   * Escolha do estabelecimento na DESAMBIGUAÇÃO (DL-052). O tenant do painel é
+   * resolvido pelo backend a partir do e-mail — não há slug na URL do painel.
+   * Quando o mesmo e-mail existe em mais de uma empresa (e-mail é único POR
+   * empresa, DL-026), o login responde com a lista de empresas; o front reenvia
+   * com o `companyId` escolhido e só então a senha é validada naquele tenant.
    */
   @IsOptional()
   @IsString()
-  companySlug?: string;
+  companyId?: string;
 }

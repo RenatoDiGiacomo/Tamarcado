@@ -45,6 +45,17 @@ export class UsersService {
   }
 
   /**
+   * Login por e-mail (pré-tenant, DL-052): usuários ATIVOS com este e-mail em
+   * QUALQUER empresa. O tenant do painel é resolvido pelo backend a partir do
+   * e-mail (URL única, sem slug). Um resultado → login direto; vários → o front
+   * pede a escolha do estabelecimento (e-mail é único por empresa, DL-026, então
+   * a mesma pessoa pode atender em >1 salão).
+   */
+  findActiveByEmail(email: string): Promise<User[]> {
+    return this.repo.find({ where: { email, is_active: true } });
+  }
+
+  /**
    * Lookup por id SEM tenant — usado só pelo refresh (pré-tenant, sem
    * middleware). O refresh token é assinado/verificado; reemite para o próprio
    * usuário. Não usar em rotas tenant-aware.
