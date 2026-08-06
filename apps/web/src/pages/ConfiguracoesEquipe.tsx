@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "../components/EmptyState";
+import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
+import { Users } from "lucide-react";
 
 const ACCESS_KEY = "tamarcado.access";
 const token = (): string | null => localStorage.getItem(ACCESS_KEY);
@@ -49,7 +53,9 @@ async function apiError(res: Response, fallback: string): Promise<string> {
  */
 export function ConfiguracoesEquipe() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadErrorKind, setLoadErrorKind] = useState<ErrorKind | null>(null);
+  const [error, setError] = useState<string | null>(null); // erro inline de PATCH
   const [confirmOff, setConfirmOff] = useState<string | null>(null); // membro a desativar
 
   // Convite
@@ -66,9 +72,19 @@ export function ConfiguracoesEquipe() {
   ).length;
 
   const loadMembers = useCallback(async (): Promise<void> => {
-    const res = await apiRequest("/users", { token: token() });
-    if (res.ok) {
+    setLoading(true);
+    setLoadErrorKind(null);
+    try {
+      const res = await apiRequest("/users", { token: token() });
+      if (!res.ok) {
+        setLoadErrorKind("server");
+        return;
+      }
       setMembers(((await res.json()) as { users: Member[] }).users);
+    } catch (e) {
+      setLoadErrorKind(errorKindFrom(e));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -228,7 +244,28 @@ export function ConfiguracoesEquipe() {
       )}
 
       {/* Lista da equipe — um CARD por pessoa (como a agenda, sem cores de
-          status): tipo de conta, atende clientes e ativar/desativar legíveis. */}
+          status): tipo de conta, atende clientes e ativar/desativar legíveis.
+          Antes: estados de carregamento/erro/vazio (Story 7.3). */}
+      {loading ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : loadErrorKind ? (
+        <ErrorState
+          kind={loadErrorKind}
+          resource="a equipe"
+          onRetry={() => void loadMembers()}
+        />
+      ) : members.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          compact
+          title="Nenhum membro na equipe"
+          description="Convide a primeira pessoa no botão acima."
+        />
+      ) : (
       <div className="grid gap-3 sm:grid-cols-2">
         {members.map((m) => {
           const isOwner = m.accessLevel === "owner";
@@ -352,6 +389,7 @@ export function ConfiguracoesEquipe() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

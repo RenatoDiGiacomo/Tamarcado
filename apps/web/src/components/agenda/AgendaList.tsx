@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusChip } from "../StatusChip";
+import { EmptyState } from "../EmptyState";
+import { Button } from "../ui/button";
 import type { AgendaAppointment, AgendaView } from "./AgendaGrid";
 import { useMonthAppointments } from "./useAgenda";
 
@@ -357,24 +359,24 @@ export function AgendaList({
   );
 }
 
-/** Estado vazio compacto (não ocupa meia tela — §5.4). */
+/**
+ * Estado vazio do dia/semana no celular (Story 7.3 §1) — EmptyState padronizado,
+ * porém COMPACTO para não ocupar meia tela, com ação que orienta o próximo passo.
+ */
 function ListEmpty({ onNew, plural }: { onNew: () => void; plural?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-6 text-center">
-      <CalendarDays
-        className="size-10 text-muted-foreground/40"
-        aria-hidden="true"
-      />
-      <p className="text-sm text-muted-foreground">
-        Nenhum agendamento {plural ? "nesta semana" : "neste dia"}
-      </p>
-      <button
-        type="button"
-        onClick={onNew}
-        className="text-sm font-semibold text-primary"
-      >
-        + Novo agendamento
-      </button>
-    </div>
+    <EmptyState
+      icon={CalendarDays}
+      compact
+      title={
+        plural ? "Nenhum agendamento nesta semana" : "Nenhum agendamento neste dia"
+      }
+      description="Crie um agendamento ou use ‹ › para ver outro período."
+      action={
+        <Button onClick={onNew}>
+          <CalendarDays className="size-4" /> Novo agendamento
+        </Button>
+      }
+    />
   );
 }

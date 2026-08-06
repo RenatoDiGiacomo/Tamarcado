@@ -8,18 +8,22 @@ export function EmptyState({
   title,
   description,
   action,
+  compact,
   className,
 }: {
   icon?: ComponentType<LucideProps>;
   title: string;
   description?: string;
   action?: ReactNode;
+  /** No celular (Story 7.3 §1): menos respiro para não ocupar meia tela. */
+  compact?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 py-12 text-center",
+        "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-6 text-center",
+        compact ? "py-8" : "py-12",
         className,
       )}
     >
