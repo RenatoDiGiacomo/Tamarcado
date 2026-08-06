@@ -33,6 +33,38 @@ const inputCls =
 
 const onlyDigits = (v: string): string => v.replace(/\D/g, "");
 
+/** Interruptor liga/desliga (switch). */
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+        checked ? "bg-primary" : "bg-border",
+      )}
+    >
+      <span
+        className={cn(
+          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-all",
+          checked ? "left-[18px]" : "left-0.5",
+        )}
+      />
+    </button>
+  );
+}
+
 async function apiError(res: Response, fallback: string): Promise<string> {
   try {
     const b = (await res.json()) as { message?: string | string[] };
@@ -60,6 +92,9 @@ export function ConfiguracoesHorarios() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
+  // "Aplicar a todos os dias": um horário-modelo replicado aos dias ATIVOS.
+  const [bulkStart, setBulkStart] = useState("09:00");
+  const [bulkEnd, setBulkEnd] = useState("18:00");
 
   const getSchedule = useCallback(
     async (profId: string): Promise<ScheduleResponse | null> => {
@@ -103,6 +138,14 @@ export function ConfiguracoesHorarios() {
 
   function setDay(i: number, patch: Partial<DayRow>): void {
     setWeek((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+    setStatus("idle");
+  }
+
+  /** Copia o horário-modelo para TODOS os dias ativos (configura uma vez). */
+  function applyToAllDays(): void {
+    setWeek((prev) =>
+      prev.map((d) => (d.active ? { ...d, start: bulkStart, end: bulkEnd } : d)),
+    );
     setStatus("idle");
   }
 
@@ -187,20 +230,51 @@ export function ConfiguracoesHorarios() {
       </div>
 
       {selected && (
-        <Card className="w-full">
-          <CardContent className="flex flex-col gap-6 p-6">
-            {/* Grade semanal */}
+        <Card className="w-full sm:max-w-lg">
+          <CardContent className="flex flex-col gap-5 p-4 sm:p-6">
+            {/* Aplicar a todos os dias — configura o horário UMA vez e replica
+                para todos os dias ativos (quem atende 6 dias no mesmo horário). */}
+            <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+              <span className="text-sm font-medium text-foreground">
+                Aplicar a todos os dias
+              </span>
+              <div className="flex items-end gap-2">
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                  Início
+                  <Input
+                    type="time"
+                    aria-label="Início (todos os dias)"
+                    value={bulkStart}
+                    onChange={(e) => setBulkStart(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                  Término
+                  <Input
+                    type="time"
+                    aria-label="Término (todos os dias)"
+                    value={bulkEnd}
+                    onChange={(e) => setBulkEnd(e.target.value)}
+                  />
+                </label>
+                <Button type="button" variant="secondary" onClick={applyToAllDays}>
+                  Aplicar
+                </Button>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Replica o horário acima para todos os dias ativos.
+              </span>
+            </div>
+
+            {/* Um card por dia da semana: nome + toggle; ao ligar, expande
+                Início/Término lado a lado (input nativo de hora). */}
             <div className="flex flex-col gap-2">
               {week.map((d, i) => (
-                <div key={d.dayOfWeek} className="flex flex-wrap items-center gap-3">
-                  <label className="flex w-32 shrink-0 items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-primary"
-                      checked={d.active}
-                      onChange={(e) => setDay(i, { active: e.target.checked })}
-                      aria-label={DAY_LABELS[i]}
-                    />
+                <div
+                  key={d.dayOfWeek}
+                  className="rounded-lg border border-border p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
                     <span
                       className={cn(
                         "font-medium",
@@ -209,24 +283,34 @@ export function ConfiguracoesHorarios() {
                     >
                       {DAY_LABELS[i]}
                     </span>
-                  </label>
-                  <Input
-                    type="time"
-                    aria-label={`Início ${DAY_LABELS[i]}`}
-                    className="w-32"
-                    value={d.start}
-                    disabled={!d.active}
-                    onChange={(e) => setDay(i, { start: e.target.value })}
-                  />
-                  <span className="text-sm text-muted-foreground">até</span>
-                  <Input
-                    type="time"
-                    aria-label={`Fim ${DAY_LABELS[i]}`}
-                    className="w-32"
-                    value={d.end}
-                    disabled={!d.active}
-                    onChange={(e) => setDay(i, { end: e.target.value })}
-                  />
+                    <Toggle
+                      checked={d.active}
+                      onChange={(v) => setDay(i, { active: v })}
+                      label={DAY_LABELS[i]}
+                    />
+                  </div>
+                  {d.active && (
+                    <div className="mt-3 flex gap-3">
+                      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                        Início
+                        <Input
+                          type="time"
+                          aria-label={`Início ${DAY_LABELS[i]}`}
+                          value={d.start}
+                          onChange={(e) => setDay(i, { start: e.target.value })}
+                        />
+                      </label>
+                      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                        Término
+                        <Input
+                          type="time"
+                          aria-label={`Fim ${DAY_LABELS[i]}`}
+                          value={d.end}
+                          onChange={(e) => setDay(i, { end: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
