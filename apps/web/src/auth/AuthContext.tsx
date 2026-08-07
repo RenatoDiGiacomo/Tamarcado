@@ -18,15 +18,26 @@ export interface CurrentUser {
   theme: "light" | "dark";
 }
 
+/** Estabelecimento oferecido na desambiguação de e-mail (DL-052). */
+export interface CompanyChoice {
+  id: string;
+  name: string;
+}
+
 interface AuthContextValue {
   user: CurrentUser | null;
   loading: boolean;
   isAuthenticated: boolean;
+  /**
+   * Login por e-mail (DL-052). Resolve `null` quando entra direto; resolve a
+   * LISTA de estabelecimentos quando o e-mail existe em mais de uma empresa —
+   * o chamador mostra a escolha e chama de novo com `companyId`.
+   */
   login: (
     email: string,
     password: string,
-    companySlug?: string,
-  ) => Promise<void>;
+    companyId?: string,
+  ) => Promise<CompanyChoice[] | null>;
   logout: () => void;
   setTheme: (theme: "light" | "dark") => Promise<void>;
   /** Aplica uma sessão a partir de tokens (ex.: aceite de convite) e carrega o perfil. */
@@ -35,20 +46,14 @@ interface AuthContextValue {
 
 const ACCESS_KEY = "tamarcado.access";
 const REFRESH_KEY = "tamarcado.refresh";
-// Slug da instalação (DL-050). Guardado no login bem-sucedido para o front saber
-// PARA QUAL /app/{slug}/login redirecionar quando a sessão expira/o dono sai — as
-// rotas internas do painel não têm o slug na URL. Persiste no logout (identifica
-// o tenant deste navegador, não a sessão).
-const SLUG_KEY = "tamarcado.slug";
 
 /**
- * Rota de login a usar em redirects (sessão expirada, logout, rota protegida sem
- * sessão): `/app/{slug}/login` quando há um slug guardado; senão o `/login`
- * genérico (dev tenant-único, ou primeiro acesso sem link da instalação).
+ * Rota de login para os redirects (sessão expirada, logout, rota protegida sem
+ * sessão). URL ÚNICA (DL-052): o tenant é resolvido pelo backend a partir do
+ * e-mail, então não há mais `/app/{slug}/login` nem slug guardado no navegador.
  */
 export function loginPath(): string {
-  const slug = localStorage.getItem(SLUG_KEY);
-  return slug ? `/app/${slug}/login` : "/login";
+  return "/login";
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -100,25 +105,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = useCallback(
-    async (email: string, password: string, companySlug?: string) => {
+    async (
+      email: string,
+      password: string,
+      companyId?: string,
+    ): Promise<CompanyChoice[] | null> => {
       const res = await apiRequest("/auth/login", {
         method: "POST",
-        body: { email, password, companySlug },
+        body: { email, password, companyId },
       });
       if (!res.ok) {
         throw new Error("Credenciais inválidas");
       }
       const data = (await res.json()) as {
-        accessToken: string;
-        refreshToken: string;
+        accessToken?: string;
+        refreshToken?: string;
+        companies?: CompanyChoice[];
       };
-      localStorage.setItem(ACCESS_KEY, data.accessToken);
-      localStorage.setItem(REFRESH_KEY, data.refreshToken);
-      // Guarda o slug (DL-050) para os redirects futuros saberem o tenant.
-      if (companySlug) {
-        localStorage.setItem(SLUG_KEY, companySlug);
+      // E-mail em mais de uma empresa: devolve a lista para a tela de escolha
+      // (a senha ainda não foi validada — DL-052). Nenhum token é guardado.
+      if (data.companies) {
+        return data.companies;
       }
+      localStorage.setItem(ACCESS_KEY, data.accessToken!);
+      localStorage.setItem(REFRESH_KEY, data.refreshToken!);
       await loadProfile();
+      return null;
     },
     [loadProfile],
   );

@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { Login } from "./Login";
 import { ApiConnectionError } from "../lib/api";
 
@@ -32,8 +32,8 @@ describe("Login", () => {
     expect(screen.getByRole("button", { name: /entrar/i })).toBeInTheDocument();
   });
 
-  it("login com sucesso navega para /", async () => {
-    loginMock.mockResolvedValue(undefined);
+  it("login por e-mail (sem slug) com sucesso navega para /", async () => {
+    loginMock.mockResolvedValue(null); // null = entrou direto (DL-052)
     render(
       <MemoryRouter>
         <Login />
@@ -46,20 +46,23 @@ describe("Login", () => {
       target: { value: "segredo" },
     });
     fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
-    // /login genérico → sem slug (undefined); dev tenant-único resolve no back.
+    // Só e-mail + senha; o backend resolve o tenant (URL única).
     await waitFor(() =>
-      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo", undefined),
+      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo"),
     );
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/"));
   });
 
-  it("em /app/{slug}/login envia o slug da rota no login (DL-050)", async () => {
-    loginMock.mockResolvedValue(undefined);
+  it("e-mail em 2 empresas → mostra escolha; ao escolher, loga com companyId (DL-052)", async () => {
+    loginMock
+      .mockResolvedValueOnce([
+        { id: "1", name: "Salão A" },
+        { id: "2", name: "Salão B" },
+      ])
+      .mockResolvedValueOnce(null);
     render(
-      <MemoryRouter initialEntries={["/app/salao-a/login"]}>
-        <Routes>
-          <Route path="/app/:slug/login" element={<Login />} />
-        </Routes>
+      <MemoryRouter>
+        <Login />
       </MemoryRouter>,
     );
     fireEvent.change(screen.getByLabelText("E-mail"), {
@@ -69,9 +72,16 @@ describe("Login", () => {
       target: { value: "segredo" },
     });
     fireEvent.click(screen.getByRole("button", { name: /entrar/i }));
+
+    // Tela de escolha com os dois estabelecimentos.
+    await screen.findByText(/escolha o estabelecimento/i);
+    fireEvent.click(screen.getByRole("button", { name: "Salão B" }));
+
+    // Segunda chamada carrega o companyId escolhido, então navega.
     await waitFor(() =>
-      expect(loginMock).toHaveBeenCalledWith("dono@x.dev", "segredo", "salao-a"),
+      expect(loginMock).toHaveBeenLastCalledWith("dono@x.dev", "segredo", "2"),
     );
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/"));
   });
 
   it("alterna a visibilidade da senha pelo ícone de olho", () => {

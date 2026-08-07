@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
-import { useAuth } from "../auth/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { useAuth, type CompanyChoice } from "../auth/AuthContext";
 import { ApiConnectionError, CONNECTION_ERROR_MESSAGE } from "../lib/api";
+import { PwaInstall } from "../components/PwaInstall";
 import { APP_VERSION } from "../lib/version";
 // Logo vertical (ícone TM + wordmark empilhados) — variação por tema:
 // wordmark preto no tema claro, branco no escuro. O check roxo é o mesmo nas
@@ -18,30 +19,50 @@ import { Card, CardContent } from "@/components/ui/card";
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  // Slug do tenant vindo da rota /app/{slug}/login (DL-050). Em /login genérico
-  // fica undefined (dev tenant-único resolve sozinho; ver AUTH_ALLOW_SINGLE_TENANT).
-  const { slug } = useParams<{ slug?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Desambiguação (DL-052): quando o e-mail existe em >1 empresa, o backend
+  // devolve a lista e mostramos a escolha antes de validar a senha.
+  const [choices, setChoices] = useState<CompanyChoice[] | null>(null);
+
+  function messageFor(err: unknown): string {
+    // Distingue "não deu para falar com o servidor" (rede/CORS/timeout) de
+    // credencial inválida — antes toda falha virava "senha incorreta".
+    return err instanceof ApiConnectionError
+      ? CONNECTION_ERROR_MESSAGE
+      : "E-mail ou senha incorretos. Tente novamente.";
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password, slug);
+      const multi = await login(email, password);
+      if (multi) {
+        setChoices(multi); // e-mail em várias empresas → escolher
+        return;
+      }
       navigate("/");
     } catch (err) {
-      // Distingue "não deu para falar com o servidor" (rede/CORS/timeout) de
-      // credencial inválida — antes toda falha virava "senha incorreta".
-      setError(
-        err instanceof ApiConnectionError
-          ? CONNECTION_ERROR_MESSAGE
-          : "E-mail ou senha incorretos. Tente novamente.",
-      );
+      setError(messageFor(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /** Entra no estabelecimento escolhido (valida a senha naquele tenant). */
+  async function chooseCompany(companyId: string) {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(email, password, companyId);
+      navigate("/");
+    } catch (err) {
+      setError(messageFor(err));
     } finally {
       setSubmitting(false);
     }
@@ -67,6 +88,48 @@ export function Login() {
 
       <Card className="w-full max-w-sm">
         <CardContent className="pt-6">
+          {choices ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Escolha o estabelecimento
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Este e-mail tem acesso a mais de um. Em qual você quer entrar?
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {choices.map((c) => (
+                  <Button
+                    key={c.id}
+                    type="button"
+                    variant="secondary"
+                    className="justify-start"
+                    disabled={submitting}
+                    onClick={() => void chooseCompany(c.id)}
+                  >
+                    {c.name}
+                  </Button>
+                ))}
+              </div>
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setChoices(null);
+                  setError(null);
+                }}
+                className="mt-1 inline-flex items-center gap-1 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+                Voltar
+              </button>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">E-mail</Label>
@@ -117,6 +180,7 @@ export function Login() {
               {submitting ? "Entrando..." : "Entrar"}
             </Button>
           </form>
+          )}
           {/* Versão discreta no canto inferior direito do card (lida do
               package.json na build — ver src/lib/version.ts). */}
           <p className="mt-4 text-right text-[11px] text-muted-foreground">
@@ -124,6 +188,9 @@ export function Login() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Instalar o app (mobile) — discreto, abaixo do card (Story 7.1). */}
+      <PwaInstall />
 
       <footer className="text-xs text-muted-foreground">
         Desenvolvido por Nordiq.tech

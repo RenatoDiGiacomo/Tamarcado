@@ -1,10 +1,12 @@
-import { Moon, Sun, LogOut } from "lucide-react";
+import { useState } from "react";
+import { KeyRound, Moon, Sun, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useInstallation } from "../lib/useInstallation";
 import { APP_VERSION } from "../lib/version";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageLayout } from "@/components/PageLayout";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 const ACCESS_LABEL: Record<string, string> = {
   owner: "Dono",
@@ -21,6 +23,7 @@ export function Perfil() {
   const { user, setTheme, logout } = useAuth();
   const installation = useInstallation();
   const isDark = user?.theme === "dark";
+  const [pwdOpen, setPwdOpen] = useState(false);
 
   return (
     <PageLayout title="Perfil" className="mx-auto max-w-lg">
@@ -75,6 +78,20 @@ export function Perfil() {
             </Button>
           </div>
 
+          {/* Segurança — trocar a própria senha (sheet no mobile) */}
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">Senha</span>
+              <span className="text-sm text-muted-foreground">
+                Troque a senha de acesso ao painel.
+              </span>
+            </div>
+            <Button variant="secondary" onClick={() => setPwdOpen(true)}>
+              <KeyRound className="mr-2 size-4" aria-hidden="true" />
+              Trocar senha
+            </Button>
+          </div>
+
           {/* Sobre / versão (sai de cima do conteúdo no mobile) */}
           <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
             <span className="font-medium">Sobre</span>
@@ -94,6 +111,8 @@ export function Perfil() {
           </button>
         </CardContent>
       </Card>
+
+      <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </PageLayout>
   );
 }

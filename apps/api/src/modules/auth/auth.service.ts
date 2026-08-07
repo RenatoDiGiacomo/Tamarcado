@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { Company } from "../../database/entities/company.entity";
 import { User } from "../../database/entities/user.entity";
@@ -12,6 +12,15 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
 }
+
+/** Estabelecimento oferecido na desambiguação de e-mail (DL-052). */
+export interface CompanyChoice {
+  id: string;
+  name: string;
+}
+
+/** Resultado do login: ou entra (tokens) ou pede escolha do estabelecimento. */
+export type LoginOutcome = AuthTokens | { companies: CompanyChoice[] };
 
 @Injectable()
 export class AuthService {
@@ -24,57 +33,60 @@ export class AuthService {
   ) {}
 
   /**
-   * Resolve o tenant do login (DL-026/DL-050). Ordem:
-   * 1. Com `companySlug` → resolve pela company do slug (não achou → 401
-   *    "Credenciais inválidas", sem revelar se o tenant existe — sem enumeração).
-   * 2. Sem slug → só resolve se `AUTH_ALLOW_SINGLE_TENANT` estiver LIGADA **e**
-   *    existir exatamente uma company (conveniência de dev / deploy tenant-único).
-   * 3. Caso contrário → 401 "Informe a instalação".
+   * Login do painel (DL-052): tenant resolvido pelo BACKEND a partir do e-mail —
+   * URL única, sem slug. Fluxo:
+   * 1. Com `companyId` (escolha da desambiguação) → valida e-mail+senha NAQUELE
+   *    tenant → tokens ou 401.
+   * 2. Sem `companyId` → busca usuários ativos com o e-mail em todas as empresas:
+   *    - 0 → 401 (sem revelar se o e-mail existe).
+   *    - 1 → valida a senha → tokens ou 401.
+   *    - >1 → devolve a lista de empresas para o front escolher; a senha só é
+   *      validada DEPOIS da escolha, por tenant (DL-052).
    *
-   * Em produção multi-tenant a flag fica OFF: sem slug é SEMPRE 401. O painel
-   * manda o slug pela rota `/app/{slug}/login` (DL-050). Isso remove o fallback
-   * silencioso e dependente de estado que mascarava o bug 1.2.01.
+   * O e-mail é único POR empresa (DL-026), não global — daí a desambiguação.
    */
-  private async resolveCompanyId(companySlug?: string): Promise<string> {
-    if (companySlug) {
-      const company = await this.companies.findOne({
-        where: { slug: companySlug },
-      });
-      if (!company) {
-        throw new UnauthorizedException("Credenciais inválidas");
-      }
-      return company.id;
-    }
-    if (this.singleTenantLoginAllowed()) {
-      const companies = await this.companies.find({ take: 2 });
-      if (companies.length === 1) {
-        return companies[0].id;
-      }
-    }
-    throw new UnauthorizedException("Informe a instalação (companySlug)");
-  }
-
-  /**
-   * Conveniência de dev/tenant-único: permite login sem slug quando há UMA
-   * company. Default OFF (seguro em produção); liga-se só via env em dev/CI.
-   */
-  private singleTenantLoginAllowed(): boolean {
-    const flag = this.config.get<string>("AUTH_ALLOW_SINGLE_TENANT");
-    return flag === "1" || flag === "true";
-  }
-
-  async validateUser(
+  async attemptLogin(
     email: string,
     password: string,
-    companySlug?: string,
-  ): Promise<User | null> {
-    const companyId = await this.resolveCompanyId(companySlug);
-    const user = await this.users.findByCompanyAndEmail(companyId, email);
-    if (!user || !user.is_active) {
-      return null;
+    companyId?: string,
+  ): Promise<LoginOutcome> {
+    if (companyId) {
+      const user = await this.users.findByCompanyAndEmail(companyId, email);
+      return this.tokensIfPasswordOk(user, password);
     }
-    const passwordOk = await bcrypt.compare(password, user.password_hash);
-    return passwordOk ? user : null;
+
+    const users = await this.users.findActiveByEmail(email);
+    if (users.length === 0) {
+      throw new UnauthorizedException("Credenciais inválidas");
+    }
+    if (users.length === 1) {
+      return this.tokensIfPasswordOk(users[0], password);
+    }
+    // Desambiguação: mesma pessoa/e-mail em >1 empresa. Lista os nomes; a senha
+    // é validada só após a escolha (passo 1 acima).
+    const companies = await this.companies.find({
+      where: { id: In(users.map((u) => u.company_id)) },
+    });
+    return {
+      companies: companies
+        .map((c) => ({ id: c.id, name: c.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }
+
+  /** Emite tokens se o usuário existe, está ativo e a senha confere; senão 401. */
+  private async tokensIfPasswordOk(
+    user: User | null,
+    password: string,
+  ): Promise<AuthTokens> {
+    const ok =
+      user !== null &&
+      user.is_active &&
+      (await bcrypt.compare(password, user.password_hash));
+    if (!ok || user === null) {
+      throw new UnauthorizedException("Credenciais inválidas");
+    }
+    return this.login(user);
   }
 
   login(user: User): AuthTokens {

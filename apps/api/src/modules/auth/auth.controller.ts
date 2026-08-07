@@ -1,14 +1,6 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Ip,
-  Post,
-  UnauthorizedException,
-} from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Ip, Post } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { AuthService, AuthTokens } from "./auth.service";
+import { AuthService, AuthTokens, LoginOutcome } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
@@ -18,18 +10,15 @@ import { AcceptInviteDto } from "./dto/accept-invite.dto";
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  /**
+   * Login do painel por e-mail (DL-052). Devolve os tokens quando entra direto,
+   * ou `{ companies }` quando o e-mail existe em mais de uma empresa — o front
+   * mostra a escolha e reenvia com `companyId`.
+   */
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto): Promise<AuthTokens> {
-    const user = await this.auth.validateUser(
-      dto.email,
-      dto.password,
-      dto.companySlug,
-    );
-    if (!user) {
-      throw new UnauthorizedException("Credenciais inválidas");
-    }
-    return this.auth.login(user);
+  login(@Body() dto: LoginDto): Promise<LoginOutcome> {
+    return this.auth.attemptLogin(dto.email, dto.password, dto.companyId);
   }
 
   @Post("refresh")
