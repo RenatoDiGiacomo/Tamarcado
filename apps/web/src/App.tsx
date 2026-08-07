@@ -13,6 +13,7 @@ import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
 import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
 import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
 import { AceitarConvite } from "./pages/AceitarConvite";
+import { DefinirSenha } from "./pages/DefinirSenha";
 import { PublicAgendar } from "./pages/PublicAgendar";
 import { Pendentes } from "./pages/Pendentes";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
@@ -55,6 +56,8 @@ export function App() {
       <Route path="/login" element={<Login />} />
       {/* Aceite de convite (Story 3.3.3, UX-DR14): pública, a pessoa cria a senha. */}
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
+      {/* Definir nova senha por link de reset (1.9.01): pública, uso único/1h. */}
+      <Route path="/definir-senha" element={<DefinirSenha />} />
       {/* Agendamento público por link (Story 5B.1): pública, sem login, por slug. */}
       <Route path="/agendar/:slug" element={<PublicAgendar />} />
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}

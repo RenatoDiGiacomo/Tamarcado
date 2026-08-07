@@ -1,6 +1,7 @@
 import { Type } from "@nestjs/common";
 import { AuthController } from "../auth/auth.controller";
 import { PlatformController } from "../platform/platform.controller";
+import { PasswordResetController } from "../platform/password-reset.controller";
 import { UsersController } from "../users/users.controller";
 import { ServicesController } from "../services/services.controller";
 import { SchedulesController } from "../schedules/schedules.controller";
@@ -53,6 +54,8 @@ export const TENANT_AWARE_CONTROLLERS: Type[] = [
 export const PRE_TENANT_CONTROLLERS: Type[] = [
   AuthController,
   PlatformController,
+  // 1.9.01 — reset de senha: opera unscoped (companyId explícito), como a 1.9.
+  PasswordResetController,
 ];
 
 /**
