@@ -65,7 +65,8 @@ describe("Provisionamento de estabelecimento (e2e)", () => {
     const res = await provision(validBody).expect(201);
     expect(res.body).toEqual({
       slug: "salao-da-ana",
-      painelUrl: expect.stringContaining("/app/salao-da-ana/login"),
+      // URL única do painel (DL-052): sem slug. O slug segue só no publicUrl.
+      painelUrl: expect.stringMatching(/\/login$/),
       publicUrl: expect.stringContaining("/agendar/salao-da-ana"),
       inviteUrl: expect.stringContaining("/aceitar-convite?token="),
     });

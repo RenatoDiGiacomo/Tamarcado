@@ -23,9 +23,8 @@ function Protected({ children }: { children: ReactNode }) {
   if (loading) {
     return <p>Carregando...</p>;
   }
-  // Redireciona para o login do tenant guardado (/app/{slug}/login) quando há
-  // slug; senão o /login genérico. Cobre sessão expirada e acesso direto a rota
-  // interna sem sessão (DL-050).
+  // URL única de login (DL-052): sessão expirada / rota interna sem sessão sempre
+  // voltam para /login; o tenant é resolvido pelo backend a partir do e-mail.
   return isAuthenticated ? (
     <>{children}</>
   ) : (
@@ -49,11 +48,10 @@ function Layout() {
 export function App() {
   return (
     <Routes>
-      {/* Login do painel. `/app/{slug}/login` (DL-050) carrega o slug do tenant
-          na URL; o `/login` genérico atende dev tenant-único e o primeiro acesso
-          sem link da instalação. */}
+      {/* Login do painel — URL ÚNICA (DL-052). O tenant é resolvido pelo backend
+          pelo e-mail; não há mais slug na rota do painel. (O slug segue vital só
+          no link público /agendar/{slug}.) */}
       <Route path="/login" element={<Login />} />
-      <Route path="/app/:slug/login" element={<Login />} />
       {/* Aceite de convite (Story 3.3.3, UX-DR14): pública, a pessoa cria a senha. */}
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
       {/* Agendamento público por link (Story 5B.1): pública, sem login, por slug. */}

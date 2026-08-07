@@ -6,59 +6,65 @@ import { resetSchema } from "./test-db";
 import { bootstrapE2E, teardownE2E, type E2EContext } from "./e2e-app";
 
 /**
- * Fix do bug 1.2.01 (DL-050) — login multi-tenant por slug. Com DUAS empresas,
- * cada dono loga informando o `companySlug` (o front do painel manda o slug da
- * rota /app/{slug}/login) e só enxerga os dados da PRÓPRIA (DL-027). Cobre
- * também as bordas: slug de outra empresa → 401, sem slug com 2+ empresas → 401,
- * slug inexistente → 401 (sem 500, sem enumeração).
+ * Login por E-MAIL, URL única (DL-052 — revoga o slug na rota, DL-050). O tenant
+ * é resolvido pelo BACKEND a partir do e-mail. Cobre o que mais importa no
+ * sistema — ISOLAMENTO entre tenants — e a desambiguação quando o mesmo e-mail
+ * existe em mais de uma empresa (e-mail é único por empresa, DL-026).
  */
 jest.setTimeout(60000);
 
-describe("Login multi-tenant por slug (e2e)", () => {
+describe("Login por e-mail, URL única (e2e)", () => {
   let ctx: E2EContext;
   const PASSWORD = "senha123";
   const api = () => request(ctx.app.getHttpServer());
 
   async function seedCompanyWithOwner(
     slug: string,
+    name: string,
     email: string,
-  ): Promise<void> {
+    password = PASSWORD,
+  ): Promise<string> {
     const company = await ctx.dataSource.getRepository(Company).save(
       ctx.dataSource
         .getRepository(Company)
-        .create({ name: slug, slug, timezone: "America/Sao_Paulo" }),
+        .create({ name, slug, timezone: "America/Sao_Paulo" }),
     );
     await ctx.dataSource.getRepository(User).save(
       ctx.dataSource.getRepository(User).create({
         company_id: company.id,
-        name: `Dono ${slug}`,
+        name: `Dono ${name}`,
         email,
-        password_hash: await bcrypt.hash(PASSWORD, 10),
+        password_hash: await bcrypt.hash(password, 10),
         access_level: "owner",
         attends_clients: true,
         theme: "light",
         is_active: true,
       }),
     );
+    return company.id;
   }
-  const login = (email: string, companySlug?: string) =>
+  // Login SEM slug: só e-mail + senha (+ companyId na desambiguação).
+  const login = (email: string, password = PASSWORD, companyId?: string) =>
     api()
       .post("/api/auth/login")
-      .send({ email, password: PASSWORD, ...(companySlug ? { companySlug } : {}) });
+      .send({ email, password, ...(companyId ? { companyId } : {}) });
 
   beforeEach(async () => {
     ctx = await bootstrapE2E();
     await resetSchema(ctx.dataSource);
-    await seedCompanyWithOwner("salao-a", "owner-a@x.dev");
-    await seedCompanyWithOwner("salao-b", "owner-b@x.dev");
   });
   afterEach(async () => {
     await teardownE2E(ctx);
   });
 
-  it("cada dono loga pelo próprio slug e só vê os dados da própria empresa", async () => {
-    const a = await login("owner-a@x.dev", "salao-a").expect(200);
-    const b = await login("owner-b@x.dev", "salao-b").expect(200);
+  it("dois donos com e-mails DISTINTOS logam SEM slug e cada um só vê os próprios dados (isolamento)", async () => {
+    await seedCompanyWithOwner("salao-a", "Salão A", "owner-a@x.dev");
+    await seedCompanyWithOwner("salao-b", "Salão B", "owner-b@x.dev");
+
+    const a = await login("owner-a@x.dev").expect(200);
+    const b = await login("owner-b@x.dev").expect(200);
+    expect(a.body.accessToken).toBeDefined();
+    expect(b.body.accessToken).toBeDefined();
 
     const usersA = await api()
       .get("/api/users")
@@ -76,15 +82,52 @@ describe("Login multi-tenant por slug (e2e)", () => {
     expect(emailsA).not.toContain("owner-b@x.dev");
   });
 
-  it("dono A com o slug de B → 401 (não existe naquele tenant)", async () => {
-    await login("owner-a@x.dev", "salao-b").expect(401);
+  it("MESMO e-mail em duas empresas → login pede escolha; com companyId cada um só vê os próprios dados", async () => {
+    const idA = await seedCompanyWithOwner("salao-a", "Salão A", "dono@x.dev");
+    const idB = await seedCompanyWithOwner("salao-b", "Salão B", "dono@x.dev");
+
+    // Sem companyId: não entra; devolve a lista para escolha (sem tokens).
+    const choice = await login("dono@x.dev").expect(200);
+    expect(choice.body.accessToken).toBeUndefined();
+    const returned = choice.body.companies.map((c: { id: string }) => c.id).sort();
+    expect(returned).toEqual([idA, idB].sort());
+
+    // Escolhendo A → entra em A e só vê A; idem B → só vê B (isolamento).
+    const a = await login("dono@x.dev", PASSWORD, idA).expect(200);
+    const b = await login("dono@x.dev", PASSWORD, idB).expect(200);
+
+    const usersA = await api()
+      .get("/api/users")
+      .set("Authorization", `Bearer ${a.body.accessToken}`)
+      .expect(200);
+    const usersB = await api()
+      .get("/api/users")
+      .set("Authorization", `Bearer ${b.body.accessToken}`)
+      .expect(200);
+    // Cada token só enxerga o dono da PRÓPRIA empresa: 1 usuário cada, com o
+    // MESMO e-mail mas IDs distintos (donos diferentes) — isolamento preservado
+    // apesar do e-mail idêntico. (O DTO de /users não expõe company_id.)
+    expect(usersA.body.users).toHaveLength(1);
+    expect(usersB.body.users).toHaveLength(1);
+    expect(usersA.body.users[0].email).toBe("dono@x.dev");
+    expect(usersB.body.users[0].email).toBe("dono@x.dev");
+    expect(usersA.body.users[0].id).not.toBe(usersB.body.users[0].id);
   });
 
-  it("sem slug com 2+ empresas → 401 (informe a instalação)", async () => {
-    await login("owner-a@x.dev").expect(401);
+  it("e-mail inexistente → 401 (sem revelar existência de salão)", async () => {
+    await seedCompanyWithOwner("salao-a", "Salão A", "owner-a@x.dev");
+    await login("ninguem@x.dev").expect(401);
   });
 
-  it("slug inexistente → 401 (sem 500, sem enumeração)", async () => {
-    await login("owner-a@x.dev", "nao-existe").expect(401);
+  it("senha errada → 401", async () => {
+    await seedCompanyWithOwner("salao-a", "Salão A", "owner-a@x.dev");
+    await login("owner-a@x.dev", "errada").expect(401);
+  });
+
+  it("escolha com companyId de empresa onde o e-mail NÃO existe → 401", async () => {
+    await seedCompanyWithOwner("salao-a", "Salão A", "owner-a@x.dev");
+    const idB = await seedCompanyWithOwner("salao-b", "Salão B", "owner-b@x.dev");
+    // e-mail de A, mas escolhendo o tenant B → não existe lá → 401.
+    await login("owner-a@x.dev", PASSWORD, idB).expect(401);
   });
 });

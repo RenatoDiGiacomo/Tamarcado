@@ -10,13 +10,15 @@ function jsonRes(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as Response;
 }
 
-function Probe({ slug }: { slug?: string }) {
+function Probe({ companyId }: { companyId?: string }) {
   const { user, login, isAuthenticated } = useAuth();
   return (
     <div>
       <span data-testid="auth">{isAuthenticated ? "yes" : "no"}</span>
       <span data-testid="name">{user?.name ?? ""}</span>
-      <button onClick={() => void login("dono@x.dev", "segredo", slug)}>go</button>
+      <button onClick={() => void login("dono@x.dev", "segredo", companyId)}>
+        go
+      </button>
     </div>
   );
 }
@@ -61,29 +63,41 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("tamarcado.refresh")).toBe("r");
   });
 
-  it("loginPath: /login sem slug guardado; /app/{slug}/login com slug (DL-050)", () => {
+  it("loginPath é sempre /login — URL única, sem slug (DL-052)", () => {
     expect(loginPath()).toBe("/login");
+    // Mesmo com um resíduo antigo de slug no storage, a rota é única.
     localStorage.setItem("tamarcado.slug", "salao-a");
-    expect(loginPath()).toBe("/app/salao-a/login");
+    expect(loginPath()).toBe("/login");
   });
 
-  it("login com slug guarda tamarcado.slug (para o redirect de sessão expirada)", async () => {
-    mockedApi
-      .mockResolvedValueOnce(jsonRes({ accessToken: "a", refreshToken: "r" }))
-      .mockResolvedValueOnce(jsonRes({ id: "1", name: "Dono", accessLevel: "owner" }));
+  it("e-mail em várias empresas: login resolve a lista e NÃO guarda tokens (DL-052)", async () => {
+    // Backend responde com { companies } em vez de tokens (200, sem accessToken).
+    mockedApi.mockResolvedValueOnce(
+      jsonRes({ companies: [{ id: "1", name: "A" }, { id: "2", name: "B" }] }),
+    );
+    let outcome: unknown = "unset";
+    function Grab() {
+      const { login } = useAuth();
+      return (
+        <button
+          onClick={() => {
+            void login("dono@x.dev", "segredo").then((r) => (outcome = r));
+          }}
+        >
+          go
+        </button>
+      );
+    }
     render(
       <AuthProvider>
-        <Probe slug="salao-a" />
+        <Grab />
       </AuthProvider>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("auth").textContent).toBe("no"),
     );
     fireEvent.click(screen.getByText("go"));
     await waitFor(() =>
-      expect(screen.getByTestId("name").textContent).toBe("Dono"),
+      expect(outcome).toEqual([{ id: "1", name: "A" }, { id: "2", name: "B" }]),
     );
-    expect(localStorage.getItem("tamarcado.slug")).toBe("salao-a");
-    expect(loginPath()).toBe("/app/salao-a/login");
+    // Nenhum token guardado enquanto a escolha não acontece.
+    expect(localStorage.getItem("tamarcado.access")).toBeNull();
   });
 });
