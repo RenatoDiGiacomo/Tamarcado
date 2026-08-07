@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PublicLinkCard } from "../components/PublicLinkCard";
 
 const ACCESS_KEY = "tamarcado.access";
 
@@ -98,7 +99,11 @@ export function ConfiguracoesIdentidade() {
     hex.toLowerCase() === primaryColor.trim().toLowerCase();
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+    <div className="flex flex-col gap-6">
+      {/* Link público de agendamento (DL-049) — endereço da cliente final. */}
+      <PublicLinkCard />
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       {/* Formulário */}
       <Card className="w-full lg:max-w-xl">
         <CardHeader>
@@ -271,6 +276,7 @@ export function ConfiguracoesIdentidade() {
           </p>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

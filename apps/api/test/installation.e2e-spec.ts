@@ -149,4 +149,62 @@ describe("Identidade visual da instalação (e2e)", () => {
       .send({ logoUrl: "não-é-url" });
     expect(badUrl.status).toBe(400);
   });
+
+  // --- Link público editável em Configurações (DL-049) ---
+
+  it("GET expõe slug e publicUrl do link público", async () => {
+    const owner = await login("dono@id.dev");
+    const res = await request(ctx.app.getHttpServer())
+      .get("/api/installation")
+      .set("Authorization", `Bearer ${owner}`);
+    expect(res.body.slug).toBe(SLUG);
+    expect(res.body.publicUrl).toMatch(/\/agendar\/salao-id$/);
+  });
+
+  it("slug em uso por OUTRA empresa → 409", async () => {
+    const companies = ctx.dataSource.getRepository(Company);
+    await companies.save(companies.create({ name: "Outro", slug: "salao-ocupado" }));
+    const owner = await login("dono@id.dev");
+    const res = await request(ctx.app.getHttpServer())
+      .patch("/api/installation/slug")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ slug: "salao-ocupado" });
+    expect(res.status).toBe(409);
+  });
+
+  it("slug malformado (maiúscula/acento/espaço) → 400", async () => {
+    const owner = await login("dono@id.dev");
+    for (const bad of ["Salão Novo", "com espaco", "acentuação", "UPPER"]) {
+      const res = await request(ctx.app.getHttpServer())
+        .patch("/api/installation/slug")
+        .set("Authorization", `Bearer ${owner}`)
+        .send({ slug: bad });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("gerente (não-dono) NÃO troca o slug → 403", async () => {
+    const gestao = await login("gestao@id.dev");
+    const res = await request(ctx.app.getHttpServer())
+      .patch("/api/installation/slug")
+      .set("Authorization", `Bearer ${gestao}`)
+      .send({ slug: "tentativa-gerente" });
+    expect(res.status).toBe(403);
+  });
+
+  it("Dono troca o slug válido → 200 e o GET reflete o novo endereço", async () => {
+    const owner = await login("dono@id.dev");
+    const patch = await request(ctx.app.getHttpServer())
+      .patch("/api/installation/slug")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ slug: "salao-renovado" });
+    expect(patch.status).toBe(200);
+    expect(patch.body.slug).toBe("salao-renovado");
+    expect(patch.body.publicUrl).toMatch(/\/agendar\/salao-renovado$/);
+
+    const get = await request(ctx.app.getHttpServer())
+      .get("/api/installation")
+      .set("Authorization", `Bearer ${owner}`);
+    expect(get.body.slug).toBe("salao-renovado");
+  });
 });
