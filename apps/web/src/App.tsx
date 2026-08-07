@@ -11,6 +11,7 @@ import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
 import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
+import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { PublicAgendar } from "./pages/PublicAgendar";
 import { Pendentes } from "./pages/Pendentes";
@@ -70,6 +71,7 @@ export function App() {
           <Route path="servicos" element={<ConfiguracoesServicos />} />
           <Route path="horarios" element={<ConfiguracoesHorarios />} />
           <Route path="equipe" element={<ConfiguracoesEquipe />} />
+          <Route path="link" element={<ConfiguracoesLinkPublico />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -54,11 +54,11 @@ describe("ConfiguracoesIdentidade", () => {
 
     await waitFor(() =>
       expect(
-        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+        (screen.getByLabelText("Nome da empresa") as HTMLInputElement).value,
       ).toBe("Salão"),
     );
 
-    fireEvent.change(screen.getByLabelText("Nome da instalação"), {
+    fireEvent.change(screen.getByLabelText("Nome da empresa"), {
       target: { value: "Agenda da Fernanda" },
     });
     fireEvent.change(screen.getByLabelText("URL do logo"), {
@@ -83,7 +83,7 @@ describe("ConfiguracoesIdentidade", () => {
     render(<ConfiguracoesIdentidade />);
     await waitFor(() =>
       expect(
-        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+        (screen.getByLabelText("Nome da empresa") as HTMLInputElement).value,
       ).toBe("Salão"),
     );
 
@@ -122,7 +122,7 @@ describe("ConfiguracoesIdentidade", () => {
     render(<ConfiguracoesIdentidade />);
     await waitFor(() =>
       expect(
-        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+        (screen.getByLabelText("Nome da empresa") as HTMLInputElement).value,
       ).toBe("Salão"),
     );
     fireEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
@@ -161,7 +161,7 @@ describe("ConfiguracoesIdentidade", () => {
     render(<ConfiguracoesIdentidade />);
     await waitFor(() =>
       expect(
-        (screen.getByLabelText("Nome da instalação") as HTMLInputElement).value,
+        (screen.getByLabelText("Nome da empresa") as HTMLInputElement).value,
       ).toBe("Salão"),
     );
     fireEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
