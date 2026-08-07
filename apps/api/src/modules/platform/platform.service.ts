@@ -1,16 +1,26 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Company } from "../../database/entities/company.entity";
 import { UsersService } from "../users/users.service";
 import { CreateCompanyDto } from "./dto/create-company.dto";
+import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 
 export interface ProvisionResult {
   slug: string;
   painelUrl: string;
   publicUrl: string;
   inviteUrl: string;
+}
+
+export interface PasswordResetResult {
+  resetUrl: string;
 }
 
 /**
@@ -21,12 +31,44 @@ export interface ProvisionResult {
  */
 @Injectable()
 export class PlatformService {
+  private readonly logger = new Logger(PlatformService.name);
+
   constructor(
     @InjectRepository(Company)
     private readonly companies: Repository<Company>,
     private readonly users: UsersService,
     private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Gera um link de REDEFINIÇÃO de senha (1.9.01) para um usuário existente. O
+   * operador dispara pelo Insomnia (protegido por `x-platform-key`) e repassa o
+   * link ao dono, que define a própria senha — o operador NUNCA sabe a senha.
+   * Link de uso único, expira em 1h; gerar um novo invalida o anterior.
+   *
+   * O mesmo token serve para a recuperação por E-MAIL futura — muda só o canal
+   * de entrega (hoje devolvemos o link; amanhã um serviço de e-mail o envia).
+   */
+  async resetPassword(
+    dto: PasswordResetRequestDto,
+    ip: string,
+  ): Promise<PasswordResetResult> {
+    const company = await this.companies.findOne({ where: { slug: dto.slug } });
+    if (!company) {
+      throw new NotFoundException("Estabelecimento não encontrado.");
+    }
+    const user = await this.users.findByCompanyAndEmail(company.id, dto.email);
+    if (!user) {
+      throw new NotFoundException("Usuário não encontrado nesta empresa.");
+    }
+
+    const { link } = await this.users.createPasswordReset(company.id, user);
+    // Auditoria de GERAÇÃO: quem (usuário-alvo), qual empresa, de onde, quando.
+    this.logger.log(
+      `password-reset generated: user=${user.id} email=${user.email} company=${company.slug} ip=${ip} at=${new Date().toISOString()}`,
+    );
+    return { resetUrl: link };
+  }
 
   async provision(dto: CreateCompanyDto): Promise<ProvisionResult> {
     // O slug é a URL pública e o identificador de login — imutável na prática.

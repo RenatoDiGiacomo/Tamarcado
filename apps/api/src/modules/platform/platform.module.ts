@@ -3,6 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Company } from "../../database/entities/company.entity";
 import { UsersModule } from "../users/users.module";
 import { PlatformController } from "./platform.controller";
+import { PasswordResetController } from "./password-reset.controller";
 import { PlatformService } from "./platform.service";
 import { PlatformKeyGuard } from "./platform-key.guard";
 import { PlatformRateLimitService } from "./platform-rate-limit.service";
@@ -14,7 +15,7 @@ import { PlatformRateLimitService } from "./platform-rate-limit.service";
  */
 @Module({
   imports: [TypeOrmModule.forFeature([Company]), UsersModule],
-  controllers: [PlatformController],
+  controllers: [PlatformController, PasswordResetController],
   providers: [PlatformService, PlatformKeyGuard, PlatformRateLimitService],
 })
 export class PlatformModule {}

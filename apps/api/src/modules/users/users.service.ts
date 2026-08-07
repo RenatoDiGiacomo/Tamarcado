@@ -2,6 +2,7 @@ import {
   ConflictException,
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -19,9 +20,13 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 
 /** Convite válido por 7 dias (DL-029). */
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Link de redefinição de senha válido por 1 HORA (1.9.01). */
+const RESET_TTL_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     // Repositório CRU (sem tenant) — usado SÓ no login e no aceite de convite,
     // que são pré-tenant (DL-026) e resolvem company_id explicitamente.
@@ -169,10 +174,51 @@ export class UsersService {
   }
 
   /**
-   * Aceita um convite (pré-tenant): cria o usuário com a senha escolhida e
-   * marca o convite como usado (AC1). company_id vem do convite.
+   * Link de REDEFINIÇÃO de senha (1.9.01), PRÉ-TENANT. Reusa a mecânica de
+   * `user_invites` (token único hasheado + expiração + uso único), mas para um
+   * usuário que JÁ EXISTE e com TTL curto (1 hora). Gera um link novo INVALIDA o
+   * anterior do mesmo e-mail (delete dos pendentes). O canal de entrega é
+   * separado: hoje o operador recebe o link e repassa; quando houver e-mail
+   * configurado, basta enviar este mesmo `link` — nada aqui muda.
    */
-  async acceptInvite(token: string, password: string): Promise<User> {
+  async createPasswordReset(
+    companyId: string,
+    user: User,
+  ): Promise<{ link: string; token: string }> {
+    // Invalida qualquer convite/reset pendente do mesmo e-mail nesta empresa.
+    await this.invites.delete({
+      company_id: companyId,
+      email: user.email,
+      accepted_at: IsNull(),
+    });
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    await this.invites.save(
+      this.invites.create({
+        company_id: companyId,
+        email: user.email,
+        name: user.name,
+        access_level: user.access_level,
+        attends_clients: user.attends_clients,
+        token_hash: tokenHash,
+        expires_at: new Date(Date.now() + RESET_TTL_MS),
+        accepted_at: null,
+        invited_by: null,
+      }),
+    );
+
+    const base = this.config.get<string>("WEB_BASE_URL", "http://localhost:5173");
+    return { link: `${base}/definir-senha?token=${token}`, token };
+  }
+
+  /**
+   * Aceita um convite/redefinição (pré-tenant): define a senha escolhida e marca
+   * o token como usado. company_id vem do convite. Se o usuário JÁ EXISTE
+   * (fluxo de reset — 1.9.01), ATUALIZA a senha; senão, CRIA (primeiro acesso,
+   * AC1). `ip` entra na auditoria (quem usou o link, de onde).
+   */
+  async acceptInvite(token: string, password: string, ip?: string): Promise<User> {
     const tokenHash = createHash("sha256").update(token).digest("hex");
     const invite = await this.invites.findOne({
       where: { token_hash: tokenHash },
@@ -186,8 +232,16 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    // Usuário já existe naquela empresa? → REDEFINE a senha (não recria; não
+    // mexe em papel/ativação). Senão, CRIA no primeiro acesso.
+    const existing = await this.repo.findOne({
+      where: { company_id: invite.company_id, email: invite.email },
+    });
     let user: User;
-    try {
+    if (existing) {
+      existing.password_hash = passwordHash;
+      user = await this.repo.save(existing);
+    } else {
       user = await this.repo.save(
         this.repo.create({
           company_id: invite.company_id,
@@ -200,13 +254,14 @@ export class UsersService {
           is_active: true,
         }),
       );
-    } catch {
-      // Colisão de uq_users_tenant_email (company_id, email).
-      throw new ConflictException("Usuário já existe nesta instalação");
     }
 
     invite.accepted_at = new Date();
     await this.invites.save(invite);
+    // Auditoria de USO do link (senha definida): quem, qual empresa, de onde.
+    this.logger.log(
+      `password-set: user=${user.id} email=${user.email} company=${user.company_id} reused=${existing ? "reset" : "invite"} ip=${ip ?? "?"}`,
+    );
     return user;
   }
 
