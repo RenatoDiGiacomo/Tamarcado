@@ -12,6 +12,10 @@ import type { AuthUser } from "../auth-user";
  * `JwtAuthGuard` e DENTRO do contexto de tenant (o `TenantMiddleware` roda
  * antes dos guards). Busca o usuário tenant-scoped e nega 401 se inativo —
  * cortando o acesso na hora, sem esperar o token expirar.
+ *
+ * O MESMO lookup por request valida a versão de sessão (1.2.04): se a senha foi
+ * trocada/redefinida (que bumpa `token_version`), os access tokens antigos caem
+ * na requisição seguinte — sem custo extra de banco além do já feito aqui.
  */
 @Injectable()
 export class ActiveUserGuard implements CanActivate {
@@ -27,6 +31,9 @@ export class ActiveUserGuard implements CanActivate {
     const current = await this.users.findById(user.userId);
     if (!current || !current.is_active) {
       throw new UnauthorizedException("Acesso revogado");
+    }
+    if (current.token_version !== user.tokenVersion) {
+      throw new UnauthorizedException("Sessão expirada");
     }
     return true;
   }

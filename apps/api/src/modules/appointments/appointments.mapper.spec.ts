@@ -91,6 +91,7 @@ describe("roleScope (FR-D2/DL-022)", () => {
     companyId: "1",
     accessLevel: "basic",
     attendsClients: true,
+    tokenVersion: 0,
   };
 
   it("owner vê todos (sem filtro)", () => {

@@ -16,6 +16,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthUser } from "../auth/auth-user";
 import { User } from "../../database/entities/user.entity";
+import { TokenService, type AuthTokens } from "../token/token.service";
 import { UsersService } from "./users.service";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -53,7 +54,10 @@ function toProfile(user: User): UserProfile {
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
 @Controller("users")
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly tokens: TokenService,
+  ) {}
 
   /** Perfil do usuário autenticado (tenant-scoped). Antes de :id na ordem de rotas. */
   @Get("me")
@@ -77,18 +81,22 @@ export class UsersController {
   /**
    * Troca a própria senha (Perfil). Valida a senha atual; 400 se não conferir.
    * Nova senha usa a política do aceite de convite (mín. 8). Antes de :id.
+   *
+   * A troca bumpa a versão de sessão (1.2.04): as OUTRAS sessões caem na próxima
+   * requisição. Para NÃO deslogar quem acabou de provar que sabe a senha (padrão
+   * Google/GitHub), devolve tokens NOVOS já com a versão nova — o front os troca.
    */
   @Patch("me/password")
   async changePassword(
     @CurrentUser() authUser: AuthUser,
     @Body() dto: ChangePasswordDto,
-  ): Promise<{ ok: true }> {
-    await this.users.changeOwnPassword(
+  ): Promise<AuthTokens> {
+    const user = await this.users.changeOwnPassword(
       authUser.userId,
       dto.currentPassword,
       dto.newPassword,
     );
-    return { ok: true };
+    return this.tokens.issue(user);
   }
 
   /** Lista os usuários do tenant atual (nunca de outro tenant — NFR-S1). */

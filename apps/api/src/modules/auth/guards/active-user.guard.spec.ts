@@ -3,10 +3,10 @@ import type { User } from "../../../database/entities/user.entity";
 import type { UsersService } from "../../users/users.service";
 import { ActiveUserGuard } from "./active-user.guard";
 
-function context(userId?: string): ExecutionContext {
+function context(userId?: string, tokenVersion = 0): ExecutionContext {
   return {
     switchToHttp: () => ({
-      getRequest: () => ({ user: userId ? { userId } : undefined }),
+      getRequest: () => ({ user: userId ? { userId, tokenVersion } : undefined }),
     }),
   } as unknown as ExecutionContext;
 }
@@ -18,9 +18,20 @@ function usersServiceReturning(value: Partial<User> | null): UsersService {
 }
 
 describe("ActiveUserGuard (AC6)", () => {
-  it("usuário ativo → libera", async () => {
-    const guard = new ActiveUserGuard(usersServiceReturning({ is_active: true }));
-    await expect(guard.canActivate(context("1"))).resolves.toBe(true);
+  it("usuário ativo e versão bate → libera", async () => {
+    const guard = new ActiveUserGuard(
+      usersServiceReturning({ is_active: true, token_version: 0 }),
+    );
+    await expect(guard.canActivate(context("1", 0))).resolves.toBe(true);
+  });
+
+  it("versão do token diferente da do banco → 401 (senha trocada, 1.2.04)", async () => {
+    const guard = new ActiveUserGuard(
+      usersServiceReturning({ is_active: true, token_version: 1 }),
+    );
+    await expect(guard.canActivate(context("1", 0))).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it("usuário inativo → 401", async () => {

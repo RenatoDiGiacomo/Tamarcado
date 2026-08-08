@@ -10,6 +10,8 @@ interface AccessTokenPayload {
   companyId: string;
   accessLevel: AccessLevel;
   attendsClients: boolean;
+  /** Ausente em tokens emitidos antes da 1.2.04 → tratado como 0. */
+  tokenVersion?: number;
 }
 
 @Injectable()
@@ -33,6 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       companyId: payload.companyId,
       accessLevel: payload.accessLevel,
       attendsClients: payload.attendsClients,
+      tokenVersion: payload.tokenVersion ?? 0,
     };
   }
 }

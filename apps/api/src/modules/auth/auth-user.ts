@@ -6,4 +6,6 @@ export interface AuthUser {
   companyId: string;
   accessLevel: AccessLevel;
   attendsClients: boolean;
+  /** Versão de sessão do token (1.2.04); o ActiveUserGuard confere no banco. */
+  tokenVersion: number;
 }

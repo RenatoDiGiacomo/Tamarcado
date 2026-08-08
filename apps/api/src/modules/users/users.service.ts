@@ -114,14 +114,15 @@ export class UsersService {
   /**
    * Troca a própria senha (Perfil). Valida a senha ATUAL antes de aceitar
    * (400 "Senha atual incorreta." se não confere). A nova senha já vem validada
-   * pela política do DTO (mín. 8, igual ao aceite de convite). Não há revogação
-   * de tokens hoje (sem versionamento de sessão) — a sessão atual segue válida.
+   * pela política do DTO (mín. 8, igual ao aceite de convite). Bumpa
+   * `token_version` (1.2.04): derruba as OUTRAS sessões; o chamador reemite
+   * tokens para ESTA sessão continuar. Devolve o usuário já salvo (nova versão).
    */
   async changeOwnPassword(
     id: string,
     currentPassword: string,
     newPassword: string,
-  ): Promise<void> {
+  ): Promise<User> {
     const user = await this.tenantUsers.findById(id);
     if (!user) {
       throw new NotFoundException();
@@ -131,7 +132,8 @@ export class UsersService {
       throw new BadRequestException("Senha atual incorreta.");
     }
     user.password_hash = await bcrypt.hash(newPassword, 10);
-    await this.tenantUsers.save(user);
+    user.token_version += 1;
+    return this.tenantUsers.save(user);
   }
 
   /**
@@ -274,6 +276,10 @@ export class UsersService {
     let user: User;
     if (existing) {
       existing.password_hash = passwordHash;
+      // Reset (1.9.01): redefinir a senha bumpa a versão de sessão (1.2.04) —
+      // derruba as sessões antigas do dono. O login logo abaixo já emite tokens
+      // com a versão nova, então quem acabou de definir a senha entra normal.
+      existing.token_version += 1;
       user = await this.repo.save(existing);
     } else {
       user = await this.repo.save(

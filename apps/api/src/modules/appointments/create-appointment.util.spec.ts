@@ -9,6 +9,7 @@ function user(over: Partial<AuthUser> = {}): AuthUser {
     companyId: "1",
     accessLevel: "owner",
     attendsClients: true,
+    tokenVersion: 0,
     ...over,
   };
 }
