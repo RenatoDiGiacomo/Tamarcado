@@ -141,12 +141,12 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - Modelo de dados MySQL 8 completo: `companies`, `users`, `clients`, `salon_services`, `professional_services`, `professional_schedules`, `appointments`, `payments`, `whatsapp_conversations` — com índices compostos liderados por `company_id`.
 - Multi-tenancy: `TenantMiddleware` injeta `company_id` via `AsyncLocalStorage`; `TenantAwareRepository<T>` aplica filtro automático em toda query.
 - Campo `timezone` por tenant em `companies` (default `America/Sao_Paulo`) — toda lógica de data/hora deve ler esse campo, nunca usar timezone global hardcoded.
-- Campo `evolution_instance_name` por tenant — uma instance Evolution API dedicada por instalação (não compartilhada).
-- Interface `WhatsAppProvider` (`sendMessage`, `getConnectionStatus`, `registerIncomingMessageHandler`) com `EvolutionApiProvider` ativo no MVP e `CloudApiMetaProvider` implementado como módulo plugável (não ativo).
+- Campo `evolution_instance_name` por tenant — **só relevante em DEV** (Evolution é dev-only, DL-054). Em produção (Cloud API oficial), a identificação é pelo `phone_number_id`/número dedicado do tenant.
+- Interface `WhatsAppProvider` (`sendMessage`, `getConnectionStatus`, `registerIncomingMessageHandler`). **Produção = WhatsApp Cloud API oficial da Meta** (o provider ativo). **Evolution API só para DESENVOLVIMENTO**, com número descartável — nunca produção (**DL-054**, 2026-08-10: a Meta baniu APIs não oficiais em 2026; o número em risco é o do cliente). A abstração permanece — é ela que torna a troca de provider barata (NFR-O3).
 - Interface `PaymentGateway` (`createCharge`, `getChargeStatus`, `refund`) com `NullPaymentGateway` no MVP (lança `NotImplementedException`).
 - Atomicidade de slot via transação MySQL com `SELECT ... FOR UPDATE` no momento da criação do agendamento via bot.
-- Job BullMQ (`appointment-timeout`) agendado por agendamento, com delay calculado em horário comercial por tenant.
-- `ConversationStateService`: estado de conversa do bot em Redis (cache, TTL 4h) com MySQL (`whatsapp_conversations`) como fonte de verdade.
+- **Scheduler de tarefas em MySQL (DL-056, substitui BullMQ/Redis):** tabela `scheduled_tasks` (`type`, `appointment_id`, `due_at`, `status` pending/done/cancelled, `executed_at`) + rotina **a cada minuto** (cron in-process, ex.: `@nestjs/schedule`) que executa o que venceu (`due_at <= agora`) e marca `done`; muda de estado antes do disparo → `cancelled`. Cobre `appointment_timeout` (6.5) e o lembrete (6.10). Dentro da própria API, sem serviço novo; visível/corrigível por SQL e sobrevive a reinício.
+- `ConversationStateService`: estado de conversa do bot **direto no MySQL** (`whatsapp_conversations`, fonte de verdade) — **sem Redis** (DL-056).
 - LGPD: campo `is_deleted` (soft delete) em `clients` e `appointments`; mecanismo de anonimização/hard delete sob solicitação do titular (procedimento manual no MVP, mas viabilizado pela arquitetura — ver architecture.md seção 3.10).
 - Três ambientes: Dev (Docker Compose local, zero custo), Staging (local na máquina do desenvolvedor, build de produção via `docker-compose.staging.yml`, zero custo — staging em nuvem é evolução futura, ver ADR-010), Produção (VPS brasileiro — Hostinger preferencial ou HostGator, datacenter São Paulo, PM2 + Nginx + Certbot, ≤ R$130/mês — ver ADR-009).
 - CI/CD via GitHub Actions: `ci.yml` (lint, typecheck, test, build) em todo push/PR; `deploy.yml` (SSH deploy + PM2 restart) em push para `main`.
@@ -154,7 +154,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - Autenticação JWT (access 15 min + refresh 7 dias) com `JwtAuthGuard` e `RolesGuard` aplicando a matriz de permissões (FR-I2).
 - Teste de carga simples no VPS antes do go-live, medindo conversas WhatsApp simultâneas suportadas; definir limite de alerta para escalar.
 - `professional_id` nullable em `appointments` desde o schema inicial — suporta atribuição futura sem migração (addendum C.4-bis); validar necessidade após os primeiros 5 clientes.
-- Provider WhatsApp (Evolution API vs. Cloud API Meta) é selecionado por Renato no setup de cada instalação — sem UI de troca pelo cliente no MVP (addendum A.3).
+- Provider WhatsApp definido por Renato no setup de cada instalação, sem UI de troca pelo cliente (addendum A.3). **Em produção é sempre a Cloud API oficial (Meta); Evolution só em dev** (DL-054) — não é mais "um vs. o outro" por instalação em produção.
 - Confirmar/recusar pendentes via endpoints REST compartilhados (`PATCH /appointments/:id/confirm` e `/refuse`), consumidos pelas **telas do painel** — disponíveis **também no celular** (painel responsivo/PWA — DL-051). Não há app nativo separado nem paridade reduzida: as mesmas ações do desktop valem no mobile, sem mudança de backend.
 - Notificação de pendentes no painel via polling REST (`GET /appointments/pending-count`, intervalo 15–30s, em background, sem reload) — ver NFR-A3, ADR-011, DL-019. WebSocket/SSE é evolução futura.
 
@@ -205,7 +205,7 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 - NFR-A2 (painel ≤2s em 4G) → **Épico 1** (shell/transversal ao painel)
 - NFR-A3 (contador de pendentes) → **Épico 5B** (contador na 5B.3)
 - NFR-C1 (atomicidade na criação de agendamento) → **Épico 3** (base) / reforçada no fluxo concorrente do bot no **Épico 6**
-- NFR-C2–C3 (monitoramento e resiliência do WhatsApp) → **Épico 6**
+- NFR-C3 (resiliência do WhatsApp — não perder mensagem) → **Épico 6** (mínimo na 6.8); **NFR-C2 (monitoramento/alertas) → ROADMAP** com Financeiro/Dashboard (**DL-058**)
 - NFR-S1–S3 (isolamento, LGPD, autenticação) → **Épico 1**
 - NFR-O1 (custo ≤R$130/mês), NFR-O2 (escalabilidade de tenants) → **Épico 1**
 - NFR-O3 (abstração do provider WhatsApp) → **Épico 6**
@@ -245,7 +245,7 @@ A cliente agenda sozinha por um **link público** (`/agendar/{slug}`), **sem Wha
 **FRs cobertas:** FR-B1/B2/B4 · **NFRs:** NFR-A3, NFR-C1, NFR-S1/S2 · **UX-DRs:** UX-DR9
 
 ### Épico 6: Ciclo de Agendamento via WhatsApp (Bot) — o diferencial, depois da base
-Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` + Evolution API, a máquina de estados (`whatsapp_conversations`), o fluxo de agendamento via bot (sobre o `AvailabilityService`/`appointments` já existentes), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6), a resiliência do provider e o polling de pendentes. Consome a base do Épico 3 (não recria tabelas de agendamento).
+Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` sobre a **WhatsApp Cloud API oficial (Meta)** (DL-054; Evolution só dev), a máquina de estados (`whatsapp_conversations`, **estado e jobs agendados no MySQL, sem Redis/BullMQ** — DL-056), o fluxo de agendamento via bot (**uma conversa = um serviço**; carrinho multi-serviço é fast-follow — DL-055), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6) e a resiliência do provider. **Gated por plano:** o WhatsApp só liga no plano **Pró** (DL-057). Consome a base do Épico 3 (não recria tabelas de agendamento). **Já entregues pelo 5B:** notificação ao salão + confirmar/recusar (antiga 6.4) e polling de pendentes (antiga 6.9). **Movido ao roadmap:** monitoramento/alertas (antiga 6.8, DL-058).
 **FRs cobertas:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 migraram para o Épico 5B — pendentes pelo painel)*, FR-C1–C3, FR-C5, FR-C6, FR-J2
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
@@ -257,7 +257,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 ---
 
-## Estado de implementação — retrato (2026-07-30)
+## Estado de implementação — retrato (2026-08-10)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
@@ -294,6 +294,26 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
+**Épico 7 — Acesso mobile / PWA (DL-051) — ✅ 1ª leva no `main` (PRs #51–#59 + correções):**
+- ✅ **7.1** Painel **instalável como PWA** — manifest, ícones, service worker `autoUpdate` (SW não troca a versão no meio da sessão; assume no próximo carregamento). Mergeada (PR #59).
+- ✅ **7.2 (1ª leva)** Painel com **cara de app** no celular — AppBar enxuta, **tab bar de 4 abas + FAB central**, bottom sheets, **toolbar única**, Perfil, Configurações usável no mobile. Reaproveita os mesmos endpoints (sem backend novo).
+- ✅ **7.2 — agenda em lista** — `AgendaList` (mobile) / `AgendaGrid` (desktop) escolhidos pela rota; **calendário do mês com cor por status**; **auto-refresh em todas as mutações** (via `appointmentsSignal`).
+- ✅ **7.3** Estados **vazio, carregamento e erro** no celular (skeletons; erro de rede × servidor; fix do "Recusar" fora do auto-refresh). Mergeada (PR #57).
+- ✅ **1.2.02 (junto do Épico 7)** Instalação do PWA pela **tela de login** (botão no Android/Chrome; instrução no iOS/Safari; some em standalone) — fecha a consequência do `start_url` único da 7.1.
+- ⏳ **7.2.NN — 2ª leva (pendente, ENCOLHEU):** com a agenda em **lista**, **overlap lado-a-lado** e **linha de "agora"** perderam sentido e **saíram**. Restou: **multi-profissional como filtro** (sheet de filtros por origem/profissional) e **Perfil completa**. Sem backend novo.
+
+**Épico 6 — Bot WhatsApp — NÃO INICIADO** (revisado em 2026-08-10, DL-054 a DL-058), **exceto** o que o 5B já entregou:
+- ✅ **6.4** (notificar salão + confirmar/recusar) e ✅ **6.9** (polling de pendentes) — **entregues pelo 5B.3 (PR #43)**. Falta só, no Épico 6, **disparar a notificação ao salão quando o pré-agendamento vier do bot**.
+- ⛔ **6.8 monitoramento → roadmap** (DL-058, com Financeiro/Dashboard).
+- 🆕 **6.11 interruptor de WhatsApp por plano** (DL-057) — introduz **PLANO** (`plan` básico|pró + `whatsapp_enabled`); Dashboard/Financeiro passam a depender de `plan`.
+
+**Pendências que não podem sumir (não são bugs esquecidos — cada uma decidida):**
+- ⏳ **Correções visuais do mobile** levantadas pelo Renato ao usar o app — **ainda não catalogadas** numa lista; abrir o inventário antes da 2ª leva (7.2.NN).
+- ⏳ **Recuperação de senha por e-mail** — **bloqueador antes de vender**; **mitigada** pela 1.9.01 (reset por link do operador). Self-service por e-mail depende de envio de e-mail configurado (não temos).
+- ⏳ **Restringir `/api/platform/*` por IP no Nginx** — na hora do **VPS** (nota de deploy do Épico 1); os endpoints pré-tenant (1.9 / 1.9.01) hoje só têm o `PLATFORM_KEY`.
+- ⏳ **Testar o PWA instalado em aparelho real** — exige **HTTPS**; não dá para validar 100% em `localhost`. Fazer quando houver domínio/VPS.
+- ⏳ **3.7.01 — filtro por status na agenda**, incluindo a origem **"Link"** (agendamento vindo do público 5B, `source = 'link'`, DL-049). Planejado, fora do 5B (ver Buracos).
+
 ## Buracos conhecidos (débito consciente)
 
 > Adiamentos **deliberados** — registrados aqui para não sumirem. Nenhum é bug esquecido; cada um foi decidido.
@@ -301,10 +321,10 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ~~**Editar/remarcar agendamento (o "U" do CRUD)**~~ — **FECHADO:** 3.5 (#35), 3.6 (#36, DL-044) e 3.7 (#38). CRUD de agendamento completo.
 - **Auditoria de agendamentos consolidada (DL-045)** — a 3.6 cria `appointment_changes` (histórico de deltas das edições). Cancelamento (`cancelled_by_user_id`) e atribuição (`assigned_by_user_id/assigned_at`) seguem em **colunas soltas** (estado atual). Migrá-los para a change-log genérica fica como **refactor futuro** — decidido não fazer na 3.6 (reescreveria 3.4/3.5).
 - ~~**No-show (FR-D9)**~~ — **FECHADO na 3.7 (#38):** ações Concluído/Não compareceu, só depois do horário; informativo, sem notificação (DL-023).
-- **Filtro por status na agenda** — ajuste **3.7.01** (DL-028, commit `feat`): Todos/Pendente/Confirmado/Cancelado/Não compareceu/Concluído, usando os status existentes. **Fora do 5B**, planejado.
+- **Filtro por status na agenda** — ajuste **3.7.01** (DL-028, commit `feat`): Todos/Pendente/Confirmado/Cancelado/Não compareceu/Concluído, usando os status existentes, **+ filtro por origem incluindo "Link"** (agendamento do público 5B, `source = 'link'`, DL-049). **Fora do 5B**, planejado.
 - **Notificação automática à cliente (confirmação/recusa)** — depende de canal; fica no **Épico 6/bot**. No link (5B), a cliente vê "o estabelecimento vai confirmar" e o salão contata manual (DL-049).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada.
-- **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**. Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
+- **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**, e agora **fast-follow explícito fora do MVP do bot** (DL-055: uma conversa = um serviço). Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
 - **Overbooking do mesmo profissional** — permitido **de propósito** (D1: encaixe deliberado). A 3.2.02 adicionou **aviso nomeando** quem já está ocupado, mas **não há bloqueio duro**. Fica assim no MVP; revisar se algum salão pedir prevenção rígida.
 
 ---
@@ -334,7 +354,7 @@ So that exista um esqueleto implantável de ponta a ponta sobre o qual todas as 
 **When** rodo o comando de bootstrap do monorepo (`pnpm install`) e subo o Docker Compose de desenvolvimento
 **Then** a API NestJS (`apps/api`) sobe e responde `200` em `GET /health`
 **And** o painel web (`apps/web`, React+Vite) sobe e renderiza uma página inicial
-**And** MySQL 8 e Redis sobem como serviços do Compose
+**And** MySQL 8 e Redis sobem como serviços do Compose *(as-built da 1.1; **Redis não é mais necessário — DL-056**: nada no produto depende dele, pode sair do Compose quando conveniente)*
 
 **Given** a estrutura do monorepo
 **When** inspeciono os workspaces
@@ -911,33 +931,46 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 
 **Objetivo:** o diferencial, **adiado** para depois da base manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os pendentes pelo painel. Consome a base do Épico 3 (`appointments`, `AvailabilityService`, `clients`) — não recria tabelas de agendamento.
 
-**FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C2, NFR-C3, NFR-O3 · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
+> **REVISADO (2026-08-10, DL-054 a DL-058), antes de construir:**
+> 1. **Produção só na WhatsApp Cloud API oficial (Meta)** — Evolution API só dev, número descartável (DL-054). Motivo: banimento de APIs não oficiais em 2026; o número em risco é o **do cliente**.
+> 2. **Carrinho multi-serviço fora do MVP** (fast-follow, DL-055): **uma conversa = um serviço**. As notas do DL-040 (carrinho / disponibilidade encadeada) ficam para depois.
+> 3. **Redis fora de vez** (DL-056): estado de conversa **e jobs agendados** no MySQL. BullMQ vira um **scheduler simples** (tabela `scheduled_tasks` com `due_at` + rotina a cada minuto, dentro da própria API — sem serviço novo).
+> 4. **Interruptor de WhatsApp por plano** (DL-057, novo — Story 6.11): introduz o conceito de **PLANO** (`plan` básico|pró + `whatsapp_enabled`).
+> 5. **Monitoramento (6.8) → roadmap** (DL-058, com Financeiro/Dashboard); no épico fica só log msg in/out + estado da conexão.
+> 6. **Já entregues pelo 5B:** Story **6.4** e Story **6.9** (ver marcações abaixo).
+>
+> **Pré-requisito não-técnico (começa ANTES do código):** verificação de negócio na Meta, Business Manager e número dedicado — leva dias (DL-054).
+> **Custos (Meta, ago/2026):** serviço (resposta ≤24h) **grátis**; utilidade (confirmação/lembrete) ≈ **R$ 0,04–0,05**; marketing não usado. Fluxo principal gratuito; ≈ **R$ 30/mês** por salão com 300 agendamentos.
 
-### Story 6.1: Abstração WhatsAppProvider e integração Evolution API
+**FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C3, NFR-O3 *(NFR-C2 monitoramento → roadmap, DL-058)* · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
+
+### Story 6.1: Abstração WhatsAppProvider e integração com a Cloud API oficial (Meta)
+
+> **Revisada (DL-054, 2026-08-10):** produção usa **exclusivamente a WhatsApp Cloud API oficial da Meta**. A Evolution API fica **só para desenvolvimento**, com número descartável — **nunca** produção (banimento de APIs não oficiais em 2026; o número em risco é o do cliente). A interface `WhatsAppProvider` **permanece** — é ela que torna a troca barata (NFR-O3). **Pré-requisito não-técnico:** verificação de negócio na Meta + Business Manager + número dedicado, iniciados **antes** desta story.
 
 As a operador da plataforma,
-I want enviar e receber mensagens de WhatsApp por uma interface abstrata, com a Evolution API ativa,
-So that o bot opere sobre um provider sem acoplar a lógica de negócio a ele.
+I want enviar e receber mensagens de WhatsApp por uma interface abstrata, sobre a Cloud API oficial da Meta,
+So that o bot opere sobre um provider oficial sem acoplar a lógica de negócio a ele e sem risco de banimento do número do cliente.
 
 **Acceptance Criteria:**
 
 **Given** a interface `WhatsAppProvider` (`sendMessage`, `getConnectionStatus`, `registerIncomingMessageHandler`)
 **When** o `WhatsAppModule` inicializa
-**Then** a factory lê `companies.whatsapp_provider` e instancia o `EvolutionApiProvider` para o tenant (NFR-O3)
+**Then** a factory lê `companies.whatsapp_provider` e instancia o provider da **Cloud API oficial** para o tenant (NFR-O3); `EvolutionApiProvider` só é selecionável em ambiente de **dev**
 
 **Given** a migration desta story
 **When** aplicada
-**Then** `companies` ganha `whatsapp_provider` (default `evolution_api`) e `evolution_instance_name` (uma instância dedicada por tenant)
+**Then** `companies` ganha `whatsapp_provider` (**sem default `evolution_api`** — definido no provisionamento) e os campos de credencial/identificação do número exigidos pela Cloud API (ex.: `phone_number_id`), por tenant
 
 **Given** uma mensagem recebida pela cliente
-**When** o webhook da Evolution API é chamado
-**Then** o `WhatsAppController` resolve o `company_id` pela instância e dispara o handler registrado com a `IncomingMessage`
+**When** o webhook da **Cloud API** é chamado
+**Then** o `WhatsAppController` resolve o `company_id` pelo número/identificador e dispara o handler registrado com a `IncomingMessage`
 
 **Given** uma mensagem de saída
 **When** `sendMessage` é chamado
-**Then** a mensagem é entregue via Evolution API; falha permanente lança `WhatsAppDeliveryException`
+**Then** a mensagem é entregue via **Cloud API oficial**; falha permanente lança `WhatsAppDeliveryException`. *(Custo: mensagens de serviço — resposta ≤24h — são grátis; utilidade ≈ R$ 0,04–0,05, DL-054.)*
 
-**Given** uma instância conectada e um handler de echo temporário (smoke test de ponta a ponta — maior risco técnico, validar cedo)
+**Given** um número conectado e um handler de echo temporário (smoke test de ponta a ponta — maior risco técnico, validar cedo)
 **When** envio uma mensagem real ao número do bot
 **Then** o webhook recebe, o handler dispara e o provider responde de volta ao WhatsApp de origem — o ciclo recebe→processa→envia é comprovado antes da Story 6.2
 
@@ -953,9 +986,9 @@ So that eu consiga agendar sem me perder, mesmo se digitar algo inesperado.
 **When** aplicada
 **Then** a tabela `whatsapp_conversations` é criada (estado, `context_json`, `company_id`, `phone_whatsapp`) como fonte de verdade, e a FK `whatsapp_conversations.appointment_id → appointments` é adicionada (a tabela `appointments` já existe desde o Épico 3)
 
-**Given** o `ConversationStateService`
+**Given** o `ConversationStateService` (**DL-056: sem Redis**)
 **When** lê/escreve estado
-**Then** usa Redis como cache (TTL 4h) com fallback/persistência em MySQL
+**Then** persiste **direto no MySQL** (`whatsapp_conversations`), **sem Redis** — no volume real (dezenas de conversas/dia) o MySQL resolve sozinho (DL-056: Redis saiu de vez, do estado e dos jobs)
 
 **Given** uma mensagem com keyword de agendamento configurável (FR-A1)
 **When** não há conversa ativa
@@ -973,12 +1006,13 @@ So that eu consiga agendar sem me perder, mesmo se digitar algo inesperado.
 **When** o bot processa
 **Then** a resposta é enviada em até 3 segundos
 
-> **Nota multi-serviço (DL-040) — desenhar a máquina de estados como CARRINHO.** O bot não
-> agenda um serviço por vez: precisa de um estado de **"montando carrinho"** — coleta serviços num
-> loop ("deseja adicionar outro?"), **fecha a lista**, e **só então** (Story 6.3) calcula e oferece
-> os horários do **bloco inteiro**. Não oferecer horário a cada serviço — o início do 2º depende da
-> duração do 1º. Prever no `context_json` a lista de serviços do carrinho + o `group_id` (UUID) que
-> agrupará os N `appointments` encadeados.
+> **Nota multi-serviço (DL-040) — FAST-FOLLOW, fora do MVP do bot (DL-055).** No MVP, **uma conversa =
+> um serviço**; a máquina de estados **não** monta carrinho. Guardado para depois: estado de
+> **"montando carrinho"** (coleta serviços num loop "deseja adicionar outro?", fecha a lista, e só
+> então — Story 6.3 — calcula os horários do **bloco inteiro**), com a lista do carrinho + o
+> `group_id` (UUID) no `context_json` agrupando os N `appointments` encadeados. É a parte mais cara e
+> menos pedida — cortada do 1º ship (mesmo tratamento do 5B). O modelo aditivo do DL-040 segue válido;
+> só a implementação no bot é adiada.
 
 ### Story 6.3: Fluxo de agendamento via bot
 
@@ -1008,16 +1042,18 @@ So that eu marque meu atendimento sem ligar para o salão.
 **When** o bot se comunica
 **Then** assina com o nome da instalação; a cliente recebe "solicitação enviada ao salão, pode haver ajuste, você será avisada" (MSG-A06)
 
-> **Nota multi-serviço (DL-040) — disponibilidade ENCADEADA + N appointments com `group_id`.** Ao
-> fechar o carrinho, o bot calcula os horários do **bloco inteiro**: cada serviço é sequencial (o
-> próximo começa ao **fim do anterior + intervalo**, D4/DL-032), **nunca simultâneo**. Ao confirmar,
-> cria **N `appointments` agrupados por `group_id`** (um por serviço), cada um com seu `price_snapshot`
-> e `professional_id`. **Risco técnico:** achar um início onde o profissional A esteja livre e, na
-> sequência, o B (especialistas diferentes). **Simplificação MVP possível (decidir aqui):** encadear
-> **só** quando **um profissional faz todos os serviços**; com especialistas diferentes, marcar **o
-> primeiro** e a **recepção completa** o encadeamento. A criação segue atômica (`SELECT ... FOR UPDATE`).
+> **Nota multi-serviço (DL-040) — FAST-FOLLOW, fora do MVP do bot (DL-055).** Guardado para depois:
+> disponibilidade **ENCADEADA** + N `appointments` com `group_id`. Ao fechar o carrinho, o bot
+> calcularia os horários do **bloco inteiro** (cada serviço sequencial: o próximo começa ao **fim do
+> anterior + intervalo**, D4/DL-032, nunca simultâneo) e criaria **N `appointments` agrupados por
+> `group_id`**, cada um com seu `price_snapshot`/`professional_id`. **Risco técnico** (achar um início
+> onde A e depois B estejam livres) e a simplificação possível (encadear só quando um profissional faz
+> todos; senão marcar o primeiro e a recepção completa) ficam registrados para a época. No MVP,
+> **1 serviço por conversa** — a criação de 1 `appointment` segue atômica (`SELECT ... FOR UPDATE`).
 
 ### Story 6.4: Notificação ao salão e confirmação/recusa pelo painel
+
+> **✅ ENTREGUE PELO ÉPICO 5B (5B.3, PR #43).** A tela de Pendentes com confirmar/recusar inline (justificativa obrigatória na recusa) e o contador já existem — a 5B construiu a fundação de pendentes que o bot reusa. O que **resta para o Épico 6** é apenas **disparar a notificação ao salão via WhatsApp** (MSG-B01/B02) quando o pré-agendamento nasce do **bot** (o gatilho); o tratamento no painel já está pronto. Marcada como entregue no retrato, não como trabalho pendente.
 
 As a dono/funcionário/profissional,
 I want receber a solicitação e confirmá-la ou recusá-la pelo painel,
@@ -1059,15 +1095,15 @@ So that eu saiba que minha solicitação ainda está em análise.
 
 **Given** um pré-agendamento criado via bot (FR-B6)
 **When** ele é registrado
-**Then** um job BullMQ `appointment-timeout` é agendado com delay calculado em horário comercial, usando `company.timezone` (ADR-008)
+**Then** uma tarefa `appointment_timeout` é gravada em `scheduled_tasks` com `due_at` calculado em horário comercial, usando `company.timezone` (ADR-008) — **scheduler em MySQL, sem BullMQ/Redis (DL-056)**; a rotina de 1 min a dispara quando vence
 
 **Given** 2 horas de horário comercial sem confirmação/recusa
-**When** o job dispara
-**Then** a cliente recebe MSG-B06 ("em análise") e o status permanece *aguardando confirmação* — sem cancelamento automático no MVP
+**When** a rotina do scheduler encontra a tarefa vencida
+**Then** a cliente recebe MSG-B06 ("em análise"), a tarefa vira `done` e o status do agendamento permanece *aguardando confirmação* — sem cancelamento automático no MVP
 
 **Given** o agendamento confirmado ou recusado antes do prazo
-**When** o job dispararia
-**Then** ele é cancelado/ignorado (não notifica indevidamente)
+**When** isso acontece
+**Then** a tarefa em `scheduled_tasks` é marcada `cancelled` e não dispara (não notifica indevidamente)
 
 ### Story 6.6: Cancelamento pela cliente via bot
 
@@ -1109,27 +1145,29 @@ So that ela saiba do cancelamento e possa reagendar.
 **When** ele abre
 **Then** o texto é condicional: "a cliente será notificada" se há WhatsApp, ou "comunicação por sua conta" se não há
 
-### Story 6.8: Resiliência e monitoramento do provider WhatsApp
+### Story 6.8: Resiliência do provider WhatsApp (mínimo) — monitoramento/alertas → roadmap
+
+> **Revisada (DL-058, 2026-08-10):** o **monitoramento/alertas** (NFR-C2) **sai do Épico 6 e vai para o roadmap**, junto de **Financeiro** e **Dashboard** — são todos *"coletar dado e mostrar"* e a estrutura de coleta é comum. No épico fica só o **mínimo**: **log de mensagem que entra e sai, com resultado**, e **visibilidade do estado da conexão**. A resiliência a falha temporária (NFR-C3) permanece.
 
 As a operador da plataforma (Renato),
-I want ser alertado sobre quedas do WhatsApp e não perder mensagens em falhas temporárias,
-So that o serviço seja confiável mesmo quando o provider oscila.
+I want registrar as mensagens que entram/saem e enxergar o estado da conexão, e não perder mensagens em falhas temporárias,
+So that eu tenha o mínimo de observabilidade e o serviço aguente o provider oscilar.
 
 **Acceptance Criteria:**
 
-**Given** o monitoramento de conectividade (NFR-C2)
-**When** o provider cai ou falha entrega
-**Then** Renato é alertado
+**Given** o mínimo de observabilidade (DL-058)
+**When** uma mensagem entra ou sai
+**Then** fica **registrada com o resultado** (entregue/falha), e o **estado da conexão** do provider é **visível** — sem sistema de alertas (esse é roadmap)
 
 **Given** uma falha temporária do provider (NFR-C3)
 **When** mensagens chegam durante a indisponibilidade
 **Then** são registradas e processadas quando a conectividade volta, sem perda de contexto do fluxo em andamento
 
+> **No roadmap (DL-058):** alertas de queda/entrega ao Renato (NFR-C2) e o painel de monitoramento entram com Financeiro/Dashboard — mesma estrutura de coleta.
+
 ### Story 6.9: Detecção de pendentes por polling no painel
 
-As a dono/funcionário/profissional,
-I want ser avisado de novos pendentes sem recarregar a página,
-So that eu trate as solicitações rapidamente sem perder o que estou fazendo.
+> **✅ ENTREGUE PELO ÉPICO 5B (5B.3, PR #43).** O polling de `GET /appointments/pending-count` em background, o badge que persiste e o toast que não recarrega a página já existem desde a 5B. Marcada como entregue no retrato, não como trabalho pendente. Fica aqui só como registro da FR de origem.
 
 **Acceptance Criteria:**
 
@@ -1165,9 +1203,9 @@ So that eu não esqueça e o salão reduza as faltas.
 **When** o lembrete é enviado
 **Then** `appointments.reminder_sent_at` é gravado (campo novo, análogo a `timeout_notified_at`) para nunca enviar em duplicidade; agendamentos cancelados/concluídos antes do disparo não recebem lembrete
 
-**Given** o scheduler
+**Given** o scheduler em MySQL (DL-056, mesmo mecanismo da 6.5)
 **When** um agendamento é criado/confirmado
-**Then** um job agendado (BullMQ sobre o Redis já existente) é registrado com delay calculado até o momento do lembrete, e é cancelado se o agendamento mudar de estado antes
+**Then** uma tarefa `appointment_reminder` é gravada em `scheduled_tasks` com `due_at` no momento do lembrete; a rotina de 1 min a dispara ao vencer, e ela vira `cancelled` se o agendamento mudar de estado antes — **sem BullMQ/Redis**
 
 **Given** uma cliente sem WhatsApp (FR-D8)
 **When** o lembrete seria enviado
@@ -1176,6 +1214,34 @@ So that eu não esqueça e o salão reduza as faltas.
 **Decisão a definir na época:** antecedência do lembrete — 24h fixas? Configurável por instalação
 (ex.: 24h/3h/ambos)? Definir com dados dos primeiros salões. (Depende também de `whatsapp_provider`
 ativo e da resiliência da Story 6.8.)
+
+### Story 6.11: Interruptor de WhatsApp por plano (novo — DL-057)
+
+> **Introduz o conceito de PLANO no produto** (não existia). **Dashboard e Financeiro (roadmap) vão depender de `plan`.** Gate de entrada do bot: sem ligar o interruptor, nada do Épico 6 opera para o tenant.
+
+As a dono,
+I want ligar e desligar o WhatsApp em Configurações, dentro do que o meu plano permite,
+So that eu controle o canal sem conseguir habilitar o que não contratei.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** `companies` ganha **`plan`** (`basico` | `pro`) e **`whatsapp_enabled`** (boolean, default `false`) — `plan` é definido **por Renato no provisionamento** (Story 1.9), o dono **não** altera
+
+**Given** o dono em Configurações no plano **Pró**
+**When** liga/desliga o WhatsApp
+**Then** `whatsapp_enabled` alterna; com ele **desligado**, o bot não processa nem envia nada para o tenant
+
+**Given** o dono no plano **básico** (FR-I2, gating por plano)
+**When** abre Configurações
+**Then** a opção de WhatsApp aparece **bloqueada** com *"disponível no plano Pró"* — não consegue ligar; **só** Renato muda o plano (operação manual)
+
+**Given** o backend (defesa em profundidade, não só a UI)
+**When** uma requisição tenta habilitar `whatsapp_enabled` num tenant `basico`
+**Then** é **rejeitada** — o gating não depende do front
+
+> **Fora de escopo agora (DL-057):** cobrança, upgrade automático, autoatendimento de plano. Mudar de plano é **operação manual do Renato**.
 
 ---
 
@@ -1229,13 +1295,15 @@ So that eu confirme/recuse pendentes, crie, cancele e remarque agendamentos sem 
 
 Ajuste fora de escopo da 7.2 (versionamento DL-028: X.Y.NN vinculado à story de origem), **registrado para não sumir do roadmap**. Detalhe em `ux/…/painel-mobile-ux-spec.md` (§5.2/§5.3/§5.4/§11.2).
 
-- **Overlap lado-a-lado + indicador “+N”** para horários sobrepostos (encaixe/overbooking, D1).
-- **Timeline mesclada multi-profissional** com chips coloridos por profissional + **filtro por profissional**.
-- **Linha de “agora” + auto-scroll** ao horário atual.
-- **Sheet de filtros** por origem/profissional (ícone `⚲` na toolbar) — reintroduz o filtro Todos/WhatsApp/Manual que a 1ª leva deixou de fora.
+> **ENCOLHEU (retrato 2026-08-10):** como a agenda mobile virou **lista** (`AgendaList`, não grade de horas), os itens abaixo de **grade/timeline perderam sentido e SAÍRAM** da 2ª leva: ~~overlap lado-a-lado "+N"~~, ~~timeline mesclada multi-profissional~~ e ~~linha de "agora" + auto-scroll~~. **Restou:** multi-profissional como **filtro** e **Perfil completa**.
+
+- ~~**Overlap lado-a-lado + indicador “+N”** para horários sobrepostos~~ — **removido** (fazia sentido na grade; a lista não tem colunas de tempo sobrepostas).
+- ~~**Timeline mesclada multi-profissional**~~ — **vira só filtro** (abaixo); os chips na timeline não existem sem grade.
+- ~~**Linha de “agora” + auto-scroll**~~ — **removido** (não há eixo de horas contínuo na lista).
+- **Multi-profissional como filtro** — **sheet de filtros** por origem/profissional (ícone `⚲` na toolbar); reintroduz Todos/WhatsApp/Manual + por profissional que a 1ª leva deixou de fora.
 - **Perfil completa** (mais preferências, além de identidade/tema/versão/Sair).
 
-**Critério do corte:** overlap e multi-profissional resolvem **agenda cheia** — cenário que ainda não temos. Prioridade da 1ª leva é o app **parecer app** e ser usável no dia a dia. Sem dependência de backend novo.
+**Critério do corte (atualizado):** a 1ª leva é o app **parecer app** e ser usável. O que sobra na 2ª leva (filtros + Perfil) não depende de backend novo. O que resolvia **agenda cheia em grade** foi descartado ao adotar a lista.
 
 ### Story 7.3: Consulta e estados no celular
 
