@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { apiRequest } from "../lib/api";
+import { useAuth } from "../auth/AuthContext";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -32,8 +33,10 @@ async function apiError(res: Response, fallback: string): Promise<string> {
 /**
  * Troca de senha (Perfil). Sheet no mobile / diálogo no desktop (DialogContent
  * responsivo). Valida a senha atual no backend; a nova segue a política do
- * cadastro (mín. 8). Não invalida outras sessões — o sistema não versiona
- * tokens hoje; a sessão atual continua válida.
+ * cadastro (mín. 8). A troca REVOGA as outras sessões (1.2.04): a API devolve
+ * tokens novos e ESTA sessão os adota (`applySession`) para não cair — se
+ * mantivéssemos os tokens antigos, a versão de sessão já não bateria e a
+ * próxima requisição daria 401.
  */
 export function ChangePasswordDialog({
   open,
@@ -42,6 +45,7 @@ export function ChangePasswordDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { applySession } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -77,6 +81,13 @@ export function ChangePasswordDialog({
       setSaving(false);
       return;
     }
+    // Adota os tokens novos (versão de sessão nova) para esta sessão seguir
+    // válida; sem isso, os tokens antigos seriam revogados na próxima chamada.
+    const { accessToken, refreshToken } = (await res.json()) as {
+      accessToken: string;
+      refreshToken: string;
+    };
+    await applySession(accessToken, refreshToken);
     reset();
     onOpenChange(false);
     toast.success("Senha alterada.");

@@ -10,7 +10,7 @@ type Mocked = {
     findActiveByEmail: jest.Mock;
     findByIdUnscoped: jest.Mock;
   };
-  jwt: { sign: jest.Mock; verify: jest.Mock };
+  tokens: { issue: jest.Mock; signAccess: jest.Mock; verifyRefresh: jest.Mock };
   companies: { findOne: jest.Mock; find: jest.Mock };
 };
 
@@ -22,6 +22,7 @@ const baseUser = {
   access_level: "owner" as const,
   attends_clients: true,
   is_active: true,
+  token_version: 0,
 };
 
 function make(): Mocked {
@@ -30,16 +31,16 @@ function make(): Mocked {
     findActiveByEmail: jest.fn().mockResolvedValue([]),
     findByIdUnscoped: jest.fn(),
   };
-  const jwt = { sign: jest.fn().mockReturnValue("token"), verify: jest.fn() };
-  const config = { get: jest.fn((_k: string, d?: string) => d ?? "cfg") };
+  const tokens = {
+    issue: jest
+      .fn()
+      .mockReturnValue({ accessToken: "acc", refreshToken: "ref" }),
+    signAccess: jest.fn().mockReturnValue("acc"),
+    verifyRefresh: jest.fn(),
+  };
   const companies = { findOne: jest.fn(), find: jest.fn() };
-  const svc = new AuthService(
-    users as never,
-    jwt as never,
-    config as never,
-    companies as never,
-  );
-  return { svc, users, jwt, companies };
+  const svc = new AuthService(users as never, tokens as never, companies as never);
+  return { svc, users, tokens, companies };
 }
 
 async function userWith(password: string, over: Partial<User> = {}) {
@@ -131,25 +132,44 @@ describe("AuthService.attemptLogin (login por e-mail — DL-052)", () => {
 });
 
 describe("AuthService tokens/refresh", () => {
-  it("login assina access e refresh tokens", () => {
-    const { svc, jwt } = make();
-    const tokens = svc.login(baseUser as unknown as User);
-    expect(tokens.accessToken).toBeDefined();
-    expect(tokens.refreshToken).toBeDefined();
-    expect(jwt.sign).toHaveBeenCalledTimes(2);
+  it("login delega a emissão dos tokens ao TokenService", () => {
+    const { svc, tokens } = make();
+    const out = svc.login(baseUser as unknown as User);
+    expect(out).toEqual({ accessToken: "acc", refreshToken: "ref" });
+    expect(tokens.issue).toHaveBeenCalledWith(baseUser);
   });
 
-  it("refresh emite novo access a partir de refresh válido", async () => {
-    const { svc, jwt, users } = make();
-    jwt.verify.mockReturnValue({ sub: "10" });
-    users.findByIdUnscoped.mockResolvedValue(baseUser);
+  it("refresh emite novo access quando a versão do token bate", async () => {
+    const { svc, tokens, users } = make();
+    tokens.verifyRefresh.mockReturnValue({ sub: "10", tokenVersion: 0 });
+    users.findByIdUnscoped.mockResolvedValue({ ...baseUser, token_version: 0 });
     const result = await svc.refresh("valid-refresh");
-    expect(result.accessToken).toBeDefined();
+    expect(result.accessToken).toBe("acc");
+    expect(tokens.signAccess).toHaveBeenCalled();
+  });
+
+  it("refresh rejeita quando a versão do token não bate (senha trocada, 1.2.04)", async () => {
+    const { svc, tokens, users } = make();
+    tokens.verifyRefresh.mockReturnValue({ sub: "10", tokenVersion: 0 });
+    users.findByIdUnscoped.mockResolvedValue({ ...baseUser, token_version: 1 });
+    await expect(svc.refresh("stale")).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it("refresh rejeita usuário inativo com 401", async () => {
+    const { svc, tokens, users } = make();
+    tokens.verifyRefresh.mockReturnValue({ sub: "10", tokenVersion: 0 });
+    users.findByIdUnscoped.mockResolvedValue({
+      ...baseUser,
+      is_active: false,
+    });
+    await expect(svc.refresh("x")).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it("refresh rejeita refresh inválido com 401", async () => {
-    const { svc, jwt } = make();
-    jwt.verify.mockImplementation(() => {
+    const { svc, tokens } = make();
+    tokens.verifyRefresh.mockImplementation(() => {
       throw new Error("invalid");
     });
     await expect(svc.refresh("bad")).rejects.toBeInstanceOf(UnauthorizedException);

@@ -56,6 +56,16 @@ export class User {
   @Column({ type: "boolean", default: true })
   is_active!: boolean;
 
+  /**
+   * Versão de sessão (1.2.04, DL-025-nota). Entra no payload do access E do
+   * refresh token; qualquer divergência entre o token e este valor invalida a
+   * sessão. Incrementa ao trocar (Perfil) ou redefinir (reset 1.9.01) a senha —
+   * derrubando as OUTRAS sessões. Token sem o claim (emitido antes desta coluna)
+   * vale como 0, igual ao default, então nada em uso quebra.
+   */
+  @Column({ type: "int", default: 0 })
+  token_version!: number;
+
   @CreateDateColumn({ type: "timestamp" })
   created_at!: Date;
 

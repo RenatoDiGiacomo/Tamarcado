@@ -1,17 +1,13 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { Company } from "../../database/entities/company.entity";
 import { User } from "../../database/entities/user.entity";
 import { UsersService } from "../users/users.service";
+import { TokenService, type AuthTokens } from "../token/token.service";
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
+export type { AuthTokens };
 
 /** Estabelecimento oferecido na desambiguação de e-mail (DL-052). */
 export interface CompanyChoice {
@@ -26,8 +22,7 @@ export type LoginOutcome = AuthTokens | { companies: CompanyChoice[] };
 export class AuthService {
   constructor(
     private readonly users: UsersService,
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService,
+    private readonly tokens: TokenService,
     @InjectRepository(Company)
     private readonly companies: Repository<Company>,
   ) {}
@@ -90,21 +85,7 @@ export class AuthService {
   }
 
   login(user: User): AuthTokens {
-    const accessToken = this.jwt.sign({
-      sub: user.id,
-      companyId: user.company_id,
-      accessLevel: user.access_level,
-      attendsClients: user.attends_clients,
-    });
-    const refreshToken = this.jwt.sign(
-      { sub: user.id },
-      {
-        secret: this.config.get<string>("JWT_REFRESH_SECRET"),
-        // segundos (jsonwebtoken aceita number = segundos); default 7 dias
-        expiresIn: Number(this.config.get<string>("JWT_REFRESH_TTL", "604800")),
-      },
-    );
-    return { accessToken, refreshToken };
+    return this.tokens.issue(user);
   }
 
   /**
@@ -121,26 +102,24 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<{ accessToken: string }> {
-    let sub: string;
+    let payload: { sub: string; tokenVersion: number };
     try {
-      const payload = this.jwt.verify<{ sub: string }>(refreshToken, {
-        secret: this.config.get<string>("JWT_REFRESH_SECRET"),
-      });
-      sub = payload.sub;
+      payload = this.tokens.verifyRefresh(refreshToken);
     } catch {
       throw new UnauthorizedException("Refresh token inválido");
     }
     // Refresh é pré-tenant (sem middleware/contexto): lookup sem escopo.
-    const user = await this.users.findByIdUnscoped(sub);
-    if (!user || !user.is_active) {
+    const user = await this.users.findByIdUnscoped(payload.sub);
+    // Além de inativo (desativação, DL-029), a versão do token precisa bater
+    // com a do usuário: senha trocada/redefinida bumpa a versão e derruba os
+    // refresh tokens antigos aqui — sem esperar os 7 dias (1.2.04).
+    if (
+      !user ||
+      !user.is_active ||
+      user.token_version !== payload.tokenVersion
+    ) {
       throw new UnauthorizedException("Refresh token inválido");
     }
-    const accessToken = this.jwt.sign({
-      sub: user.id,
-      companyId: user.company_id,
-      accessLevel: user.access_level,
-      attendsClients: user.attends_clients,
-    });
-    return { accessToken };
+    return { accessToken: this.tokens.signAccess(user) };
   }
 }

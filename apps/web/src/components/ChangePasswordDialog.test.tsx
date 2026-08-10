@@ -6,6 +6,10 @@ const apiMock = vi.fn();
 vi.mock("../lib/api", () => ({ apiRequest: (...a: unknown[]) => apiMock(...a) }));
 const toastSuccess = vi.fn();
 vi.mock("sonner", () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a) } }));
+const applySessionMock = vi.fn();
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({ applySession: applySessionMock }),
+}));
 
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
@@ -23,6 +27,7 @@ describe("ChangePasswordDialog", () => {
   beforeEach(() => {
     apiMock.mockReset();
     toastSuccess.mockReset();
+    applySessionMock.mockReset();
     localStorage.setItem("tamarcado.access", "tok");
   });
 
@@ -44,8 +49,10 @@ describe("ChangePasswordDialog", () => {
     expect(apiMock).not.toHaveBeenCalled();
   });
 
-  it("sucesso: PATCH /users/me/password, fecha e avisa", async () => {
-    apiMock.mockResolvedValue(jsonRes({ ok: true }));
+  it("sucesso: PATCH /users/me/password, adota os tokens novos, fecha e avisa", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({ accessToken: "novo-acc", refreshToken: "novo-ref" }),
+    );
     const onOpenChange = vi.fn();
     render(<ChangePasswordDialog open onOpenChange={onOpenChange} />);
     fill("atual123", "novaSenha1", "novaSenha1");
@@ -59,6 +66,10 @@ describe("ChangePasswordDialog", () => {
         newPassword: "novaSenha1",
       });
     });
+    // Sessão atual adota os tokens novos (versão nova) — não cai (1.2.04).
+    await waitFor(() =>
+      expect(applySessionMock).toHaveBeenCalledWith("novo-acc", "novo-ref"),
+    );
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(toastSuccess).toHaveBeenCalled();
   });
