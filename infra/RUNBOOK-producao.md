@@ -166,6 +166,32 @@ o código não a lê mais), `REDIS_URL` (DL-056), `WHATSAPP_*`/`EVOLUTION_*` (en
 > `VITE_API_URL=https://api.tamarcado.tec.br` (baked no build do web). Sem isso ele tenta
 > mesma-origem e quebra.
 
+### 5.1 Usar `/api/platform/*` (provisionar empresa / reset de senha) — só por TÚNEL SSH
+
+Em produção o Nginx **bloqueia `/api/platform/*` para toda a internet** (`deny all` → 403),
+**sem exceção de IP** (não há IP fixo residencial — restringir por IP trancaria o Renato fora
+quando o IP mudasse). O acesso legítimo é por **túnel SSH** direto na API em `127.0.0.1:3000`,
+que **não passa pelo Nginx** (por isso o `deny` não se aplica ao túnel):
+
+1. Abrir o túnel (deixa o terminal rodando):
+   ```bash
+   ssh -N -L 9443:127.0.0.1:3000 -i ~/.ssh/id_ed25519 deploy@179.198.123.87
+   ```
+   Encaminha `localhost:9443` do seu PC → `127.0.0.1:3000` do servidor.
+
+2. No **Insomnia** (ou curl), base = `http://localhost:9443` (HTTP puro — o SSH já cifra o túnel):
+   ```
+   POST http://localhost:9443/api/platform/companies        # provisionar estabelecimento
+   POST http://localhost:9443/api/platform/password-reset    # reset de senha por link
+   Header em ambos:  x-platform-key: <valor de PLATFORM_KEY do servidor>
+   ```
+   O `PLATFORM_KEY` está em `/etc/tamarcado/api.env` (ler com `sudo cat`).
+
+3. Fechar o túnel ao terminar (Ctrl-C).
+
+Pela internet (`https://api.tamarcado.tec.br/api/platform/...`) → **403 sempre**. Tentativas
+ficam logadas em `/var/log/nginx/platform-denied.log`.
+
 ---
 
 ## 6. Banco: backup e restauração
@@ -241,16 +267,21 @@ curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
 
 ## 10. Pendências / próximas fases
 
-- **Fase 2 (depende do DNS `tamarcado.tec.br`, ~2h de propagação):**
-  - Nginx com **2 server blocks**: `tamarcado.tec.br` (estático `/var/www/tamarcado` + SPA) e
-    `api.tamarcado.tec.br` (proxy `127.0.0.1:3000`).
-  - ⚠️ **`/api/platform/*` restrito ao IP do Renato** (`allow <ip>; deny all;`) no server block
-    da API — **bloqueador de segurança** (quem tem a `PLATFORM_KEY` provisiona/reseta qualquer conta).
-    **Pedir o IP ao Renato na Fase 2.**
-  - Certbot para `tamarcado.tec.br` e `api.tamarcado.tec.br`; confirmar **renovação automática**
-    (`certbot renew --dry-run`), não só a emissão.
+- **Fase 2 (depende do DNS — em propagação, ~2h):**
+  - **Pré-requisito de DNS:** registros **A** apontando para `179.198.123.87` para
+    **`tamarcado.tec.br`** e **`api.tamarcado.tec.br`**. Em 2026-08-11 o `api.` ainda estava
+    **NXDOMAIN** — criar o registro, senão o Certbot não emite o cert dele. (`app.` fica reservado.)
+  - Nginx com **2 server blocks** (arquivos já no repo em `infra/nginx/`):
+    `tamarcado.tec.br.conf` (estático + SPA) e `api.tamarcado.tec.br.conf` (proxy `127.0.0.1:3000`).
+  - ⚠️ **`/api/platform/*` = `deny all`** (sem IP) no server block da API — acesso só por **túnel
+    SSH** (ver §5.1). Bloqueador de segurança fechado sem depender de IP fixo.
+  - Certbot (`--nginx`) para `tamarcado.tec.br` e `api.tamarcado.tec.br`; confirmar **renovação
+    automática** (`sudo certbot renew --dry-run`), não só a emissão.
   - 1º deploy + smoke test (login, agendamento, link público, confirmar pendente) + **testar o
     PWA instalado no celular** (pendente desde a 7.1, agora possível com HTTPS).
-- **Fase 3 (CD):** `ci.yml` incluir `dev` no `pull_request`; `deploy.yml` → `workflow_dispatch`
-  (não automático em push no `main`, DL-060); ordem backup→build→envio→migrations→restart→healthcheck
-  com rollback; secret da chave `tamarcado_deploy` no GitHub.
+- **Fase 3 (CD) — modelo (a): build no GitHub Actions + rsync (servidor SEM credencial de GitHub):**
+  `ci.yml` incluir `dev` no `pull_request`; `deploy.yml` → `workflow_dispatch` (não automático em
+  push no `main`, DL-060); Actions builda `apps/web` (com `VITE_API_URL=https://api.tamarcado.tec.br`)
+  e `apps/api`, e **rsync** dos artefatos para o servidor; ordem
+  **backup→envio→migrations→restart PM2→healthcheck** com **rollback** (release anterior + reverter);
+  chave `tamarcado_deploy` como secret no GitHub.
