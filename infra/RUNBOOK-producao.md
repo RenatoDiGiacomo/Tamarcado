@@ -17,7 +17,7 @@ servidor do zero sem depender de memória**. Referência de arquitetura: ADR-009
 | Provedor | Hostinger KVM 2 |
 | SO | Ubuntu 24.04 LTS (datacenter Brasil) |
 | IP | `179.198.123.87` |
-| Domínio | `tamarcado.tec.br` (registro.br) |
+| Domínio | `tamarcado.tec.br` — registrado no registro.br, **DNS gerido na Cloudflare** (NS `arturo`/`melina.ns.cloudflare.com`). Cloudflare **Email Routing** grátis (`contato@tamarcado.tec.br` → caixa do Renato). |
 | Stack | Nginx + PM2 + MySQL 8 + Certbot (**sem Docker, sem Redis** — DL-056) |
 | Usuário de app | `deploy` (não-root, sudo) |
 | App (API) | PM2 `tamarcado-api`, porta interna `3000` |
@@ -268,9 +268,11 @@ curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
 ## 10. Pendências / próximas fases
 
 - **Fase 2 (depende do DNS — em propagação, ~2h):**
-  - **Pré-requisito de DNS:** registros **A** apontando para `179.198.123.87` para
-    **`tamarcado.tec.br`** e **`api.tamarcado.tec.br`**. Em 2026-08-11 o `api.` ainda estava
-    **NXDOMAIN** — criar o registro, senão o Certbot não emite o cert dele. (`app.` fica reservado.)
+  - **Pré-requisito de DNS (agora na Cloudflare):** registros **A** apontando para
+    `179.198.123.87` para **`tamarcado.tec.br`** e **`api.tamarcado.tec.br`**, criados **na
+    Cloudflare** (a delegação registro.br → NS da Cloudflare aguardava a janela de transição).
+    Os A records **precisam ficar em "DNS only" (nuvem CINZA), NÃO proxied** — com o proxy laranja
+    ligado o **Certbot falha** na emissão (o desafio HTTP-01 não chega ao servidor). (`app.` reservado.)
   - Nginx com **2 server blocks** (arquivos já no repo em `infra/nginx/`):
     `tamarcado.tec.br.conf` (estático + SPA) e `api.tamarcado.tec.br.conf` (proxy `127.0.0.1:3000`).
   - ⚠️ **`/api/platform/*` = `deny all`** (sem IP) no server block da API — acesso só por **túnel
@@ -285,3 +287,26 @@ curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
   e `apps/api`, e **rsync** dos artefatos para o servidor; ordem
   **backup→envio→migrations→restart PM2→healthcheck** com **rollback** (release anterior + reverter);
   chave `tamarcado_deploy` como secret no GitHub.
+
+---
+
+## 11. DNS / e-mail — SPF ÚNICO (atenção na fase de e-mail transacional)
+
+DNS gerido na **Cloudflare**. O **Email Routing** (grátis, `contato@` → caixa do Renato) publica
+um registro **SPF** próprio (`include:_spf.mx.cloudflare.net`).
+
+⚠️ **Quando entrar o e-mail transacional (Brevo ou Resend — roadmap item 2, DL-060):** o SPF do
+provedor **NÃO** pode virar um segundo registro TXT. Um domínio com **dois registros SPF separados
+INVALIDA os dois** (RFC 7208). É preciso **um único registro TXT** `v=spf1 …` combinando os dois
+`include:`. Exemplo (ajustar ao provedor escolhido):
+
+```
+tamarcado.tec.br  TXT  "v=spf1 include:_spf.mx.cloudflare.net include:<spf-do-brevo-ou-resend> ~all"
+```
+
+- **Brevo:** `include:spf.sendinbrevo.com` (confirmar no painel do Brevo na hora).
+- **Resend:** usa domínio/subdomínio próprio + `include:` indicado pelo painel (confirmar).
+- Além do SPF, o provedor exige **DKIM** (registros CNAME/TXT próprios — esses SIM são separados,
+  sem conflito) e opcionalmente **DMARC**. Só o **SPF** é que precisa ser registro único.
+- Registros de e-mail (MX/TXT do Email Routing, DKIM) ficam **DNS only**; não afetam o Certbot.
+
