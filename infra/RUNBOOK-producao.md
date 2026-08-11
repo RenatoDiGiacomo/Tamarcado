@@ -222,18 +222,29 @@ gunzip < "$LATEST" | mysql
 > Ordem obrigatória do deploy: **backup do banco → build → envio → migrations → restart PM2
 > → healthcheck**, com **rollback**. Rascunho em `infra/scripts/deploy.sh`.
 
-**Deploy manual (enquanto o CD não está pronto):**
+**Deploy manual (enquanto o CD da Fase 3 não está pronto).** O servidor **NÃO tem `.git`**
+(repo privado, sem credencial de GitHub no servidor — modelo (a)). O código é enviado como
+**snapshot** (`git archive`) e **buildado no servidor**:
+
 ```bash
-ssh deploy@179.198.123.87
-sudo /usr/local/bin/tamarcado-backup.sh                       # 1) backup antes de tudo
-cd /opt/tamarcado && git fetch && git checkout main && git pull
-cp /etc/tamarcado/api.env apps/api/.env                        # env de produção
-pnpm install --frozen-lockfile && pnpm -r build
-pnpm --filter api run migration:run                           # migrations
-pm2 restart tamarcado-api || pm2 start ecosystem.config.js
-cp -r apps/web/dist/. /var/www/tamarcado/
-curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
+# --- NO SEU PC (na raiz do repo) ---
+git fetch origin
+git archive --format=tar.gz -o /tmp/tamarcado-main.tgz origin/main     # snapshot de produção
+scp -i ~/.ssh/id_ed25519 /tmp/tamarcado-main.tgz deploy@179.198.123.87:/tmp/
+
+# --- NO SERVIDOR (ssh deploy@179.198.123.87) ---
+sudo /usr/local/bin/tamarcado-backup.sh                                 # 1) backup ANTES
+cd /opt/tamarcado && tar -xzf /tmp/tamarcado-main.tgz -C /opt/tamarcado # 2) extrair fonte
+cp /etc/tamarcado/api.env apps/api/.env                                 # 3) env de produção
+pnpm install --frozen-lockfile                                          # 4) deps
+VITE_API_URL=https://api.tamarcado.tec.br pnpm -r build                 # 5) build (web precisa do VITE_API_URL)
+pnpm --filter api run migration:run                                     # 6) migrations
+pm2 restart tamarcado-api || pm2 start ecosystem.config.js ; pm2 save   # 7) PM2
+cp -r apps/web/dist/. /var/www/tamarcado/                               # 8) publicar web
+curl -fsS http://127.0.0.1:3000/health && echo " OK"                    # 9) healthcheck
 ```
+Na **Fase 3** o GitHub Actions passa a **buildar** e **rsync** dos artefatos (`workflow_dispatch`),
+eliminando o build no servidor.
 
 **Rollback (desenho — detalhar na Fase 3):** manter a versão anterior no servidor
 (release anterior ou commit anterior), e um comando que volta: `git checkout <sha-anterior>`
@@ -267,20 +278,23 @@ curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
 
 ## 10. Pendências / próximas fases
 
-- **Fase 2 (depende do DNS — em propagação, ~2h):**
-  - **Pré-requisito de DNS (agora na Cloudflare):** registros **A** apontando para
-    `179.198.123.87` para **`tamarcado.tec.br`** e **`api.tamarcado.tec.br`**, criados **na
-    Cloudflare** (a delegação registro.br → NS da Cloudflare aguardava a janela de transição).
-    Os A records **precisam ficar em "DNS only" (nuvem CINZA), NÃO proxied** — com o proxy laranja
-    ligado o **Certbot falha** na emissão (o desafio HTTP-01 não chega ao servidor). (`app.` reservado.)
-  - Nginx com **2 server blocks** (arquivos já no repo em `infra/nginx/`):
-    `tamarcado.tec.br.conf` (estático + SPA) e `api.tamarcado.tec.br.conf` (proxy `127.0.0.1:3000`).
-  - ⚠️ **`/api/platform/*` = `deny all`** (sem IP) no server block da API — acesso só por **túnel
-    SSH** (ver §5.1). Bloqueador de segurança fechado sem depender de IP fixo.
-  - Certbot (`--nginx`) para `tamarcado.tec.br` e `api.tamarcado.tec.br`; confirmar **renovação
-    automática** (`sudo certbot renew --dry-run`), não só a emissão.
-  - 1º deploy + smoke test (login, agendamento, link público, confirmar pendente) + **testar o
-    PWA instalado no celular** (pendente desde a 7.1, agora possível com HTTPS).
+- **Fase 2 — ✅ CONCLUÍDA (2026-08-11):**
+  - DNS (registro.br respondendo; delegação p/ Cloudflare vem depois, não invalida o cert já emitido):
+    `tamarcado.tec.br` e `api.tamarcado.tec.br` → `179.198.123.87`. **A records na Cloudflare precisam
+    ficar "DNS only" (nuvem cinza)** — proxied quebra o Certbot.
+  - **Nginx** com os **2 server blocks** (`infra/nginx/`), default removido, `nginx -t` ok.
+  - **`/api/platform/*` = `deny all`** — confirmado **403** via HTTPS. Acesso só por túnel SSH (§5.1).
+  - **Certbot** emitiu para os 2 nomes (expira ~2026-11-09), redirect HTTP→HTTPS (301), e o
+    **`renew --dry-run` passou** ("all simulated renewals succeeded") — renovação automática confirmada.
+  - **1º deploy** (11 migrations em `tamarcado_prod`, PM2 online + `pm2 save`, web publicado).
+    **Smoke test HTTPS OK:** provisionar → aceitar convite → login por e-mail → `/users/me` →
+    `GET /public/{slug}/installation` (200); dado de teste **removido** (prod limpo).
+  - ⏳ **PENDENTE (ação do Renato — precisa do aparelho):** **instalar o PWA no celular** por
+    `https://tamarcado.tec.br` e validar (tela cheia, ícone, offline mínimo) — pendente desde a 7.1,
+    agora possível com HTTPS. E, quando quiser, exercitar o happy-path completo pela UI
+    (criar agendamento + confirmar pendente — já coberto pelos e2e no CI).
+  - ⏳ **Rotacionar a senha de sudo do `deploy`** (a de setup circulou no chat): `ssh` como deploy e
+    `sudo passwd deploy`.
 - **Fase 3 (CD) — modelo (a): build no GitHub Actions + rsync (servidor SEM credencial de GitHub):**
   `ci.yml` incluir `dev` no `pull_request`; `deploy.yml` → `workflow_dispatch` (não automático em
   push no `main`, DL-060); Actions builda `apps/web` (com `VITE_API_URL=https://api.tamarcado.tec.br`)
