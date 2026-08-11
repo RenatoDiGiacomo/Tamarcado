@@ -235,8 +235,8 @@ O salão mantém o cadastro de clientes com histórico e observações, transfor
 **FRs cobertas:** FR-E1–E4
 **UX-DRs:** UX-DR11, UX-DR17
 
-### Épico 5: Registro de Pagamentos
-O salão registra manualmente o recebimento por agendamento (valor + forma via dropdown de 5 opções), com regras de visibilidade por papel e transição do agendamento para *concluído*. A abstração `PaymentGateway`/`NullPaymentGateway` é preparada sem integração ativa. Full-stack.
+### Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060)*
+O salão registra manualmente o recebimento por agendamento (valor + forma via dropdown de 5 opções), com regras de visibilidade por papel e transição do agendamento para *concluído*. A abstração `PaymentGateway`/`NullPaymentGateway` é preparada sem integração ativa. Full-stack. **Roadmap (DL-060):** entra no bloco **"Dados e Gestão"**, junto de Dashboard e Monitoramento do bot (estrutura de coleta comum).
 **FRs cobertas:** FR-F1–F5 · **NFRs:** NFR-O4
 **UX-DRs:** UX-DR12
 
@@ -250,14 +250,38 @@ Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda 
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
-### Épico 7: Acesso mobile — painel responsivo instalável (PWA)
-O dono/profissional opera o **painel completo pelo celular**, instalável como **PWA** (adicionar à tela inicial), com as **mesmas ações** do desktop (confirmar/recusar pendentes, criar/cancelar/remarcar, clientes, configurações). **Não** é app nativo somente leitura — **revoga DL-018 e o P7 do plano 5B (DL-051)**. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação completa no celular o produto não é vendável para esse perfil. **Deixou de ser "por último"** — responsividade do painel é **pré-requisito de venda**. **Posição decidida (DL-051, 2026-07-30):** vem **ANTES do Épico 5 (Pagamentos) e do Épico 6 (bot)** na ordem de execução (os números não mudam; é prioridade).
+### Épico 7: Acesso mobile — painel responsivo instalável (PWA) — ✅ 1ª leva ENTREGUE
+O dono/profissional opera o **painel completo pelo celular**, instalável como **PWA** (adicionar à tela inicial), com as **mesmas ações** do desktop (confirmar/recusar pendentes, criar/cancelar/remarcar, clientes, configurações). **Não** é app nativo somente leitura — **revoga DL-018 e o P7 do plano 5B (DL-051)**. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação completa no celular o produto não é vendável para esse perfil. **Atualização (DL-060, 2026-08-11):** a **1ª leva está no `main` e sai da fila** — a antiga priorização "ANTES do Épico 5/6" (DL-051) está **cumprida/vencida**. A **2ª leva (7.2.NN)** passa à faixa de **updates contínuos** (ver Roadmap). Ordem atual em **## Roadmap — ordem de execução**.
 **FRs cobertas:** FR-H1, FR-H2, FR-H3, FR-H4
 **UX-DRs:** UX-DR7 (navegação mobile do painel), UX-DR16, UX-DR17
 
 ---
 
-## Estado de implementação — retrato (2026-08-10)
+## Roadmap — ordem de execução (redesenhado 2026-08-11, DL-060)
+
+> **Revisa a priorização do DL-051** (que punha o Épico 7 antes do 5 e do 6): a **1ª leva do Épico 7 já está no `main`** e o **VPS foi contratado**. Os números de épico **não mudam** — isto é a **ordem de trabalho**.
+
+**0. ✅ Épico 7 (1ª leva) — ENTREGUE, fora da fila.** PWA + painel-app no celular + agenda em lista + estados (PRs #51–#59). A **2ª leva (7.2.NN)** vai para a faixa de **updates contínuos** (item 5).
+
+**1. Infraestrutura — AGORA.** VPS **Hostinger KVM 2**, **Ubuntu 24.04**, domínio **tamarcado.tec.br**. Stack **ADR-009**: **Nginx + PM2 + MySQL + Certbot**. Inclui:
+- **Restrição de `/api/platform/*` por IP** (fecha a pendência de deploy dos endpoints pré-tenant 1.9/1.9.01).
+- **CD por SSH acionado manualmente** — **não** automático a cada merge.
+- **Backup antes de cada deploy** + **migrations no deploy** + **caminho de rollback** documentado.
+
+**2. E-mail transacional.** Destrava a **recuperação de senha** (hoje bloqueador; mitigada pela 1.9.01). **Serviço externo** (Brevo/Resend), **não** caixa de e-mail comum.
+
+**3. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev).
+
+**4. Dados e Gestão** *(bloco novo — agrupado; estrutura de coleta comum aos três, desenhar juntos):*
+- **Dashboard** — fluxo de clientes, vendas e atendimentos concluídos.
+- **Financeiro** — o **Épico 5** (Pagamentos, **renomeado** para Financeiro).
+- **Monitoramento do bot** — alertas de queda/entrega + painel (vindo do **DL-058**).
+
+**5. Updates contínuos** *(faixa PERMANENTE — não é épico):* correções visuais do mobile e refinos de interface entram em **ciclos regulares**. A **2ª leva do Épico 7 (7.2.NN)** faz parte disso.
+
+---
+
+## Estado de implementação — retrato (2026-08-11)
 
 > Mantido sob a disciplina do **DL-042**: só muda quando uma story é concluída/mergeada, nasce uma decisão, o roadmap muda de ordem, ou uma story ganha detalhe que altera a implementação. **Não** muda por ajuste visual, fix ou texto.
 
@@ -294,7 +318,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **Painel de Configurações (UX-DR13) — COMPLETO:** Identidade ✅ (2.1.03) · Serviços ✅ (2.1.03) · Horários ✅ (3.3.2) · Equipe ✅ (3.3.3, PR #26 — inclui a página de aceite de convite `/aceitar-convite`). *(3.3.2/3.3.3 foram rotuladas sob o Épico 3 por velocidade, mas são features do Painel de Configurações — DL-039.)*
 
-**Épico 7 — Acesso mobile / PWA (DL-051) — ✅ 1ª leva no `main` (PRs #51–#59 + correções):**
+**Épico 7 — Acesso mobile / PWA (DL-051) — ✅ 1ª leva no `main`, FORA da fila (DL-060) (PRs #51–#59 + correções):**
 - ✅ **7.1** Painel **instalável como PWA** — manifest, ícones, service worker `autoUpdate` (SW não troca a versão no meio da sessão; assume no próximo carregamento). Mergeada (PR #59).
 - ✅ **7.2 (1ª leva)** Painel com **cara de app** no celular — AppBar enxuta, **tab bar de 4 abas + FAB central**, bottom sheets, **toolbar única**, Perfil, Configurações usável no mobile. Reaproveita os mesmos endpoints (sem backend novo).
 - ✅ **7.2 — agenda em lista** — `AgendaList` (mobile) / `AgendaGrid` (desktop) escolhidos pela rota; **calendário do mês com cor por status**; **auto-refresh em todas as mutações** (via `appointmentsSignal`).
@@ -834,9 +858,9 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 ---
 
-## Épico 5: Registro de Pagamentos
+## Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; bloco "Dados e Gestão" no roadmap)*
 
-**Objetivo:** dar ao salão visão de recebimento por agendamento, com registro manual e visibilidade por papel — sem gateway no MVP, mas com a abstração `PaymentGateway` preparada. Full-stack.
+**Objetivo:** dar ao salão visão de recebimento por agendamento, com registro manual e visibilidade por papel — sem gateway no MVP, mas com a abstração `PaymentGateway` preparada. Full-stack. **Posição (DL-060):** entra no bloco **Dados e Gestão**, junto de Dashboard e Monitoramento do bot — os três compartilham a estrutura de coleta e são desenhados juntos.
 
 **FRs:** FR-F1–F5 · **NFRs:** NFR-O4 · **UX-DRs:** UX-DR12
 
@@ -1245,11 +1269,13 @@ So that eu controle o canal sem conseguir habilitar o que não contratei.
 
 ---
 
-## Épico 7: Acesso mobile — painel responsivo instalável (PWA)
+## Épico 7: Acesso mobile — painel responsivo instalável (PWA) — ✅ 1ª leva ENTREGUE
 
 **Objetivo:** entregar o **painel completo no celular** — o mesmo painel web, **responsivo** e **instalável como PWA** (adicionar à tela inicial, ícone, splash, shell offline mínimo), com **funcionalidade completa** (as mesmas ações do desktop). **Não** é um app nativo separado somente leitura.
 
-> **Reformulado por DL-051 (2026-07-30), que revoga DL-018 e o P7 do plano 5B.** Antes: app React Native/Expo, somente leitura, "por último no roadmap (DL-035)". Agora: responsividade + PWA do painel existente, ações completas. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação plena no celular o produto não é vendável para esse perfil — por isso **deixa de ser o último**. **Posição decidida (DL-051, 2026-07-30): ANTES do Épico 5 (Pagamentos) e do Épico 6 (bot)** na ordem de execução (sem renumerar). A base técnica já existe: o painel tem navegação responsiva (UX-DR7, tabs no rodapé <768px) e todas as ações (5B.3, 3.3, 3.4, 3.6) — o épico é **completar a responsividade das telas** e **empacotar como PWA**, sem backend novo. As stories abaixo foram reescritas nesse sentido; os ACs finos serão fechados na story de execução.
+> **Status (DL-060, 2026-08-11): 1ª leva ENTREGUE no `main` e FORA da fila.** PWA (7.1) + painel-app (7.2 1ª leva) + agenda em lista + estados (7.3), PRs #51–#59. A antiga priorização do DL-051 ("ANTES do Épico 5/6") está **cumprida/vencida**. A **2ª leva (7.2.NN)** passa à faixa de **updates contínuos** (ver **## Roadmap — ordem de execução**), não é mais um bloco à frente de 5/6.
+
+> **Reformulado por DL-051 (2026-07-30), que revoga DL-018 e o P7 do plano 5B.** Antes: app React Native/Expo, somente leitura, "por último no roadmap (DL-035)". Agora: responsividade + PWA do painel existente, ações completas. **Motivo:** muitos estabelecimentos-alvo não têm computador; sem ação plena no celular o produto não é vendável para esse perfil — por isso **deixa de ser o último**. *(A posição relativa a 5/6 foi atualizada pelo DL-060 — ver acima.)* A base técnica já existe: o painel tem navegação responsiva (UX-DR7, tabs no rodapé <768px) e todas as ações (5B.3, 3.3, 3.4, 3.6) — o épico é **completar a responsividade das telas** e **empacotar como PWA**, sem backend novo. As stories abaixo foram reescritas nesse sentido; os ACs finos serão fechados na story de execução.
 
 **FRs:** FR-H1, FR-H2, FR-H3, FR-H4 · **UX-DRs:** UX-DR7, UX-DR16, UX-DR17
 
