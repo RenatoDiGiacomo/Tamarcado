@@ -2,6 +2,7 @@
   "name": "api",
   "version": "0.1.0",
   "private": true,
+  "files": ["dist"],
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -14,6 +15,7 @@
     "start:dev": "nest start --watch",
     "seed:dev": "ts-node src/database/seeds/seed-dev.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/typeorm.config.ts",
+    "migration:run:prod": "typeorm migration:run -d dist/database/typeorm.config.js",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/typeorm.config.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/typeorm.config.ts"
   },

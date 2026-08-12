@@ -3,8 +3,11 @@ name: CI
 on:
   push:
     branches: ["**"]
+  # PRs de trabalho miram `dev`; o PR de implantação mira `main` (DL-059).
+  # `staging` saiu: não há branch/deploy de staging — o staging do projeto é
+  # LOCAL (ADR-010), não um branch no GitHub.
   pull_request:
-    branches: [main, staging]
+    branches: [main, dev]
 
 jobs:
   validate:
@@ -23,10 +26,8 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
+      # Redis REMOVIDO (DL-056): a aplicação não usa mais Redis (estado de
+      # conversa e jobs vão para o MySQL). Nada nos testes depende dele.
 
     env:
       DATABASE_HOST: 127.0.0.1
@@ -34,14 +35,12 @@ jobs:
       DATABASE_USER: root
       DATABASE_PASSWORD: root
       DATABASE_NAME: tamarcado_dev
-      REDIS_URL: redis://127.0.0.1:6379
       JWT_SECRET: ci-test-secret
       JWT_ACCESS_TTL: "900"
       JWT_REFRESH_SECRET: ci-test-refresh-secret
       JWT_REFRESH_TTL: "604800"
-      # Banco de teste do CI é tenant-único; os e2e legados logam sem slug.
-      # Prod fica com a flag OFF (login exige slug via /app/{slug}/login — DL-050).
-      AUTH_ALLOW_SINGLE_TENANT: "1"
+      # AUTH_ALLOW_SINGLE_TENANT REMOVIDA (DL-052): o login por e-mail resolve o
+      # tenant no backend; a flag foi aposentada e o código não a lê mais.
 
     steps:
       - uses: actions/checkout@v4

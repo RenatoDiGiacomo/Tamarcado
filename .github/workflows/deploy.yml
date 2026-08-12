@@ -1,17 +1,29 @@
 name: Deploy Production
 
-# Dispara em push para main. O CI (ci.yml) roda como check separado no mesmo
-# push; configure branch protection exigindo o check "validate" verde antes do
-# merge para que o deploy só ocorra com CI verde (architecture.md §9.2).
+# Manual (DL-060): o deploy NÃO dispara sozinho no push/merge do `main` — quem
+# aciona é o Renato. AMARRADO ao `main`: sem input de ref, checkout fixo em
+# `main`, e uma trava que falha se for disparado de outra branch por engano.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Trava: produção sai SÓ do main. Se o dispatch vier de outra branch, falha.
+      - name: Exigir main
+        run: |
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "::error::Deploy só a partir do main (dispatch veio de '${{ github.ref_name }}'). Cancelado."
+            exit 1
+          fi
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: pnpm/action-setup@v3
         with:
           version: 9
@@ -20,21 +32,51 @@ jobs:
           node-version: "20"
           cache: "pnpm"
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm -r build
+      # ── BUILD no Actions (modelo (a), DL-060) — o servidor NÃO builda ────────
+      - name: Instalar dependências (build)
+        run: pnpm install --frozen-lockfile
+      - name: Build (web com a API pública embutida)
+        run: pnpm -r build
+        env:
+          VITE_API_URL: https://api.tamarcado.tec.br
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_VPS_HOST }}
-          username: deploy
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd /opt/tamarcado
-            git pull origin main
-            pnpm install --frozen-lockfile --prod
-            pnpm -r build
-            pnpm --filter api run migration:run
-            pm2 restart tamarcado-api || pm2 start /opt/tamarcado/ecosystem.config.js
-            mkdir -p /var/www/tamarcado
-            cp -r /opt/tamarcado/apps/web/dist/. /var/www/tamarcado/
+      # ── PACOTE DE PRODUÇÃO: SÓ o build + deps de produção ────────────────────
+      # `pnpm deploy` monta um bundle self-contained da API respeitando
+      # `"files": ["dist"]` de cada package → SOMENTE: dist/ + node_modules (prod,
+      # com @tamarcado/shared-* injetados) + package.json. SEM src, SEM
+      # devDependencies, SEM ts-node/typescript, SEM _bmad/docs/infra/testes.
+      # (Lista de INCLUSÃO explícita, não de exclusão — ver RUNBOOK §7.)
+      - name: Montar pacote de produção
+        run: |
+          set -e
+          PKG="$RUNNER_TEMP/pkg"
+          pnpm --filter api deploy --prod "$PKG"     # dist + node_modules(prod) + package.json
+          cp ecosystem.config.js "$PKG/"             # PM2
+          mkdir -p "$PKG/web" && cp -r apps/web/dist/. "$PKG/web/"   # estático do front
+          echo "conteúdo do pacote:"; ls -1 "$PKG"
+
+      - name: Identificar release
+        id: rel
+        run: echo "id=$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Configurar SSH (chave tamarcado_deploy dos Secrets)
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.PROD_VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Enviar pacote (rsync) para releases/<id>
+        run: |
+          REL="${{ steps.rel.outputs.id }}"; HOST="${{ secrets.PROD_VPS_HOST }}"
+          ssh -i ~/.ssh/deploy_key "deploy@$HOST" "mkdir -p /opt/tamarcado/releases/$REL"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            "$RUNNER_TEMP/pkg/" "deploy@$HOST:/opt/tamarcado/releases/$REL/"
+
+      # ── DEPLOY no servidor. Ordem obrigatória (script pipeado, NÃO fica no
+      # servidor): backup → migrations → swap symlink → restart PM2 → healthcheck.
+      # Se o healthcheck falhar, o script FALHA o job e faz AUTO-ROLLBACK.
+      - name: Deploy no servidor
+        run: |
+          REL="${{ steps.rel.outputs.id }}"; HOST="${{ secrets.PROD_VPS_HOST }}"
+          ssh -i ~/.ssh/deploy_key "deploy@$HOST" "bash -s -- $REL" < infra/scripts/deploy-remote.sh

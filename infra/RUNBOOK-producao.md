@@ -216,28 +216,66 @@ gunzip < "$LATEST" | mysql
 
 ---
 
-## 7. Deploy e rollback (Fase 3 — CD)
+## 7. Deploy (CD) e rollback
 
-> A ser finalizado na Fase 3 (reescrita do `deploy.yml` para `workflow_dispatch`, DL-060).
-> Ordem obrigatória do deploy: **backup do banco → build → envio → migrations → restart PM2
-> → healthcheck**, com **rollback**. Rascunho em `infra/scripts/deploy.sh`.
+**Disparo:** GitHub Actions → workflow **Deploy Production** (`workflow_dispatch`, **manual**,
+acionado pelo Renato — DL-060). Build **no Actions**; o servidor **não builda nem tem `.git`**.
 
-**Deploy manual (enquanto o CD não está pronto):**
-```bash
-ssh deploy@179.198.123.87
-sudo /usr/local/bin/tamarcado-backup.sh                       # 1) backup antes de tudo
-cd /opt/tamarcado && git fetch && git checkout main && git pull
-cp /etc/tamarcado/api.env apps/api/.env                        # env de produção
-pnpm install --frozen-lockfile && pnpm -r build
-pnpm --filter api run migration:run                           # migrations
-pm2 restart tamarcado-api || pm2 start ecosystem.config.js
-cp -r apps/web/dist/. /var/www/tamarcado/
-curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
-```
+### 7.1 O que compõe o pacote de produção — LISTA DE INCLUSÃO (não de exclusão)
 
-**Rollback (desenho — detalhar na Fase 3):** manter a versão anterior no servidor
-(release anterior ou commit anterior), e um comando que volta: `git checkout <sha-anterior>`
-+ rebuild + `pm2 restart` + (se necessário) restaurar o backup do banco tirado antes do deploy.
+**REGRA: no VPS vai SOMENTE o build.** O pacote é montado no Actions com
+`pnpm --filter api deploy --prod` (respeita `"files": ["dist"]` de cada package). Contém **só**:
+
+| Inclui | O quê |
+|---|---|
+| `dist/` | API **compilada** (JS). Nada de `.ts` de fonte (só `.d.ts`, que é saída de build). |
+| `node_modules/` | **Apenas deps de PRODUÇÃO**, com `@tamarcado/shared-*` (compilados) injetados. Sem `ts-node`/`typescript`/devDeps. |
+| `package.json` | manifesto da API. |
+| `ecosystem.config.js` | PM2. |
+| `web/` | **estático do front** (build do web) — copiado para `/var/www/tamarcado`. |
+
+**NUNCA vai:** `_bmad`/`_bmad-output` (specs, decision-log, roadmap), `docs`, `DEV.md`, `README`,
+testes, `eslint.config`/`tsconfig`, **código-fonte `.ts`**, **devDependencies**, `.git`/histórico,
+`infra/` e **qualquer arquivo Docker/compose** (produção é PM2+Nginx; Compose é ferramenta de dev).
+A config do Nginx vive em `/etc/nginx`, não em `/opt/tamarcado`.
+
+### 7.2 Fluxo do deploy (ordem OBRIGATÓRIA)
+
+No Actions: `pnpm install` → **build** (web com `VITE_API_URL=https://api.tamarcado.tec.br`) →
+`pnpm deploy` (pacote) → rsync para `/opt/tamarcado/releases/<id>/`. No servidor
+(`infra/scripts/deploy-remote.sh`, **pipeado por SSH — não fica no servidor**):
+
+1. **Backup do banco** (`sudo -n tamarcado-backup.sh`) — ANTES de tudo.
+2. **Migrations** — `typeorm migration:run -d dist/database/typeorm.config.js` (**compilada, sem
+   ts-node**; o `migration:run` de dev usa ts-node+`src`, que não existem em produção).
+3. **Ativar release** — `ln -sfn releases/<id> current`.
+4. **Restart PM2** — `pm2 startOrReload ecosystem.config.js` (cwd = `current`).
+5. **Publicar web** — `rsync` de `current/web/` para `/var/www/tamarcado`.
+6. **Healthcheck** — `GET :3000/health`. **Se falhar, o job FALHA (sai != 0) e faz AUTO-ROLLBACK**
+   para a release anterior (symlink + PM2 + web). Nunca "passa batido".
+
+> **Migration é passo EXPLÍCITO** (mergear PR não roda migration). Já quebrou o login em dev
+> (coluna `token_version` ausente → 500). Em produção seria o sistema fora do ar.
+
+### 7.3 Releases e rollback
+
+- Ficam em `/opt/tamarcado/releases/<id>/`; **mantém as 3 últimas**; `current` → a ativa.
+- **Rollback manual (1 comando):** `tamarcado-rollback` (instalado em `/usr/local/bin`, fora do
+  `/opt/tamarcado`). Aponta `current` para a release anterior, reinicia o PM2 e republica o web.
+- Migrations do projeto são **aditivas** → o código anterior roda sobre o schema novo. Se ainda
+  assim precisar, **restaure o backup** tirado antes do deploy (§6).
+
+### 7.4 Se o deploy falhar — o que fazer em CADA etapa
+
+| Etapa falhou | Sintoma / onde ver | O que fazer |
+|---|---|---|
+| **Build (Actions)** | job vermelho em *Build* | erro de compilação/lint — corrigir no código; nada tocou o servidor ainda. |
+| **rsync / SSH** | job vermelho em *Enviar/Deploy* | ver `secrets.PROD_SSH_KEY`/`PROD_VPS_HOST`; testar `ssh deploy@IP`; disco cheio? (`df -h`). Produção **intacta** (symlink não trocou). |
+| **Backup** | falha em *deploy-remote 1/6* | `sudo -n` sem NOPASSWD? (`/etc/sudoers.d/tamarcado-deploy`); disco cheio? Deploy **aborta antes** de mexer na app. |
+| **Migrations** | falha em *3/6* | ver o erro do typeorm; a release **não foi ativada** (symlink não trocou) — produção segue na versão anterior. Corrigir a migration e redisparar. |
+| **PM2 não sobe** | *4/6*; `pm2 logs tamarcado-api` | env presente? (`current/.env`); porta 3000 ocupada? (`ss -ltnp`). O healthcheck seguinte falha → **auto-rollback**. |
+| **Healthcheck** | *6/6* "HEALTHCHECK FALHOU" | **auto-rollback já rodou** (produção voltou à versão anterior). Investigar a release nova com calma; não está no ar. |
+| **Rollback também falhou** | sem release anterior (1ª vez) | último recurso: `pm2 logs`, restaurar backup (§6), e/ou redeploy de uma ref boa. |
 
 ---
 
@@ -267,26 +305,38 @@ curl -fsS http://127.0.0.1:3000/health && echo " OK"          # healthcheck
 
 ## 10. Pendências / próximas fases
 
-- **Fase 2 (depende do DNS — em propagação, ~2h):**
-  - **Pré-requisito de DNS (agora na Cloudflare):** registros **A** apontando para
-    `179.198.123.87` para **`tamarcado.tec.br`** e **`api.tamarcado.tec.br`**, criados **na
-    Cloudflare** (a delegação registro.br → NS da Cloudflare aguardava a janela de transição).
-    Os A records **precisam ficar em "DNS only" (nuvem CINZA), NÃO proxied** — com o proxy laranja
-    ligado o **Certbot falha** na emissão (o desafio HTTP-01 não chega ao servidor). (`app.` reservado.)
-  - Nginx com **2 server blocks** (arquivos já no repo em `infra/nginx/`):
-    `tamarcado.tec.br.conf` (estático + SPA) e `api.tamarcado.tec.br.conf` (proxy `127.0.0.1:3000`).
-  - ⚠️ **`/api/platform/*` = `deny all`** (sem IP) no server block da API — acesso só por **túnel
-    SSH** (ver §5.1). Bloqueador de segurança fechado sem depender de IP fixo.
-  - Certbot (`--nginx`) para `tamarcado.tec.br` e `api.tamarcado.tec.br`; confirmar **renovação
-    automática** (`sudo certbot renew --dry-run`), não só a emissão.
-  - 1º deploy + smoke test (login, agendamento, link público, confirmar pendente) + **testar o
-    PWA instalado no celular** (pendente desde a 7.1, agora possível com HTTPS).
-- **Fase 3 (CD) — modelo (a): build no GitHub Actions + rsync (servidor SEM credencial de GitHub):**
-  `ci.yml` incluir `dev` no `pull_request`; `deploy.yml` → `workflow_dispatch` (não automático em
-  push no `main`, DL-060); Actions builda `apps/web` (com `VITE_API_URL=https://api.tamarcado.tec.br`)
-  e `apps/api`, e **rsync** dos artefatos para o servidor; ordem
-  **backup→envio→migrations→restart PM2→healthcheck** com **rollback** (release anterior + reverter);
-  chave `tamarcado_deploy` como secret no GitHub.
+- **Fase 2 — ✅ CONCLUÍDA (2026-08-11):**
+  - DNS (registro.br respondendo; delegação p/ Cloudflare vem depois, não invalida o cert já emitido):
+    `tamarcado.tec.br` e `api.tamarcado.tec.br` → `179.198.123.87`. **A records na Cloudflare precisam
+    ficar "DNS only" (nuvem cinza)** — proxied quebra o Certbot.
+  - **Nginx** com os **2 server blocks** (`infra/nginx/`), default removido, `nginx -t` ok.
+  - **`/api/platform/*` = `deny all`** — confirmado **403** via HTTPS. Acesso só por túnel SSH (§5.1).
+  - **Certbot** emitiu para os 2 nomes (expira ~2026-11-09), redirect HTTP→HTTPS (301), e o
+    **`renew --dry-run` passou** ("all simulated renewals succeeded") — renovação automática confirmada.
+  - **1º deploy** (11 migrations em `tamarcado_prod`, PM2 online + `pm2 save`, web publicado).
+    **Smoke test HTTPS OK:** provisionar → aceitar convite → login por e-mail → `/users/me` →
+    `GET /public/{slug}/installation` (200); dado de teste **removido** (prod limpo).
+  - ⏳ **PENDENTE (ação do Renato — precisa do aparelho):** **instalar o PWA no celular** por
+    `https://tamarcado.tec.br` e validar (tela cheia, ícone, offline mínimo) — pendente desde a 7.1,
+    agora possível com HTTPS. E, quando quiser, exercitar o happy-path completo pela UI
+    (criar agendamento + confirmar pendente — já coberto pelos e2e no CI).
+  - ⏳ **Rotacionar a senha de sudo do `deploy`** (a de setup circulou no chat): `ssh` como deploy e
+    `sudo passwd deploy`.
+- **Fase 3 (CD) — PR aberto (branch `chore/vps-producao-setup` → `dev`):** `ci.yml` (PRs em
+  `[main, dev]`, redis/AUTH_ALLOW_SINGLE_TENANT removidos), `deploy.yml` (`workflow_dispatch`, build
+  no Actions + `pnpm deploy` + rsync + `deploy-remote.sh`), `rollback.sh`, `ecosystem.config.js` →
+  `current`, e o **pacote de inclusão** (§7.1). Secrets `PROD_VPS_HOST`/`PROD_SSH_KEY` configurados.
+  - ⏳ **Preparo único do servidor (antes do 1º `workflow_dispatch`):**
+    1. `apt install rsync` (transferência + publicação do web).
+    2. NOPASSWD do backup para o CD: `/etc/sudoers.d/tamarcado-deploy` →
+       `deploy ALL=(root) NOPASSWD: /usr/local/bin/tamarcado-backup.sh` (`chmod 440`).
+    3. Instalar `infra/scripts/rollback.sh` como `/usr/local/bin/tamarcado-rollback` (`chmod 750`).
+  - ⏳ **LIMPEZA do `/opt/tamarcado` do 1º deploy (Fase 2):** hoje tem o repo inteiro (fonte, `_bmad`,
+    `docs`, `infra`, `node_modules` com devDeps). Migrar para o **modelo de releases** e deixar só o
+    pacote de inclusão (§7.1). Fazer de forma segura: montar a release limpa, apontar `current`,
+    **validar (healthcheck + login real + link público)** e só então remover o layout antigo — nunca
+    apagar antes de a nova versão responder. *(A troca do mecanismo de migration para o compilado
+    — `migration:run:prod` — é o que viabiliza remover `src`/`ts-node`; ver §7.2.)*
 
 ---
 

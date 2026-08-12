@@ -1,0 +1,5 @@
+# Fim de linha LF nos arquivos que RODAM no Linux (servidor / GitHub Actions).
+# CRLF quebra o bash ("\r" no fim das linhas) e é armadilha clássica no Windows.
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
