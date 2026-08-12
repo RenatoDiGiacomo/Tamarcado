@@ -1,14 +1,10 @@
 name: Deploy Production
 
 # Manual (DL-060): o deploy NÃO dispara sozinho no push/merge do `main` — quem
-# aciona é o Renato, para revisar de uma vez tudo que sobe. Produção = `main`.
+# aciona é o Renato. AMARRADO ao `main`: sem input de ref, checkout fixo em
+# `main`, e uma trava que falha se for disparado de outra branch por engano.
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: "Ref para implantar (branch/tag/sha). Produção = main."
-        required: false
-        default: main
+  workflow_dispatch: {}
 
 concurrency:
   group: deploy-production
@@ -18,9 +14,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Trava: produção sai SÓ do main. Se o dispatch vier de outra branch, falha.
+      - name: Exigir main
+        run: |
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "::error::Deploy só a partir do main (dispatch veio de '${{ github.ref_name }}'). Cancelado."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: main
       - uses: pnpm/action-setup@v3
         with:
           version: 9
