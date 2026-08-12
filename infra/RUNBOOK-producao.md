@@ -57,23 +57,39 @@ local), remover/ajustar o drop-in de hardening, `sudo systemctl reload ssh`.
 
 ---
 
-## 3. Layout no servidor
+## 3. Layout no servidor (estado final — modelo de RELEASES)
+
+Após a limpeza (2026-08-12), **`/opt/tamarcado` contém SÓ o mecanismo de releases** —
+nada de fonte, `_bmad`, `docs`, `infra`, devDeps ou Docker. Cada deploy do CD cria uma
+release nova (pacote de inclusão do §7.1) e move o symlink `current`.
 
 ```
-/opt/tamarcado/            # repositório da aplicação (dono: deploy)
-  apps/api/dist/           # build da API (PM2 roda dist/main.js)
-  apps/api/.env            # cópia do env de produção (ver §5) — gitignored
-  apps/web/dist/           # build do painel (copiado para /var/www)
-  ecosystem.config.js      # PM2 (name=tamarcado-api, cwd=/opt/tamarcado/apps/api, PORT=3000)
-/var/www/tamarcado/        # estático servido pelo Nginx (dono: deploy)
+/opt/tamarcado/
+  releases/<id>/           # uma por deploy (id = AAAAMMDD-HHMMSS-<sha>). Mantém as 3 últimas.
+    dist/                  #   API compilada (PM2 roda current/dist/main.js)
+    node_modules/          #   SÓ deps de PRODUÇÃO (@tamarcado/shared-* injetados)
+    package.json
+    ecosystem.config.js    #   PM2 (name=tamarcado-api, cwd=/opt/tamarcado/current, PORT=3000)
+    web/                   #   estático do front (copiado para /var/www a cada deploy)
+    .env                   #   cópia de /etc/tamarcado/api.env (a API lê ../.env do dist)
+  current -> releases/<id> # symlink para a release ATIVA. Rollback = apontar para outra.
+/var/www/tamarcado/        # estático servido pelo Nginx (cópia de current/web)
 /etc/tamarcado/api.env     # ENV DE PRODUÇÃO canônico (root:deploy, 640) — fonte da verdade
 /var/backups/tamarcado/    # dumps diários do MySQL (700)
+/usr/local/bin/tamarcado-backup.sh    # backup (cron 03:30 + CD via sudo NOPASSWD)
+/usr/local/bin/tamarcado-rollback     # rollback manual (1 comando; §7.3)
 ```
 
-O `.env` de runtime da API é `/opt/tamarcado/apps/api/.env`. A **fonte** é
-`/etc/tamarcado/api.env` (fora do repo, sobrevive a re-clones). O deploy **copia**
-`/etc/tamarcado/api.env → /opt/tamarcado/apps/api/.env` (a API lê `../​.env` relativo
-ao `dist`, via `load-env.ts`).
+- **Fora de `/opt/tamarcado`** (preservados, nunca removidos na limpeza): `/etc/tamarcado/api.env`,
+  banco em `/var/lib/mysql`, backups em `/var/backups/tamarcado`, Nginx em `/etc/nginx`.
+- **Env de runtime:** o app lê `current/.env` (via `load-env`: `dist/../.env`). O deploy copia
+  `/etc/tamarcado/api.env → <release>/.env`.
+- **Invariante:** depois da limpeza, `ls /opt/tamarcado` deve mostrar **só** `releases` e `current`.
+  Qualquer outra coisa na raiz (`src`, `node_modules`, `_bmad`, `apps`…) é resíduo e pode sair.
+- **PM2 roda da release via o symlink** (`cwd=/opt/tamarcado/current`): `pm_exec_path` fica
+  `/opt/tamarcado/current/dist/main.js`, então trocar o `current` + `pm2 startOrReload` já passa a
+  rodar a release nova. *(Na transição do 1º deploy o PM2 estava preso ao layout antigo; corrigido
+  re-apontando para `current`. Daqui pra frente o CD re-aponta sozinho — validado no 2º deploy.)*
 
 ---
 
@@ -322,21 +338,20 @@ No Actions: `pnpm install` → **build** (web com `VITE_API_URL=https://api.tama
     (criar agendamento + confirmar pendente — já coberto pelos e2e no CI).
   - ⏳ **Rotacionar a senha de sudo do `deploy`** (a de setup circulou no chat): `ssh` como deploy e
     `sudo passwd deploy`.
-- **Fase 3 (CD) — PR aberto (branch `chore/vps-producao-setup` → `dev`):** `ci.yml` (PRs em
-  `[main, dev]`, redis/AUTH_ALLOW_SINGLE_TENANT removidos), `deploy.yml` (`workflow_dispatch`, build
-  no Actions + `pnpm deploy` + rsync + `deploy-remote.sh`), `rollback.sh`, `ecosystem.config.js` →
-  `current`, e o **pacote de inclusão** (§7.1). Secrets `PROD_VPS_HOST`/`PROD_SSH_KEY` configurados.
-  - ⏳ **Preparo único do servidor (antes do 1º `workflow_dispatch`):**
-    1. `apt install rsync` (transferência + publicação do web).
-    2. NOPASSWD do backup para o CD: `/etc/sudoers.d/tamarcado-deploy` →
-       `deploy ALL=(root) NOPASSWD: /usr/local/bin/tamarcado-backup.sh` (`chmod 440`).
-    3. Instalar `infra/scripts/rollback.sh` como `/usr/local/bin/tamarcado-rollback` (`chmod 750`).
-  - ⏳ **LIMPEZA do `/opt/tamarcado` do 1º deploy (Fase 2):** hoje tem o repo inteiro (fonte, `_bmad`,
-    `docs`, `infra`, `node_modules` com devDeps). Migrar para o **modelo de releases** e deixar só o
-    pacote de inclusão (§7.1). Fazer de forma segura: montar a release limpa, apontar `current`,
-    **validar (healthcheck + login real + link público)** e só então remover o layout antigo — nunca
-    apagar antes de a nova versão responder. *(A troca do mecanismo de migration para o compilado
-    — `migration:run:prod` — é o que viabiliza remover `src`/`ts-node`; ver §7.2.)*
+- **Fase 3 (CD) — ✅ CONCLUÍDA (no `main` e no `dev`; CD validado ponta a ponta em 2026-08-12):**
+  `ci.yml` (PRs em `[main, dev]`, redis/AUTH_ALLOW_SINGLE_TENANT removidos), `deploy.yml`
+  (`workflow_dispatch` **amarrado ao main**, build no Actions + `pnpm deploy` + rsync +
+  `deploy-remote.sh`), `rollback.sh`, `ecosystem.config.js` → `current`, e o **pacote de inclusão**
+  (§7.1). Secrets `PROD_VPS_HOST`/`PROD_SSH_KEY` configurados. **2 deploys via workflow_dispatch
+  rodaram verdes**; o 2º confirmou que a estrutura limpa re-aponta o `current` e o PM2 e mantém a
+  release anterior para rollback.
+  - ✅ **Preparo do servidor feito:** `rsync` instalado; `/etc/sudoers.d/tamarcado-deploy`
+    (`deploy ALL=(root) NOPASSWD: /usr/local/bin/tamarcado-backup.sh`, 440) — testado (backup sem
+    senha OK, resto pede senha); `tamarcado-rollback` em `/usr/local/bin` (750).
+  - ✅ **LIMPEZA do `/opt/tamarcado` feita (2026-08-12):** removido todo o layout antigo do 1º deploy
+    (fonte, `_bmad`/`_bmad-output`, `docs`, `infra`, `node_modules` com devDeps, configs, Docker) —
+    **~601 MB liberados** (746M → 145M). Restou **só** `releases/` + `current` (§3). Validado após:
+    healthcheck + login real (HTTPS) + link público 200.
 
 ---
 
