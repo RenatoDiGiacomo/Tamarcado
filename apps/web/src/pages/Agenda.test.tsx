@@ -246,10 +246,14 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/10/status");
       expect(patch?.[1].body).toEqual({ to: "completed" });
     });
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após marcar
+    // Espera o reload (2º GET), disparado por setState após o PATCH — asseverar
+    // síncrono aqui corre com o reload (flaky).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após marcar
+    });
   });
 
   it("marca Não compareceu → PATCH status {to:no_show}", async () => {
@@ -306,10 +310,14 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/20/confirm");
       expect(patch?.[1].body).toEqual({});
     });
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após confirmar
+    // Espera o reload (2º GET), disparado por setState após o PATCH — asseverar
+    // síncrono aqui corre com o reload (flaky).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após confirmar
+    });
   });
 
   it("Confirmar não aparece para basic (permissão owner/gerente)", async () => {
@@ -378,11 +386,14 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/10/cancel");
       expect(patch?.[1].body).toEqual({ reason: "Cliente remarcou" });
     });
-    // Recarrega o período após cancelar (≥2 GETs de /appointments).
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2);
+    // Recarrega o período após cancelar (2º GET de /appointments). Disparado
+    // por setState após o PATCH — esperamos por ele (asseverar síncrono é corrida).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("motivo é opcional: confirma sem preencher → body sem reason", async () => {

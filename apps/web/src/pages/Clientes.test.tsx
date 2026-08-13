@@ -90,11 +90,15 @@ describe("Clientes", () => {
       );
       expect((post?.[1] as Opts).body?.name).toBe("Carla Nova");
     });
-    // Recarrega a lista (≥2 GETs).
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/clients?") && (o as Opts | undefined)?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2);
+    // Recarrega a lista após o cadastro (2º GET). O reload é disparado por
+    // setState DEPOIS do POST resolver, então esperamos por ele — asseverar
+    // síncrono aqui é uma corrida (flaky: o waitFor acima só espera o POST).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/clients?") && (o as Opts | undefined)?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("clicar numa linha navega para o perfil da cliente (Story 4.2)", async () => {
