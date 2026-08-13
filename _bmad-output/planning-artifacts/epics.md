@@ -290,6 +290,8 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 > **Navegação (DL-061/DL-062):** Financeiro, Dashboard e Equipe são **menus próprios** (Equipe deixa de ser aba de Configurações). No **desktop**, Configurações continua na **sidebar**; no **mobile**, Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile **conscientemente aceita**). A **tab bar do mobile** precisa ser **revista para comportar os novos módulos sem truncar**.
 
+> **Versionamento & saída do beta (DL-063):** o produto usa **SemVer `X.Y.Z`**, com o bump **manual no PR `dev → main`** pelos prefixos de commit do DL-028 (`fix`/`chore`→PATCH, `feat`→MINOR, quebra→MAJOR). Fonte em `apps/web/package.json` (lida na build; exibida no login/painel/Perfil — o PATCH aparece a partir do `.1`). **`CHANGELOG.md` obrigatório** em linguagem de usuário. **Saída do beta** (`1.0.x-beta`/`v1.0…b` → `1.0.0` estável) exige **as duas condições juntas, funcionando de fato:** **(1)** WhatsApp ativo (Épico 6) **e (2)** Dashboard + Financeiro + Equipe (DL-061, as duas levas).
+
 ---
 
 ## Estado de implementação — retrato (2026-08-11)
