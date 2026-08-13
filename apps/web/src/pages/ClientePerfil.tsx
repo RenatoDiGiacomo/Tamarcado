@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarPlus, Pencil, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { StatusChip } from "../components/StatusChip";
@@ -18,8 +18,6 @@ import {
 import { NovoAgendamento } from "./NovoAgendamento";
 import { mapStatus } from "./agendaMap";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 interface ClientProfile {
   id: string;
@@ -95,8 +93,8 @@ export function ClientePerfil() {
     setError(false);
     try {
       const [pRes, hRes] = await Promise.all([
-        apiRequest(`/clients/${id}`, { token: token() }),
-        apiRequest(`/clients/${id}/appointments`, { token: token() }),
+        authedRequest(`/clients/${id}`, {}),
+        authedRequest(`/clients/${id}/appointments`, {}),
       ]);
       if (!pRes.ok) throw new Error("load");
       const p = (await pRes.json()) as ClientProfile;
@@ -123,10 +121,9 @@ export function ClientePerfil() {
     setNotesSaving(true);
     setNotesError(null);
     try {
-      const res = await apiRequest(`/clients/${id}`, {
+      const res = await authedRequest(`/clients/${id}`, {
         method: "PATCH",
-        body: { notes },
-        token: token(),
+        body: { notes } ,
       });
       if (!res.ok) {
         setNotesError(await apiError(res, "Não foi possível salvar a observação."));
@@ -156,10 +153,9 @@ export function ClientePerfil() {
     setEditSaving(true);
     setEditError(null);
     try {
-      const res = await apiRequest(`/clients/${id}`, {
+      const res = await authedRequest(`/clients/${id}`, {
         method: "PATCH",
-        body: { name: editName.trim(), phone_whatsapp: editPhone.trim() },
-        token: token(),
+        body: { name: editName.trim(), phone_whatsapp: editPhone.trim() } ,
       });
       if (!res.ok) {
         setEditError(await apiError(res, "Não foi possível salvar a cliente."));

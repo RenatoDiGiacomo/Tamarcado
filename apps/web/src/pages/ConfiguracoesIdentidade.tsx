@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { refreshInstallation } from "../lib/useInstallation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const ACCESS_KEY = "tamarcado.access";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -37,8 +36,7 @@ export function ConfiguracoesIdentidade() {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem(ACCESS_KEY);
-    apiRequest("/installation", { token })
+    authedRequest("/installation", {})
       .then(async (res) => {
         if (res.ok) {
           const data = (await res.json()) as {
@@ -72,7 +70,6 @@ export function ConfiguracoesIdentidade() {
     }
     setValidationError(null);
     setStatus("saving");
-    const token = localStorage.getItem(ACCESS_KEY);
     const body: Record<string, unknown> = {
       name,
       primaryColor,
@@ -82,10 +79,9 @@ export function ConfiguracoesIdentidade() {
     if (logoUrl) {
       body.logoUrl = logoUrl;
     }
-    const res = await apiRequest("/installation", {
+    const res = await authedRequest("/installation", {
       method: "PATCH",
       body,
-      token,
     });
     setStatus(res.ok ? "saved" : "error");
     // Revalida o branding compartilhado → AppShell (cor/nome/logo) repinta na

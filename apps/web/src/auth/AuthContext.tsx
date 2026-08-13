@@ -7,6 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { apiRequest } from "../lib/api";
+import {
+  authedRequest,
+  clearSession,
+  getAccessToken,
+  setSessionExpiredHandler,
+  setTokens,
+} from "../lib/session";
 
 export interface CurrentUser {
   id: string;
@@ -44,9 +51,6 @@ interface AuthContextValue {
   applySession: (accessToken: string, refreshToken: string) => Promise<void>;
 }
 
-const ACCESS_KEY = "tamarcado.access";
-const REFRESH_KEY = "tamarcado.refresh";
-
 /**
  * Rota de login para os redirects (sessão expirada, logout, rota protegida sem
  * sessão). URL ÚNICA (DL-052): o tenant é resolvido pelo backend a partir do
@@ -63,46 +67,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    clearSession();
     setUser(null);
   }, []);
 
-  /** Busca /users/me com refresh único em caso de 401. */
+  /**
+   * Busca /users/me. O `authedRequest` renova o access token sozinho no 401 e
+   * refaz a chamada; se a sessão morreu de vez, ele limpa a sessão e dispara o
+   * handler (abaixo) que zera o usuário → o `Protected` manda para o /login.
+   */
   const loadProfile = useCallback(async (): Promise<void> => {
-    const access = localStorage.getItem(ACCESS_KEY);
-    if (!access) {
+    if (!getAccessToken()) {
       setUser(null);
       return;
     }
-    let res = await apiRequest("/users/me", { token: access });
-    if (res.status === 401) {
-      const refreshed = await tryRefresh();
-      if (!refreshed) {
-        logout();
-        return;
-      }
-      res = await apiRequest("/users/me", { token: refreshed });
+    try {
+      const res = await authedRequest("/users/me");
+      setUser(res.ok ? ((await res.json()) as CurrentUser) : null);
+    } catch {
+      // Sem conexão no carregamento: não derruba a sessão guardada; segue sem
+      // perfil (a próxima ação tenta de novo).
+      setUser(null);
     }
-    if (res.ok) {
-      setUser((await res.json()) as CurrentUser);
-    } else {
-      logout();
-    }
-  }, [logout]);
+  }, []);
 
-  async function tryRefresh(): Promise<string | null> {
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (!refreshToken) return null;
-    const res = await apiRequest("/auth/refresh", {
-      method: "POST",
-      body: { refreshToken },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { accessToken: string };
-    localStorage.setItem(ACCESS_KEY, data.accessToken);
-    return data.accessToken;
-  }
+  // Quando a sessão morre dentro de uma requisição (refresh também venceu),
+  // o session.ts chama isto → zera o usuário → o `Protected` redireciona ao
+  // login (que mostra a mensagem de "sessão expirada").
+  useEffect(() => {
+    setSessionExpiredHandler(() => setUser(null));
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   const login = useCallback(
     async (
@@ -127,8 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.companies) {
         return data.companies;
       }
-      localStorage.setItem(ACCESS_KEY, data.accessToken!);
-      localStorage.setItem(REFRESH_KEY, data.refreshToken!);
+      setTokens(data.accessToken!, data.refreshToken!);
       await loadProfile();
       return null;
     },
@@ -138,8 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Aplica tokens já emitidos (ex.: aceite de convite) e carrega o perfil. */
   const applySession = useCallback(
     async (accessToken: string, refreshToken: string) => {
-      localStorage.setItem(ACCESS_KEY, accessToken);
-      localStorage.setItem(REFRESH_KEY, refreshToken);
+      setTokens(accessToken, refreshToken);
       await loadProfile();
     },
     [loadProfile],
@@ -147,11 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** Grava a preferência de tema do próprio usuário e atualiza o estado. */
   const setTheme = useCallback(async (theme: "light" | "dark") => {
-    const access = localStorage.getItem(ACCESS_KEY);
-    const res = await apiRequest("/users/me", {
+    const res = await authedRequest("/users/me", {
       method: "PATCH",
       body: { theme },
-      token: access,
     });
     if (res.ok) {
       setUser((await res.json()) as CurrentUser);

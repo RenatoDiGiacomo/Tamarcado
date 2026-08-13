@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Users } from "lucide-react";
 import { toast } from "sonner";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
@@ -17,8 +17,6 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 const PAGE_SIZE = 20;
 
 interface ClientView {
@@ -86,9 +84,8 @@ export function Clientes() {
     });
     if (debounced !== "") q.set("search", debounced);
     try {
-      const res = await apiRequest(`/clients?${q.toString()}`, {
-        token: token(),
-      });
+      const res = await authedRequest(`/clients?${q.toString()}`, {
+        });
       if (!res.ok) {
         setErrorKind("server");
         setClients([]);
@@ -131,10 +128,9 @@ export function Clientes() {
     const name = formName.trim();
     const phone = formPhone.trim();
     try {
-      const res = await apiRequest("/clients", {
+      const res = await authedRequest("/clients", {
         method: "POST",
-        body: { name, phone_whatsapp: phone || undefined },
-        token: token(),
+        body: { name, phone_whatsapp: phone || undefined } ,
       });
       if (!res.ok) {
         setFormError(await apiError(res, "Não foi possível salvar a cliente."));

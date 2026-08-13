@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Plus } from "lucide-react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,6 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
 import { Users } from "lucide-react";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 type AccessLevel = "owner" | "manager" | "basic";
 interface Member {
@@ -75,7 +73,7 @@ export function ConfiguracoesEquipe() {
     setLoading(true);
     setLoadErrorKind(null);
     try {
-      const res = await apiRequest("/users", { token: token() });
+      const res = await authedRequest("/users", {});
       if (!res.ok) {
         setLoadErrorKind("server");
         return;
@@ -100,10 +98,9 @@ export function ConfiguracoesEquipe() {
     if (patch.attendsClients !== undefined) body.attends_clients = patch.attendsClients;
     if (patch.isActive !== undefined) body.is_active = patch.isActive;
 
-    const res = await apiRequest(`/users/${id}`, {
+    const res = await authedRequest(`/users/${id}`, {
       method: "PATCH",
-      body,
-      token: token(),
+      body ,
     });
     if (!res.ok) {
       // ex.: 409 "Não é possível rebaixar ou desativar o único Dono…"
@@ -117,15 +114,14 @@ export function ConfiguracoesEquipe() {
   async function sendInvite(): Promise<void> {
     setError(null);
     setInviteLink(null);
-    const res = await apiRequest("/users/invite", {
+    const res = await authedRequest("/users/invite", {
       method: "POST",
       body: {
         name: invName.trim(),
         email: invEmail.trim(),
         access_level: invRole,
         attends_clients: invAttends,
-      },
-      token: token(),
+      } ,
     });
     if (!res.ok) {
       setError(await apiError(res, "Não foi possível gerar o convite."));

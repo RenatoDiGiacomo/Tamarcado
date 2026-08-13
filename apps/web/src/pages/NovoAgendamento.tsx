@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { useAuth } from "../auth/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,6 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 /** Extrai a mensagem real de erro da API (Nest: `{ message: string | string[] }`)
  *  para não esconder a causa atrás de um texto genérico. */
@@ -160,8 +158,8 @@ export function NovoAgendamento({
     setError(null);
     void (async () => {
       const [svcRes, attRes] = await Promise.all([
-        apiRequest("/services", { token: token() }),
-        apiRequest("/users/attenders", { token: token() }),
+        authedRequest("/services", {}),
+        authedRequest("/users/attenders", {}),
       ]);
       if (svcRes.ok) {
         setServices(((await svcRes.json()) as { services: ServiceDto[] }).services);
@@ -184,9 +182,8 @@ export function NovoAgendamento({
       const q = new URLSearchParams({ serviceId, date: formDate });
       if (professionalId) q.set("professionalId", professionalId);
       try {
-        const res = await apiRequest(`/availability?${q.toString()}`, {
-          token: token(),
-        });
+        const res = await authedRequest(`/availability?${q.toString()}`, {
+          });
         if (res.ok) {
           const data = (await res.json()) as {
             slots: Slot[];
@@ -212,9 +209,8 @@ export function NovoAgendamento({
       return;
     }
     const h = setTimeout(() => {
-      void apiRequest(`/clients?search=${encodeURIComponent(term)}`, {
-        token: token(),
-      }).then(async (res) => {
+      void authedRequest(`/clients?search=${encodeURIComponent(term)}`, {
+        }).then(async (res) => {
         if (res.ok) {
           setClientResults(((await res.json()) as { clients: ClientView[] }).clients);
         }
@@ -247,10 +243,9 @@ export function NovoAgendamento({
       setError("Informe o nome da cliente.");
       return;
     }
-    const res = await apiRequest("/clients", {
+    const res = await authedRequest("/clients", {
       method: "POST",
-      body: { name: newName.trim(), phone_whatsapp: newPhone.trim() || undefined },
-      token: token(),
+      body: { name: newName.trim(), phone_whatsapp: newPhone.trim() || undefined } ,
     });
     if (res.ok) {
       const c = (await res.json()) as ClientView;
@@ -274,7 +269,7 @@ export function NovoAgendamento({
       if (editing) {
         // Edição (3.6): cliente fixo; envia serviço/horário/profissional. `basic`
         // assume para si (professionalId = self); owner/gerente enviam o escolhido.
-        const res = await apiRequest(`/appointments/${editing.appointmentId}`, {
+        const res = await authedRequest(`/appointments/${editing.appointmentId}`, {
           method: "PATCH",
           body: {
             serviceId,
@@ -283,8 +278,7 @@ export function NovoAgendamento({
             professionalId: isBasic
               ? (user?.id ?? null)
               : professionalId || null,
-          },
-          token: token(),
+          } ,
         });
         if (!res.ok) {
           setError(
@@ -296,7 +290,7 @@ export function NovoAgendamento({
         onOpenChange(false);
         return;
       }
-      const res = await apiRequest("/appointments", {
+      const res = await authedRequest("/appointments", {
         method: "POST",
         body: {
           client_id: selectedClient.id,
@@ -304,8 +298,7 @@ export function NovoAgendamento({
           professional_id: isBasic ? undefined : professionalId || null,
           date: formDate,
           time: chosenTime,
-        },
-        token: token(),
+        } ,
       });
       if (!res.ok) {
         // Mostra a causa real (ex.: "A data deve ser hoje ou futura.").

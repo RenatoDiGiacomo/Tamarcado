@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { apiRequest } from "../../lib/api";
+import { authedRequest } from "../../lib/session";
 import { errorKindFrom, type ErrorKind } from "../ErrorState";
 import {
   bumpAppointments,
@@ -20,8 +20,6 @@ import type { EditingAppointment } from "../../pages/NovoAgendamento";
 import type { AppointmentStatus } from "../StatusChip";
 import type { AgendaView } from "./AgendaGrid";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 interface AgendaResponse {
   appointments: ApiAppointment[];
@@ -61,9 +59,8 @@ export function useAgenda() {
     setErrorKind(null);
     const { from, to } = periodRange(anchor, view);
     try {
-      const res = await apiRequest(`/appointments?from=${from}&to=${to}`, {
-        token: token(),
-      });
+      const res = await authedRequest(`/appointments?from=${from}&to=${to}`, {
+        });
       // 4xx/5xx = erro do SERVIDOR (respondeu, mas mal); rede/timeout cai no
       // catch como conexão. Mensagens distintas na tela (Story 7.3 §3).
       if (!res.ok) {
@@ -156,10 +153,9 @@ export function useAgenda() {
       if (!selectedId || marking) return;
       setMarking(true);
       try {
-        const res = await apiRequest(`/appointments/${selectedId}/status`, {
+        const res = await authedRequest(`/appointments/${selectedId}/status`, {
           method: "PATCH",
-          body: { to },
-          token: token(),
+          body: { to } ,
         });
         if (!res.ok) {
           toast.error(await statusErrorMessage(res));
@@ -185,10 +181,9 @@ export function useAgenda() {
     if (!selectedId || confirming) return;
     setConfirming(true);
     try {
-      const res = await apiRequest(`/appointments/${selectedId}/confirm`, {
+      const res = await authedRequest(`/appointments/${selectedId}/confirm`, {
         method: "PATCH",
-        body: {},
-        token: token(),
+        body: {} ,
       });
       if (!res.ok) {
         toast.error(await statusErrorMessage(res));
@@ -211,10 +206,9 @@ export function useAgenda() {
     setCancelError(null);
     try {
       const reason = cancelReason.trim();
-      const res = await apiRequest(`/appointments/${selectedId}/cancel`, {
+      const res = await authedRequest(`/appointments/${selectedId}/cancel`, {
         method: "PATCH",
-        body: reason !== "" ? { reason } : {},
-        token: token(),
+        body: reason !== "" ? { reason } : {} ,
       });
       if (!res.ok) {
         setCancelError(await cancelErrorMessage(res));
@@ -334,9 +328,8 @@ export function useMonthAppointments(
     const to = `${month}-${String(last).padStart(2, "0")}`;
     void (async () => {
       try {
-        const res = await apiRequest(`/appointments?from=${from}&to=${to}`, {
-          token: token(),
-        });
+        const res = await authedRequest(`/appointments?from=${from}&to=${to}`, {
+          });
         if (!res.ok) return;
         const body = (await res.json()) as { appointments: ApiAppointment[] };
         if (!alive) return;
