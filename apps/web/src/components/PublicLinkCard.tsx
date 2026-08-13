@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -12,8 +12,6 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 // Mesmas regras do backend (DL-049): kebab-case ASCII.
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -55,7 +53,7 @@ export function PublicLinkCard() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    void apiRequest("/installation", { token: token() }).then(async (res) => {
+    void authedRequest("/installation", {}).then(async (res) => {
       if (!res.ok) return;
       const data = (await res.json()) as { slug: string; publicUrl: string };
       setSlug(data.slug);
@@ -77,10 +75,9 @@ export function PublicLinkCard() {
   async function confirmChange(): Promise<void> {
     setSaving(true);
     setError(null);
-    const res = await apiRequest("/installation/slug", {
+    const res = await authedRequest("/installation/slug", {
       method: "PATCH",
-      body: { slug: draft },
-      token: token(),
+      body: { slug: draft } ,
     });
     if (!res.ok) {
       setError(await apiError(res, "Não foi possível trocar o endereço."));

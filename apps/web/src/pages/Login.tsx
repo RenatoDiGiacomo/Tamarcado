@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth, type CompanyChoice } from "../auth/AuthContext";
 import { ApiConnectionError, CONNECTION_ERROR_MESSAGE } from "../lib/api";
+import { consumeSessionExpired } from "../lib/session";
 import { PwaInstall } from "../components/PwaInstall";
 import { APP_VERSION } from "../lib/version";
 // Logo vertical (ícone TM + wordmark empilhados) — variação por tema:
@@ -27,6 +28,12 @@ export function Login() {
   // Desambiguação (DL-052): quando o e-mail existe em >1 empresa, o backend
   // devolve a lista e mostramos a escolha antes de validar a senha.
   const [choices, setChoices] = useState<CompanyChoice[] | null>(null);
+  // Sessão expirada: quando o refresh também venceu, o app cai aqui — mostramos
+  // o motivo em vez de deixar o usuário achando que "deslogou do nada".
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    if (consumeSessionExpired()) setExpired(true);
+  }, []);
 
   function messageFor(err: unknown): string {
     // Distingue "não deu para falar com o servidor" (rede/CORS/timeout) de
@@ -88,6 +95,14 @@ export function Login() {
 
       <Card className="w-full max-w-sm">
         <CardContent className="pt-6">
+          {expired && !choices && (
+            <p
+              role="status"
+              className="mb-4 rounded-md border border-border bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
+            >
+              Sua sessão expirou. Entre novamente para continuar.
+            </p>
+          )}
           {choices ? (
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">

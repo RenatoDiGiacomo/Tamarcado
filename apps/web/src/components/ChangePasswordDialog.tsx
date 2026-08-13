@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -12,8 +12,6 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 // Mesma política do cadastro/convite (accept-invite.dto): mínimo 8 caracteres.
 const MIN = 8;
 
@@ -71,10 +69,9 @@ export function ChangePasswordDialog({
       return;
     }
     setSaving(true);
-    const res = await apiRequest("/users/me/password", {
+    const res = await authedRequest("/users/me/password", {
       method: "PATCH",
-      body: { currentPassword: current, newPassword: next },
-      token: token(),
+      body: { currentPassword: current, newPassword: next } ,
     });
     if (!res.ok) {
       setError(await apiError(res, "Não foi possível trocar a senha."));

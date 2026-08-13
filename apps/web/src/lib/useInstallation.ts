@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { apiRequest } from "./api";
+import { authedRequest } from "./session";
 
 export interface Installation {
   name: string;
@@ -8,7 +8,6 @@ export interface Installation {
 }
 
 // Mesma chave usada pelo AuthContext para o access token.
-const ACCESS_KEY = "tamarcado.access";
 
 /**
  * Store compartilhado da identidade da instalação. O branding (cor/nome/logo) é
@@ -35,9 +34,8 @@ function getSnapshot(): Installation | null {
  * Configurações → Identidade para a cor/nome/logo repintarem na hora, sem reload.
  */
 export async function refreshInstallation(): Promise<void> {
-  const token = localStorage.getItem(ACCESS_KEY);
   try {
-    const res = await apiRequest("/installation", { token });
+    const res = await authedRequest("/installation", {});
     if (res.ok) {
       cache = (await res.json()) as Installation;
       for (const notify of listeners) notify();

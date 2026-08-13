@@ -61,6 +61,16 @@ export function buildDataSourceOptions(): DataSourceOptions {
     synchronize: false,
     migrationsRun: false,
     timezone: "Z", // banco em UTC; conversão de fuso na aplicação (ADR-008)
+    // Resiliência do POOL a inatividade: o MySQL derruba conexões ociosas
+    // (`wait_timeout`, 8h por padrão). Sem keep-alive, a 1ª query após um longo
+    // ocioso (ex.: recepção volta do almoço) pegava uma conexão morta e falhava.
+    // `enableKeepAlive` manda TCP keep-alive nas conexões do pool, impedindo o
+    // drop silencioso; conexões inválidas são recicladas pelo mysql2. Repassado
+    // ao driver mysql2 via `extra`.
+    extra: {
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
+    },
     // Tolera o MySQL não estar pronto no instante do boot (ex.: subida via
     // compose). Lidos pelo @nestjs/typeorm em forRoot; ignorados pelo
     // DataSource da CLI. (A separação liveness/readiness — /health responder
