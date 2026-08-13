@@ -873,7 +873,7 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 ## Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO em 2 levas — DL-061/DL-062)*
 
-> **Ampliação (DL-061/DL-062, 2026-08-12):** este épico deixa de ser só "registro de pagamentos" e passa a abrigar o bloco **Financeiro + Dashboard + Equipe + Permissões**, em **duas levas** (detalhe nos DLs; stories 5.1–5.3 abaixo são a **base** e serão reescritas na story de execução). Resumo:
+> **Ampliação (DL-061/DL-062, 2026-08-12):** este épico deixa de ser só "registro de pagamentos" e passa a abrigar o bloco **Financeiro + Dashboard + Equipe + Permissões**, em **duas levas** (detalhe nos DLs). A **1ª leva já está quebrada em stories** (5.1–5.8, na ordem de implementação — ver abaixo, 2026-08-13); a **2ª leva** (Equipe/remuneração) segue registrada só nos DLs. Resumo:
 > - **1ª leva:** **Financeiro** vira **menu próprio** — valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; **Recebimentos** por período (total recebido/pendente); **exportação CSV+PDF**; **situação financeira da cliente** em Clientes. **Dashboard** (leitura + exportação): faturamento **dia/semana/mês**, atendimentos, clientes, fluxo/semana *(sem "relatório anual" no 1º momento)*.
 > - **2ª leva:** **Equipe** **sai de Configurações e vira menu próprio** (fonte de custo) — **remuneração** por profissional (comissão %/valor fixo; por serviço/por profissional; salário diário/semanal/mensal; **fixo+comissão coexistem**), modelo **previsão→real**, e **"quanto gastei com a equipe"** no Dashboard. *(Fora, evolução: metas/faixas de comissão.)*
 > - **Permissões (DL-062):** visibilidade de **módulo** (não só ação/FR-I2); papéis **Dono/Gestão** (**"Básico" aposentado**); **toggles por pessoa** na Equipe (só o Dono, OFF por padrão — "Pode ver Financeiro/Dashboard"); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
@@ -883,9 +883,47 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 **FRs:** FR-F1–F5 · **NFRs:** NFR-O4 · **UX-DRs:** UX-DR12
 
-### Story 5.1: Registro manual de pagamento por agendamento
+> **1ª LEVA — quebra em stories na ordem de implementação (DL-061/DL-062, 2026-08-13).** Reescreve as antigas 5.1–5.3 (base). **A ordem não é negociável:** a **fundação de permissões (5.1) vem primeiro** — sem ela, o Financeiro **nasceria visível para toda a equipe**, que é justamente o que o DL-062 existe para evitar. Depois o Financeiro (registro → recebimentos → exportação → situação em Clientes), então o Dashboard, e por fim a navegação. **Fora desta leva (2ª leva, já registrada no DL-061):** remuneração de equipe, comissão, "quanto gastei com a equipe".
 
-As a dono/funcionário/profissional,
+### Story 5.1: Fundação de permissões — visibilidade de MÓDULO + interruptores por pessoa (DL-062)
+
+As a Dono,
+I want conceder ou negar cada módulo (Financeiro, Dashboard) por pessoa,
+So that módulos sensíveis não nasçam visíveis para toda a equipe.
+
+**Acceptance Criteria:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** cada usuário ganha os interruptores de visibilidade de módulo (ex.: `can_view_financeiro`, `can_view_dashboard`), **default `false`**, com **estrutura extensível** para módulos futuros; os papéis passam a **Dono/Gestão** (o **"Básico" é aposentado** — migração converte os existentes; revisa DL-022/FR-I1/FR-I2)
+
+**Given** o eixo de módulo (DL-062, camada de BACKEND)
+**When** alguém sem o interruptor chama o endpoint do módulo (direto na API)
+**Then** o backend **nega com `403`** — independentemente do front (guard de módulo, além da matriz de ações FR-I2)
+
+**Given** o eixo de módulo (DL-062, camada de FRONT)
+**When** a pessoa não tem o módulo
+**Then** o item **não aparece no menu e a rota não é montada** — o módulo não existe para ela (não é tela com cadeado, nem item que dá erro ao clicar). **As duas camadas são obrigatórias e juntas** (DL-062, regra 5c)
+
+**Given** a tela de **Equipe**, com os interruptores por pessoa (**"Pode ver Financeiro"**, **"Pode ver Dashboard"** e **"Pode gerenciar agendamentos de toda a equipe"**)
+**When** os edito
+**Then** **só o Dono** concede/revoga, os interruptores vêm **desligados por padrão**, e o **Dono não pode remover o próprio acesso** (DL-062, regra 5a)
+
+**Given** a Agenda e o interruptor **"Pode gerenciar agendamentos de toda a equipe"** (`can_manage_all_appointments`, adição DL-062 2026-08-13)
+**When** um Gestão **com** o interruptor opera a agenda
+**Then** cria/remarca/cancela/atribui para **qualquer profissional** (delegação da operação da agenda **sem** ganhar Financeiro/Dashboard); **sem** o interruptor, só os **próprios**. *(Não é flag de módulo — é **escopo de ação** dentro da Agenda; lido da linha fresca → revogação imediata.)*
+
+**Given** o padrão da Gestão (DL-062, item 3)
+**When** um usuário Gestão sem interruptores acessa o sistema
+**Then** vê/opera **apenas os próprios agendamentos e as clientes que atende** — sem Financeiro, sem Dashboard, sem agenda de terceiros, sem telas administrativas
+
+**Given** a segurança (e2e — hostil por padrão)
+**When** valido a story
+**Then** há teste de que **sem o interruptor a API responde `403`** batendo direto **e** o item **não aparece** na navegação
+
+### Story 5.2: Financeiro — registro de pagamento no agendamento (menu próprio)
+
+As a Dono/Gestão com acesso a Financeiro,
 I want registrar o pagamento recebido de um agendamento,
 So that o salão tenha o histórico de recebimentos sem integração externa.
 
@@ -893,45 +931,107 @@ So that o salão tenha o histórico de recebimentos sem integração externa.
 
 **Given** a migration desta story
 **When** aplicada
-**Then** a tabela `payments` é criada com `company_id`, `appointment_id` (FK → `appointments`, já existente desde o Épico 3), `amount`, `method`, `created_by`, timestamps, e índices liderados por `company_id`
+**Then** a tabela `payments` é criada com `company_id`, `appointment_id` (FK → `appointments`, já existente desde o Épico 3), `amount`, **`method` NULLABLE (forma opcional)**, **`status` (`pago` | `pendente`)**, `created_by`, timestamps, e índices liderados por `company_id`
 
-**Given** o modal de registro de pagamento (FR-F1, UX-DR12) — full-stack
+**Given** o módulo **Financeiro** (menu próprio, **título + ícone**), protegido pelo interruptor da 5.1
 **When** registro o pagamento de um agendamento
-**Then** informo o valor e seleciono a forma via dropdown com as 5 opções fixas (Dinheiro / PIX / Cartão de débito / Cartão de crédito / Outro)
+**Then** informo o **valor** (obrigatório), escolho a **forma de pagamento** por dropdown (**opcional** — Dinheiro / PIX / Cartão de débito / Cartão de crédito / Outro) e a **situação** (**pago** / **pendente**)
 
-**Given** um pagamento registrado (UX-DR12)
-**When** salvo
-**Then** o agendamento correspondente passa para o status *concluído*
+**Given** a situação do pagamento é um dado **próprio** (não é o status do agendamento)
+**When** registro como **pendente**
+**Then** o pagamento fica pendente **sem** forçar o agendamento a *concluído* (a marcação de comparecimento segue pela 3.7); registrar como **pago** é o caminho normal do caixa
 
-**Given** o MVP (FR-F5)
-**When** registro o pagamento
-**Then** o registro é manual e informativo — sem conciliação automática nem emissão de recibo
+**Given** o eixo de módulo (DL-062)
+**When** alguém sem o módulo tenta registrar/ler pagamentos
+**Then** o backend nega com `403` e o menu não aparece para essa pessoa
 
-### Story 5.2: Visibilidade de pagamentos por papel
+### Story 5.3: Financeiro — Recebimentos (lista com filtro por período + totais)
 
-As a dono/funcionário/profissional,
-I want que cada papel veja e registre pagamentos conforme sua permissão,
-So that o caixa funcione sem expor o faturamento consolidado a quem não deve vê-lo.
+As a Dono/Gestão com acesso a Financeiro,
+I want ver os recebimentos de um período com os totais,
+So that eu saiba quanto entrou e quanto ainda está pendente.
 
 **Acceptance Criteria:**
 
-**Given** o papel dono (FR-F2)
-**When** acesso pagamentos
-**Then** visualizo e registro pagamentos de todos os profissionais
+**Given** a tela **Recebimentos**
+**When** escolho um **período** (dia / intervalo)
+**Then** vejo a lista de pagamentos do período e os **totais**: **total recebido** (pago) e **total pendente**
 
-**Given** o papel profissional (FR-F3)
-**When** acesso pagamentos
-**Then** visualizo e registro apenas os dos meus próprios agendamentos
+**Given** a agregação
+**When** o backend calcula os totais
+**Then** é sempre **escopado por `company_id`** (isolamento de tenant) e protegido pelo interruptor do módulo (`403` sem acesso)
 
-**Given** o papel funcionário (FR-F4)
-**When** acesso pagamentos
-**Then** registro pagamentos de qualquer agendamento, mas não visualizo relatórios financeiros consolidados nem totais por profissional
+### Story 5.4: Financeiro — exportação em CSV e PDF
 
-**Given** a matriz de permissões (FR-I2) e o `RolesGuard`
-**When** um papel tenta uma ação fora do permitido
-**Then** a ação é bloqueada com `403`
+As a Dono/Gestão com acesso a Financeiro,
+I want exportar os recebimentos do período,
+So that eu leve os números para fora do sistema (contabilidade, comprovação).
 
-### Story 5.3: Abstração PaymentGateway (preparação sem integração)
+**Acceptance Criteria:**
+
+**Given** a lista de Recebimentos de um período
+**When** exporto
+**Then** gero **CSV** e **PDF** com os mesmos dados e totais exibidos na tela
+
+**Given** a exportação
+**When** implementada
+**Then** é construída de forma **reutilizável** — o **Dashboard (5.6)** reaproveita o mesmo mecanismo
+
+### Story 5.5: Situação financeira da cliente (no módulo Clientes)
+
+As a Dono/Gestão com acesso a Financeiro,
+I want ver a situação financeira da cliente no perfil dela,
+So that eu saiba quanto ela deve e o que já pagou.
+
+**Acceptance Criteria:**
+
+**Given** o perfil da cliente (Épico 4)
+**When** tenho acesso ao módulo Financeiro
+**Then** vejo **quanto a cliente deve**, **o que já pagou** e os **valores por atendimento**
+
+**Given** o eixo de módulo (DL-062)
+**When** a pessoa **não** tem o módulo Financeiro
+**Then** o bloco de situação financeira **não aparece** no perfil da cliente (o resto do perfil segue normal)
+
+### Story 5.6: Dashboard (menu próprio, somente leitura + exportação)
+
+As a Dono/Gestão com acesso a Dashboard,
+I want um painel de leitura com os números do negócio,
+So that eu acompanhe faturamento e fluxo sem depender de planilha.
+
+**Acceptance Criteria:**
+
+**Given** o módulo **Dashboard** (menu próprio, título + ícone), protegido pelo interruptor `can_view_dashboard` da 5.1
+**When** acesso
+**Then** vejo, **somente leitura**: **faturamento por período (dia / semana / mês)**, **quantidade de atendimentos realizados**, **total de clientes cadastrados** e **média de fluxo de clientes por semana**
+
+**Given** a exportação
+**When** exporto o Dashboard
+**Then** reaproveito o mecanismo da 5.4 (CSV/PDF). *(Sem "relatório anual" neste momento — evolução.)*
+
+**Given** o eixo de módulo (DL-062)
+**When** alguém sem o interruptor acessa
+**Then** o backend nega com `403` e o menu não aparece
+
+### Story 5.7: Navegação — tab bar mobile + Configurações pelo perfil (mobile)
+
+As a usuário do painel,
+I want navegar pelos novos módulos sem quebrar a barra do celular,
+So that Financeiro e Dashboard caibam na navegação mobile.
+
+**Acceptance Criteria:**
+
+**Given** os novos menus (Financeiro, Dashboard)
+**When** reviso a **tab bar do mobile**
+**Then** ela comporta os módulos **sem truncar** (os que a pessoa não tem acesso já não aparecem — DL-062)
+
+**Given** a navegação por plataforma
+**When** comparo desktop e mobile
+**Then** no **desktop** Configurações segue na **sidebar**; no **mobile** Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile conscientemente aceita — DL-061)
+
+### Story 5.8: Abstração PaymentGateway (preparação, sem integração) — *mantida, não gate da 1ª leva*
+
+> Preparação de arquitetura (NFR-O4). **Não** é obrigatória para vender a 1ª leva (o registro manual opera sem ela); pode acompanhar a 5.2 ou ficar para o momento da integração real.
 
 As a operador da plataforma,
 I want a abstração de gateway de pagamento preparada sem integração ativa,
