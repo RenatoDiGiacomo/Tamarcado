@@ -905,13 +905,17 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 **When** a pessoa não tem o módulo
 **Then** o item **não aparece no menu e a rota não é montada** — o módulo não existe para ela (não é tela com cadeado, nem item que dá erro ao clicar). **As duas camadas são obrigatórias e juntas** (DL-062, regra 5c)
 
-**Given** a tela de **Equipe**, com os interruptores por pessoa
+**Given** a tela de **Equipe**, com os interruptores por pessoa (**"Pode ver Financeiro"**, **"Pode ver Dashboard"** e **"Pode gerenciar agendamentos de toda a equipe"**)
 **When** os edito
 **Then** **só o Dono** concede/revoga, os interruptores vêm **desligados por padrão**, e o **Dono não pode remover o próprio acesso** (DL-062, regra 5a)
 
+**Given** a Agenda e o interruptor **"Pode gerenciar agendamentos de toda a equipe"** (`can_manage_all_appointments`, adição DL-062 2026-08-13)
+**When** um Gestão **com** o interruptor opera a agenda
+**Then** cria/remarca/cancela/atribui para **qualquer profissional** (delegação da operação da agenda **sem** ganhar Financeiro/Dashboard); **sem** o interruptor, só os **próprios**. *(Não é flag de módulo — é **escopo de ação** dentro da Agenda; lido da linha fresca → revogação imediata.)*
+
 **Given** o padrão da Gestão (DL-062, item 3)
 **When** um usuário Gestão sem interruptores acessa o sistema
-**Then** vê **apenas os próprios agendamentos e as clientes que atende** — sem Financeiro, sem Dashboard, sem telas administrativas
+**Then** vê/opera **apenas os próprios agendamentos e as clientes que atende** — sem Financeiro, sem Dashboard, sem agenda de terceiros, sem telas administrativas
 
 **Given** a segurança (e2e — hostil por padrão)
 **When** valido a story
