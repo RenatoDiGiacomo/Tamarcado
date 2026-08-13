@@ -11,9 +11,11 @@ Status: **draft — aguardando revisão do Renato antes de virar código** (DL-0
 ## Story
 
 As a Dono,
-I want conceder ou negar cada módulo (Financeiro, Dashboard) por pessoa,
-so that módulos sensíveis não nasçam visíveis para toda a equipe e uma
-revogação valha **na hora**, não só depois de relogar.
+I want conceder ou negar, por pessoa, cada módulo (Financeiro, Dashboard) **e**
+a operação da agenda de toda a equipe,
+so that módulos sensíveis não nasçam visíveis para toda a equipe, eu possa
+**delegar a agenda sem entregar o financeiro junto**, e uma revogação valha
+**na hora**, não só depois de relogar.
 
 ---
 
@@ -82,21 +84,54 @@ flags que vêm em `/users/me`. Numa sessão já aberta:
 **não consegue usá-lo em nenhum momento** após a revogação (backend nega já na
 próxima chamada). Não existe janela de "continua dentro por horas".
 
-> **Decisão a confirmar (Renato):** o "chão" (403 imediato + front reage ao 403)
-> é obrigatório e barato. A "convergência do menu por polling" reusa o
-> mecanismo do pendentes; se preferir, na 1ª versão fica só o 403-reativo (menu
-> some no próximo `/users/me`/navegação) e o polling de flags entra como refino.
-> Recomendo **já incluir o polling de flags** — é o que faz a revogação
-> "aparecer" sem ação do usuário, que é o espírito do seu pedido.
+---
+
+## ➕ Ponto C — Adição (Renato, 2026-08-13): flag de **escopo de agenda**
+
+**Risco coberto:** com só **Dono** e **Gestão**, some o papel do **gerente que
+opera a agenda de toda a equipe** (comum no salão real: a dona não fica no
+balcão e alguém marca/remarca/cancela para qualquer profissional). Sem uma
+válvula, a única saída seria **promover a pessoa a Dono** — entregando **tudo**,
+inclusive o financeiro. A adição fecha isso.
+
+**Interruptor novo:** **"Pode gerenciar agendamentos de toda a equipe"**
+(`can_manage_all_appointments`), **OFF por padrão**, **só o Dono concede** —
+mesmíssimo mecanismo de armazenamento (coluna em `users`), concessão e
+**imediatismo** (linha fresca por request) dos demais.
+
+**⚠️ Distinção que a implementação NÃO pode borrar:** este **não** é um flag de
+*módulo* (não esconde menu, não é `@RequireModule`). É um flag de **escopo de
+AÇÃO** dentro da Agenda — que **todo mundo já vê**. Ele **amplia** o alcance das
+ações de agendamento de **"só os meus"** para **"de toda a equipe"** (criar,
+remarcar, cancelar, atribuir para qualquer profissional). Logo:
+- **NÃO** é conferido por `ModuleGuard` (que daria 403 no endpoint inteiro).
+- **É** aplicado **dentro** dos endpoints de agendamento (Épico 3), no
+  **escopo da consulta/ação**: sem o flag, a Gestão opera apenas os próprios
+  (onde é `professional_id`); com o flag, opera os de todos os profissionais.
+- Lido da **mesma linha fresca** (`req.currentUser`) → revogar tira o alcance
+  **na hora** (mesma garantia do Ponto B).
+
+**Caso real que isso destrava:** uma recepcionista é **Gestão + `attends_clients`
+= false** (não atende ninguém) — então **não tem agendamentos "próprios"**. Sem
+o flag ela não teria o que operar; **com** o flag ela opera a agenda de todos,
+**sem** ver Financeiro nem Dashboard (que continuam OFF). É a delegação que você
+descreveu, sem virar Dono.
+
+**Padrão de Gestão (fecha o modelo):** Gestão, por padrão (todos os flags OFF),
+vê/opera **só o próprio trabalho** (DL-062 item 3). O Dono liga, por pessoa e de
+forma independente: `can_manage_all_appointments` (operar a agenda toda),
+`can_view_financeiro`, `can_view_dashboard`.
 
 ---
 
 ## Acceptance Criteria
 
 1. **(AC1 — Migration dos flags)** Dada a migration desta story, quando aplicada,
-   então `users` ganha `can_view_financeiro` e `can_view_dashboard`
-   (`BOOLEAN NOT NULL DEFAULT false`), **aditiva** (usuários existentes ficam sem
-   os módulos, exceto o Dono que ignora os flags). Reverte limpo.
+   então `users` ganha **três** colunas `BOOLEAN NOT NULL DEFAULT false`:
+   `can_view_financeiro` e `can_view_dashboard` (**visibilidade de MÓDULO**) e
+   `can_manage_all_appointments` (**escopo de AÇÃO da agenda** — ver AC9/Ponto C).
+   **Aditiva** (usuários existentes ficam sem tudo; o Dono/`owner` ignora os
+   flags — sempre pode). Reverte limpo.
 
 2. **(AC2 — Papéis Dono/Gestão; "Básico" aposentado)** Dado o modelo de papéis
    (DL-062, revisa DL-022/FR-I1/FR-I2), quando a migration roda, então o enum de
@@ -138,9 +173,22 @@ próxima chamada). Não existe janela de "continua dentro por horas".
    de escopo.)*
 
 8. **(AC8 — `/users/me` expõe os flags)** Dado o front, quando busca `/users/me`,
-   então a resposta inclui os flags de módulo (para montar o menu). O polling de
-   pendentes (NFR-A3) passa a sinalizar mudança de acesso (flags ou
-   `access_version`) para a convergência do menu sem relogar (ver Ponto B).
+   então a resposta inclui **os três flags** (os de módulo, para montar o menu; e
+   `can_manage_all_appointments`, para a Agenda decidir o que mostrar/permitir).
+   O polling de pendentes (NFR-A3) passa a sinalizar mudança de acesso (flags ou
+   `access_version`) para a convergência sem relogar (ver Ponto B).
+
+9. **(AC9 — Escopo de agenda por flag + revogação imediata / Ponto C)** Dada a
+   Agenda (Épico 3), quando um usuário **Gestão** age sobre agendamentos:
+   - **sem** `can_manage_all_appointments` → só pode ver/criar/remarcar/cancelar/
+     atribuir os **próprios** (onde é `professional_id`); ações sobre agendamento
+     de outro profissional → **403** (ou fora do escopo da listagem);
+   - **com** o flag → opera os de **toda a equipe** (qualquer profissional).
+   - **NÃO** é `@RequireModule`/`ModuleGuard` — é aplicado **dentro** dos
+     endpoints de agendamento, lendo o flag da **linha fresca** (`req.currentUser`).
+   - **Imediato:** o Dono desliga o flag → a **próxima** ação sobre agendamento de
+     outro profissional já é negada, **sem relogar**. Provado em e2e.
+   - O **Dono** sempre opera tudo (ignora o flag).
 
 ---
 
@@ -171,9 +219,9 @@ próxima chamada). Não existe janela de "continua dentro por horas".
 
 ## Tasks / Subtasks (ordem TDD — red→green→refactor)
 
-- [ ] **Task 1 — Migration: flags de módulo + aposentar `basic` (AC1, AC2)**
-  - [ ] Colunas `can_view_financeiro` / `can_view_dashboard` (`BOOLEAN NOT NULL
-        DEFAULT false`) em `users`.
+- [ ] **Task 1 — Migration: flags + aposentar `basic` (AC1, AC2)**
+  - [ ] Colunas `can_view_financeiro`, `can_view_dashboard` **e**
+        `can_manage_all_appointments` (`BOOLEAN NOT NULL DEFAULT false`) em `users`.
   - [ ] Converter `basic` → `manager` (dado) e **remover `basic` do enum**
         `access_level`; atualizar `AccessLevel` (entidade) e o enum do TypeORM.
   - [ ] Registrar no `data-source-options.ts`/`typeorm.config.ts`; e2e de
@@ -195,10 +243,12 @@ próxima chamada). Não existe janela de "continua dentro por horas".
         rota sem decorator → passa.
 
 - [ ] **Task 4 — Interruptores na Equipe (AC5)**
-  - [ ] `PATCH /api/users/:id` (já `@Roles('owner')`, tenant-scoped) aceita
-        `can_view_financeiro`/`can_view_dashboard`. **Bloquear** alterar os
-        próprios flags do Dono (owner ignora; não faz sentido) e nunca permitir
-        que o Dono se auto-remova (coerente com AC5/1.4-AC5).
+  - [ ] `PATCH /api/users/:id` (já `@Roles('owner')`, tenant-scoped) aceita os
+        **três** flags (`can_view_financeiro`, `can_view_dashboard`,
+        `can_manage_all_appointments`). **Bloquear** alterar os próprios flags do
+        Dono (owner ignora; não faz sentido) e nunca permitir que o Dono se
+        auto-remova (coerente com AC5/1.4-AC5).
+  - [ ] UI da Equipe: três interruptores por pessoa, OFF por padrão, só o Dono vê/edita.
   - [ ] `GET /api/users` retorna os flags (sem vazar `password_hash`).
   - [ ] e2e: Dono liga/desliga flag de um Gestão; não-Dono tentando → 403.
 
@@ -215,11 +265,27 @@ próxima chamada). Não existe janela de "continua dentro por horas".
         redireciona (perda de acesso imediata na sessão aberta).
   - [ ] Convergência via polling (Task 5): item some sem relogar.
 
-- [ ] **Task 7 — e2e da revogação imediata (AC6) e da dupla camada (AC3+AC4)**
-  - [ ] e2e backend: liga flag → 200 no módulo; Dono desliga → **próxima
+- [ ] **Task 6b — Escopo da Agenda por `can_manage_all_appointments` (AC9, Ponto C)**
+  - [ ] Nos endpoints de agendamento (Épico 3): listagem e ações
+        (criar/remarcar/cancelar/atribuir) passam a **escopar por profissional**
+        para Gestão **sem** o flag (só onde é `professional_id`); **com** o flag,
+        alcance de toda a equipe. Lê `req.currentUser.can_manage_all_appointments`
+        (linha fresca); `owner` sempre total. **Não** usar `ModuleGuard` aqui.
+  - [ ] Ação sobre agendamento de outro profissional sem o flag → **403**.
+  - [ ] Front (Agenda): quem não tem o flag opera só a própria agenda; o seletor
+        de profissional/ações de terceiros aparece só com o flag.
+  - [ ] *(Interação com `attends_clients`: Gestão que não atende não tem "próprios"
+        — sem o flag, não opera nada na agenda de terceiros; com o flag, opera a
+        de todos. É o caso da recepção.)*
+
+- [ ] **Task 7 — e2e da revogação imediata (AC6, AC9) e da dupla camada (AC3+AC4)**
+  - [ ] e2e backend módulo: liga flag → 200 no módulo; Dono desliga → **próxima
         chamada 403** (mesma sessão/token).
-  - [ ] e2e/integração front: sem flag, item ausente **e** rota não montada;
-        chamada direta à API → 403.
+  - [ ] e2e backend agenda: Gestão com `can_manage_all_appointments` age sobre
+        agendamento de outro profissional → ok; Dono desliga → **próxima ação
+        403** (mesma sessão).
+  - [ ] e2e/integração front: sem flag de módulo, item ausente **e** rota não
+        montada; chamada direta à API → 403.
 
 - [ ] **Task 8 — Validação final**
   - [ ] `build && lint && typecheck && test` verde (unit + e2e, MySQL real),
@@ -236,11 +302,13 @@ próxima chamada). Não existe janela de "continua dentro por horas".
 - **NÃO** construir as telas de Financeiro/Dashboard aqui — isto é só a
   **fundação** de permissão; os módulos vêm nas 5.2–5.6 e **plugam**
   `@RequireModule(...)`.
-- **NÃO** redesenhar a matriz de **ações** FR-I2 (quem cancela/edita/atribui).
-  Esta story adiciona o **eixo de visibilidade de MÓDULO**; a semântica fina de
-  "Gestão só age sobre os próprios" (escopo de dados) é aplicada **nos módulos de
-  agenda/clientes**, não aqui. Aqui garantimos só que Gestão **não vê**
-  Financeiro/Dashboard por padrão (AC7).
+- Esta story entrega **dois eixos novos**: (1) **visibilidade de MÓDULO**
+  (`ModuleGuard`) e (2) **escopo da AGENDA por flag** (`can_manage_all_appointments`,
+  aplicado dentro dos endpoints de agendamento — AC9/Task 6b). **NÃO** redesenhar
+  o resto da matriz FR-I2 (ex.: escopo de **Clientes** por papel, outras ações) —
+  isso segue nos módulos respectivos. Não confundir os dois eixos: módulo = 403 no
+  endpoint inteiro + some do menu; agenda = amplia o alcance da ação, sem esconder
+  a Agenda (que todos veem).
 - **NÃO** colocar flags de módulo no **JWT** (quebraria a revogação imediata —
   ver Ponto A/B). O `access_level` continua no token (é a matriz de ações).
 - **NÃO** introduzir biblioteca RBAC de terceiros — `@RequireModule`/`ModuleGuard`
@@ -276,17 +344,22 @@ próxima chamada). Não existe janela de "continua dentro por horas".
 - [Source: active-user.guard.ts / roles.guard.ts / user.entity.ts] — trilho real
   onde os flags entram (linha fresca vs. token).
 
-### Decisões a confirmar (Renato — antes de virar código)
+### Decisões aprovadas (Renato, 2026-08-13)
 
-1. **Migração do "Básico".** Recomendo `basic` → `manager` **sem** ampliar ações
-   e **sem** módulos (flags `false`) — least privilege, nada de escalonamento
-   silencioso. Confirmar que nenhum usuário `basic` real precisa de tratamento
-   especial. *(Se hoje há `basic` em produção que NÃO deveria virar Gestão plena
-   na matriz de ações, pode ser preciso um ajuste fino em FR-I2 — sinalizar.)*
-2. **Convergência do menu por polling (Ponto B).** Incluir já o polling de flags
-   (recomendado) ou deixar 1ª versão só com o 403-reativo? (Ver caixa no Ponto B.)
-3. **Modelo de armazenamento.** Colunas booleanas por módulo (recomendado, poucos
-   módulos) vs. tabela `user_module_access` (só se previr muitos módulos cedo).
+1. **Migração `basic` → `manager`: aprovada.** Produção está com **zero
+   empresas** — sem risco de migração de dados. Ainda assim, least privilege:
+   convertidos **sem módulos e sem escopo de agenda ampliado** (todos os flags
+   `false`); ninguém ganha alcance novo pela conversão.
+2. **Polling dos flags: incluir** (aprovado). A convergência do menu/escopo sem
+   relogar entra já na 1ª versão (Task 5), além do 403-reativo.
+3. **Colunas por módulo: aprovado.** **Gatilho para migrar depois para tabela
+   `user_module_access`** (registrar e respeitar): quando **passar de ~6
+   módulos/flags**, **OU** quando o Dono quiser **conceder acesso sem depender de
+   deploy** (coluna nova exige migration + deploy; a tabela permite conceder em
+   runtime). Até lá, colunas.
+4. **Adição — flag de escopo de agenda** `can_manage_all_appointments` (Ponto C,
+   AC9): mesmo mecanismo (coluna, só-Dono, OFF, imediato), mas **eixo de ação**,
+   não de módulo. Fecha o buraco do "gerente de agenda" sem entregar o financeiro.
 
 ## Dev Agent Record
 
