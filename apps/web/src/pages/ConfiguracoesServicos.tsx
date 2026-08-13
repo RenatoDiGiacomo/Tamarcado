@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Check, Plus, Scissors } from "lucide-react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
 
-const ACCESS_KEY = "tamarcado.access";
 const NEW = "__new__";
 
 interface ServiceDto {
@@ -28,7 +27,6 @@ interface Attender {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-const token = () => localStorage.getItem(ACCESS_KEY);
 
 /** Só dígitos (para as máscaras de duração e preço). */
 function onlyDigits(value: string): string {
@@ -81,7 +79,7 @@ export function ConfiguracoesServicos() {
   const isNew = selected === NEW;
 
   const loadServices = useCallback(async (): Promise<ServiceDto[]> => {
-    const res = await apiRequest("/services", { token: token() });
+    const res = await authedRequest("/services", {});
     if (!res.ok) return [];
     const data = (await res.json()) as { services: ServiceDto[] };
     return data.services;
@@ -96,8 +94,8 @@ export function ConfiguracoesServicos() {
     void (async () => {
       try {
         const [svcRes, attRes] = await Promise.all([
-          apiRequest("/services", { token: token() }),
-          apiRequest("/users/attenders", { token: token() }),
+          authedRequest("/services", {}),
+          authedRequest("/users/attenders", {}),
         ]);
         if (!svcRes.ok) throw new Error("server");
         const list = ((await svcRes.json()) as { services: ServiceDto[] }).services;
@@ -135,7 +133,7 @@ export function ConfiguracoesServicos() {
       setDuration(String(svc.durationMinutes));
       setPrice(priceToCents(svc.price));
     }
-    void apiRequest(`/services/${selected}/professionals`, { token: token() })
+    void authedRequest(`/services/${selected}/professionals`, {})
       .then(async (res) => {
         if (res.ok) {
           const data = (await res.json()) as { professionalIds: string[] };
@@ -195,27 +193,24 @@ export function ConfiguracoesServicos() {
     try {
       let serviceId = isNew ? "" : (selected as string);
       if (isNew) {
-        const res = await apiRequest("/services", {
+        const res = await authedRequest("/services", {
           method: "POST",
-          body,
-          token: token(),
+          body ,
         });
         if (!res.ok) throw new Error("create");
         serviceId = ((await res.json()) as ServiceDto).id;
       } else {
-        const res = await apiRequest(`/services/${serviceId}`, {
+        const res = await authedRequest(`/services/${serviceId}`, {
           method: "PATCH",
-          body,
-          token: token(),
+          body ,
         });
         if (!res.ok) throw new Error("update");
       }
 
       // Sincroniza o vínculo profissional↔serviço (PUT substitui o conjunto).
-      const profRes = await apiRequest(`/services/${serviceId}/professionals`, {
+      const profRes = await authedRequest(`/services/${serviceId}/professionals`, {
         method: "PUT",
-        body: { professionalIds: [...profIds] },
-        token: token(),
+        body: { professionalIds: [...profIds] } ,
       });
       if (!profRes.ok) throw new Error("professionals");
 

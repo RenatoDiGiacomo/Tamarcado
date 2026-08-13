@@ -95,8 +95,8 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 
 **FR-I: Permissões e Controle de Acesso**
 
-- FR-I1: Controle de acesso em dois eixos independentes (DL-022): **nível de acesso** (Dono/Gestão/Básico) + **atende clientes** (sim/não). Papéis não são mutuamente exclusivos — uma pessoa pode acumular função administrativa e agenda própria. "Atende clientes" determina quem entra na disponibilidade e pode ser `professional_id`.
-- FR-I2: Matriz de permissões por nível de acesso (ver tabela no PRD): Dono e Gestão agem sobre todos; Básico só sobre os próprios/não atribuídos. Só Dono vê relatórios consolidados, configura sistema e gerencia usuários.
+- FR-I1: Controle de acesso em dois eixos independentes (DL-022): **nível de acesso** (Dono/Gestão/~~Básico~~) + **atende clientes** (sim/não). Papéis não são mutuamente exclusivos — uma pessoa pode acumular função administrativa e agenda própria. "Atende clientes" determina quem entra na disponibilidade e pode ser `professional_id`. *(**Revisado — DL-062, 2026-08-12:** o papel **"Básico" é aposentado** (ficam **Dono/Gestão**); soma-se o eixo de **visibilidade de MÓDULO** — quem não tem acesso não vê o menu — controlado por **toggles por pessoa** na tela de Equipe. O eixo "atende clientes" permanece.)*
+- FR-I2: Matriz de permissões por nível de acesso (ver tabela no PRD): Dono e Gestão agem sobre todos; ~~Básico só sobre os próprios/não atribuídos~~. Só Dono vê relatórios consolidados, configura sistema e gerencia usuários. *(**Revisado — DL-062:** a matriz de **ações** permanece; soma-se o eixo de **visibilidade de MÓDULO** (Financeiro/Dashboard/Equipe são menus próprios e só aparecem para quem tem o toggle). **Gestão por padrão** vê **só os próprios agendamentos e as clientes que atende** — sem Financeiro/Dashboard/admin. Toggles por pessoa (só o Dono, OFF por padrão); o **Dono não pode remover o próprio acesso**; bloqueio **também no backend**.)*
 - FR-I3: Exatamente um usuário com nível Dono por instalação; não pode ser removido sem transferência prévia.
 - FR-I4: Isolamento completo de dados entre instalações (ver NFR-S1).
 
@@ -235,8 +235,8 @@ O salão mantém o cadastro de clientes com histórico e observações, transfor
 **FRs cobertas:** FR-E1–E4
 **UX-DRs:** UX-DR11, UX-DR17
 
-### Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060)*
-O salão registra manualmente o recebimento por agendamento (valor + forma via dropdown de 5 opções), com regras de visibilidade por papel e transição do agendamento para *concluído*. A abstração `PaymentGateway`/`NullPaymentGateway` é preparada sem integração ativa. Full-stack. **Roadmap (DL-060):** entra no bloco **"Dados e Gestão"**, junto de Dashboard e Monitoramento do bot (estrutura de coleta comum).
+### Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO — DL-061/DL-062)*
+O salão registra manualmente o recebimento por agendamento e passa a ter **visão de gestão**. **Ampliado (DL-061) em duas levas:** **1ª leva** — **Financeiro** (menu próprio: valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; Recebimentos por período; **exportação CSV+PDF**; situação financeira em Clientes) e **Dashboard** (faturamento dia/semana/mês, atendimentos, clientes, fluxo/semana — leitura + exportação); **2ª leva** — **Equipe** vira menu próprio com **remuneração** (comissão %/fixo, por serviço/profissional, salário diário/semanal/mensal, previsão→real) e **"quanto gastei com a equipe"** no Dashboard. **Permissões (DL-062):** visibilidade de módulo + papéis Dono/Gestão + toggles por pessoa. A abstração `PaymentGateway`/`NullPaymentGateway` segue preparada sem integração ativa. Full-stack. **Roadmap (DL-061):** o bloco **sobe para ANTES do Épico 6**.
 **FRs cobertas:** FR-F1–F5 · **NFRs:** NFR-O4
 **UX-DRs:** UX-DR12
 
@@ -257,11 +257,12 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 ---
 
-## Roadmap — ordem de execução (redesenhado 2026-08-11, DL-060)
+## Roadmap — ordem de execução (redesenhado 2026-08-11 DL-060; revisado 2026-08-12 DL-061/DL-062)
 
 > **Revisa a priorização do DL-051** (que punha o Épico 7 antes do 5 e do 6): a **1ª leva do Épico 7 já está no `main`** e o **VPS foi contratado**. Os números de épico **não mudam** — isto é a **ordem de trabalho**.
+> **Revisão DL-061 (2026-08-12):** o antigo item "Dados e Gestão" (que vinha **depois** do Épico 6) foi **reorganizado em duas levas e movido para ANTES do Épico 6**. Motivo: a falta de **Financeiro** já **custou um cliente**, enquanto o Épico 6 depende de um bloqueio externo (verificação de negócio na Meta) que **não avança com código nosso**.
 
-**0. ✅ Épico 7 (1ª leva) — ENTREGUE, fora da fila.** PWA + painel-app no celular + agenda em lista + estados (PRs #51–#59). A **2ª leva (7.2.NN)** vai para a faixa de **updates contínuos** (item 5).
+**0. ✅ Épico 7 (1ª leva) — ENTREGUE, fora da fila.** PWA + painel-app no celular + agenda em lista + estados (PRs #51–#59). A **2ª leva (7.2.NN)** vai para a faixa de **updates contínuos** (item 6).
 
 **1. Infraestrutura — AGORA.** VPS **Hostinger KVM 2**, **Ubuntu 24.04**, domínio **tamarcado.tec.br**. Stack **ADR-009**: **Nginx + PM2 + MySQL + Certbot**. Inclui:
 - **Restrição de `/api/platform/*` por IP** (fecha a pendência de deploy dos endpoints pré-tenant 1.9/1.9.01).
@@ -270,14 +271,26 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **2. E-mail transacional.** Destrava a **recuperação de senha** (hoje bloqueador; mitigada pela 1.9.01). **Serviço externo** (Brevo/Resend), **não** caixa de e-mail comum.
 
-**3. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev).
+**3. Financeiro + Dashboard + Equipe + Permissões** *(bloco novo, DUAS LEVAS — DL-061/DL-062; **sobe para antes do Épico 6**):*
+- **3a — 1ª leva (fecha venda): Financeiro + Dashboard.**
+  - **Financeiro** (vira **menu próprio**): registrar pagamento no agendamento (**valor**; **forma de pagamento OPCIONAL**; **situação pago/pendente**); **Recebimentos** por período (total recebido/pendente); **exportação CSV + PDF**; **situação financeira da cliente** em Clientes.
+  - **Dashboard** (somente leitura + exportação): faturamento por **dia/semana/mês**, quantidade de atendimentos, total de clientes, média de fluxo/semana. *(Sem "relatório anual" no 1º momento.)*
+  - **Permissões (DL-062):** visibilidade de **módulo** (não só de ação); papéis **Dono/Gestão** (Básico aposentado); toggles por pessoa **"Pode ver Financeiro/Dashboard"** (só o Dono, OFF por padrão); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
+- **3b — 2ª leva (custo da equipe): Equipe.**
+  - **Equipe sai de Configurações e vira menu próprio** — também **fonte de dado financeiro**.
+  - **Remuneração por profissional:** comissão (%) **ou** valor fixo (ambos existem); comissão por **serviço** ou por **profissional** (ambos reais); **salário fixo** diário/semanal/mensal; **fixo + comissão coexistem**.
+  - **Modelo previsão → real** (sistema calcula, estabelecimento registra o pago); **"quanto gastei com a equipe"** no Dashboard.
+  - *(Fora desta leva, evolução: **metas / faixas de comissão**.)*
 
-**4. Dados e Gestão** *(bloco novo — agrupado; estrutura de coleta comum aos três, desenhar juntos):*
-- **Dashboard** — fluxo de clientes, vendas e atendimentos concluídos.
-- **Financeiro** — o **Épico 5** (Pagamentos, **renomeado** para Financeiro).
-- **Monitoramento do bot** — alertas de queda/entrega + painel (vindo do **DL-058**).
+**4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev) — **começar em paralelo já**, pois é o gargalo.
 
-**5. Updates contínuos** *(faixa PERMANENTE — não é épico):* correções visuais do mobile e refinos de interface entram em **ciclos regulares**. A **2ª leva do Épico 7 (7.2.NN)** faz parte disso.
+**5. Monitoramento do bot** — alertas de queda/entrega + painel (vindo do **DL-058**). Fica **com o Épico 6** (mesma estrutura de coleta do Financeiro/Dashboard); **não** entra nas duas levas do item 3.
+
+**6. Updates contínuos** *(faixa PERMANENTE — não é épico):* correções visuais do mobile e refinos de interface entram em **ciclos regulares**. A **2ª leva do Épico 7 (7.2.NN)** faz parte disso.
+
+> **Navegação (DL-061/DL-062):** Financeiro, Dashboard e Equipe são **menus próprios** (Equipe deixa de ser aba de Configurações). No **desktop**, Configurações continua na **sidebar**; no **mobile**, Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile **conscientemente aceita**). A **tab bar do mobile** precisa ser **revista para comportar os novos módulos sem truncar**.
+
+> **Versionamento & saída do beta (DL-063):** o produto usa **SemVer `X.Y.Z`**, com o bump **manual no PR `dev → main`** pelos prefixos de commit do DL-028 (`fix`/`chore`→PATCH, `feat`→MINOR, quebra→MAJOR). Fonte em `apps/web/package.json` (lida na build; exibida no login/painel/Perfil — o PATCH aparece a partir do `.1`). **`CHANGELOG.md` obrigatório** em linguagem de usuário. **Saída do beta** (`1.0.x-beta`/`v1.0…b` → `1.0.0` estável) exige **as duas condições juntas, funcionando de fato:** **(1)** WhatsApp ativo (Épico 6) **e (2)** Dashboard + Financeiro + Equipe (DL-061, as duas levas).
 
 ---
 
@@ -858,9 +871,15 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 ---
 
-## Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; bloco "Dados e Gestão" no roadmap)*
+## Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO em 2 levas — DL-061/DL-062)*
 
-**Objetivo:** dar ao salão visão de recebimento por agendamento, com registro manual e visibilidade por papel — sem gateway no MVP, mas com a abstração `PaymentGateway` preparada. Full-stack. **Posição (DL-060):** entra no bloco **Dados e Gestão**, junto de Dashboard e Monitoramento do bot — os três compartilham a estrutura de coleta e são desenhados juntos.
+> **Ampliação (DL-061/DL-062, 2026-08-12):** este épico deixa de ser só "registro de pagamentos" e passa a abrigar o bloco **Financeiro + Dashboard + Equipe + Permissões**, em **duas levas** (detalhe nos DLs; stories 5.1–5.3 abaixo são a **base** e serão reescritas na story de execução). Resumo:
+> - **1ª leva:** **Financeiro** vira **menu próprio** — valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; **Recebimentos** por período (total recebido/pendente); **exportação CSV+PDF**; **situação financeira da cliente** em Clientes. **Dashboard** (leitura + exportação): faturamento **dia/semana/mês**, atendimentos, clientes, fluxo/semana *(sem "relatório anual" no 1º momento)*.
+> - **2ª leva:** **Equipe** **sai de Configurações e vira menu próprio** (fonte de custo) — **remuneração** por profissional (comissão %/valor fixo; por serviço/por profissional; salário diário/semanal/mensal; **fixo+comissão coexistem**), modelo **previsão→real**, e **"quanto gastei com a equipe"** no Dashboard. *(Fora, evolução: metas/faixas de comissão.)*
+> - **Permissões (DL-062):** visibilidade de **módulo** (não só ação/FR-I2); papéis **Dono/Gestão** (**"Básico" aposentado**); **toggles por pessoa** na Equipe (só o Dono, OFF por padrão — "Pode ver Financeiro/Dashboard"); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
+> - **Posição no roadmap:** **ANTES do Épico 6** (DL-061). **Navegação:** desktop = Configurações na sidebar; mobile = Configurações pelo perfil; **tab bar mobile revista** para os novos módulos sem truncar.
+
+**Objetivo:** dar ao salão **visão de gestão financeira** — recebimento por agendamento (registro manual), Recebimentos por período, Dashboard de leitura e, na 2ª leva, custo com a equipe — com **visibilidade por módulo e por papel** (DL-062). Sem gateway no MVP, mas com a abstração `PaymentGateway` preparada. Full-stack. **Posição (DL-061):** o bloco **sobe para ANTES do Épico 6**; o **Monitoramento do bot** (DL-058) fica com o Épico 6, **fora** das duas levas.
 
 **FRs:** FR-F1–F5 · **NFRs:** NFR-O4 · **UX-DRs:** UX-DR12
 

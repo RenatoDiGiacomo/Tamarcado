@@ -6,10 +6,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiRequest } from "./api";
+import { authedRequest } from "./session";
 import { useAuth } from "../auth/AuthContext";
 
-const ACCESS_KEY = "tamarcado.access";
 const POLL_MS = 15000; // refresh curto (Story 5B.3)
 
 interface PendentesCtx {
@@ -37,9 +36,8 @@ export function PendentesProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async (): Promise<void> => {
     if (!canSee) return;
     try {
-      const res = await apiRequest("/appointments/pending-count", {
-        token: localStorage.getItem(ACCESS_KEY),
-      });
+      const res = await authedRequest("/appointments/pending-count", {
+        });
       if (res.ok) {
         setCount(((await res.json()) as { count: number }).count);
       }

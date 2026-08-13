@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,6 @@ import {
   type DayRow,
 } from "./horarios.util";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 interface Attender {
   id: string;
@@ -67,7 +65,7 @@ export function ConfiguracoesHorarios() {
 
   const getSchedule = useCallback(
     async (profId: string): Promise<ScheduleResponse | null> => {
-      const res = await apiRequest(`/schedules/${profId}`, { token: token() });
+      const res = await authedRequest(`/schedules/${profId}`, {});
       if (!res.ok) return null;
       return (await res.json()) as ScheduleResponse;
     },
@@ -90,7 +88,7 @@ export function ConfiguracoesHorarios() {
   // Carrega atendentes + quem tem horários (para o selo "sem horários").
   useEffect(() => {
     void (async () => {
-      const res = await apiRequest("/users/attenders", { token: token() });
+      const res = await authedRequest("/users/attenders", {});
       if (!res.ok) return;
       const list = ((await res.json()) as { users: Attender[] }).users;
       setAttenders(list);
@@ -120,10 +118,9 @@ export function ConfiguracoesHorarios() {
 
   /** Grava a grade atual para um profissional. Devolve a mensagem de erro ou null. */
   async function putFor(profId: string): Promise<string | null> {
-    const res = await apiRequest(`/schedules/${profId}`, {
+    const res = await authedRequest(`/schedules/${profId}`, {
       method: "PUT",
-      body: toPutBody(week, Number(interval || "0")),
-      token: token(),
+      body: toPutBody(week, Number(interval || "0")) ,
     });
     return res.ok ? null : apiError(res, "Não foi possível salvar os horários.");
   }

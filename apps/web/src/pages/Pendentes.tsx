@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Inbox, Link2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { apiRequest } from "../lib/api";
+import { authedRequest } from "../lib/session";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
@@ -16,8 +16,6 @@ import {
 import { usePendentes } from "../lib/usePendentes";
 import { bumpAppointments } from "../lib/appointmentsSignal";
 
-const ACCESS_KEY = "tamarcado.access";
-const token = (): string | null => localStorage.getItem(ACCESS_KEY);
 
 /** Pendente cru da API (`GET /appointments/pending`) — mesma view da agenda. */
 interface PendingAppointment {
@@ -66,8 +64,8 @@ export function Pendentes() {
     setErrorKind(null);
     try {
       const [pend, att] = await Promise.all([
-        apiRequest("/appointments/pending", { token: token() }),
-        apiRequest("/users/attenders", { token: token() }),
+        authedRequest("/appointments/pending", {}),
+        authedRequest("/users/attenders", {}),
       ]);
       if (!pend.ok) {
         setErrorKind("server");
@@ -96,10 +94,9 @@ export function Pendentes() {
       setBusyId(item.id);
       try {
         const professionalId = chosen[item.id] || undefined;
-        const res = await apiRequest(`/appointments/${item.id}/confirm`, {
+        const res = await authedRequest(`/appointments/${item.id}/confirm`, {
           method: "PATCH",
-          body: professionalId ? { professionalId } : {},
-          token: token(),
+          body: professionalId ? { professionalId } : {} ,
         });
         if (!res.ok) {
           toast.error(await apiMessage(res, "Não foi possível confirmar."));
@@ -129,10 +126,9 @@ export function Pendentes() {
     setRejectSubmitting(true);
     setRejectError(null);
     try {
-      const res = await apiRequest(`/appointments/${rejecting.id}/reject`, {
+      const res = await authedRequest(`/appointments/${rejecting.id}/reject`, {
         method: "PATCH",
-        body: { reason: trimmed },
-        token: token(),
+        body: { reason: trimmed } ,
       });
       if (!res.ok) {
         setRejectError(await apiMessage(res, "Não foi possível recusar."));
