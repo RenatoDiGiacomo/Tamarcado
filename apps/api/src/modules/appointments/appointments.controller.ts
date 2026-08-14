@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -12,8 +13,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { CurrentUser } from "../auth/current-user.decorator";
-import type { AuthUser } from "../auth/auth-user";
+import { CurrentActor, type Actor } from "../auth/actor.decorator";
 import {
   AppointmentsService,
   type AgendaPeriod,
@@ -37,6 +37,15 @@ import { Roles } from "../../common/decorators/roles.decorator";
  * (não com @Roles — todos leem, mas o `basic` só vê os próprios + não atribuídos).
  * Tenant-aware: registrado em TENANT_AWARE_CONTROLLERS (guard-rail 1.3.01).
  */
+/** Tratar a fila de pendentes é operação de agenda de TODA a equipe (DL-062). */
+function requireManageAll(actor: Actor): void {
+  if (!actor.canManageAll) {
+    throw new ForbiddenException(
+      "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
+    );
+  }
+}
+
 @ApiTags("appointments")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
@@ -48,22 +57,31 @@ export class AppointmentsController {
   @Get()
   async list(
     @Query() q: ListAppointmentsQueryDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AgendaPeriod> {
-    return this.appointments.listByPeriod(q.from, q.to, user);
+    return this.appointments.listByPeriod(q.from, q.to, actor);
   }
 
-  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Só owner/gerente. */
+  /**
+   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Tratar a fila é
+   * operação de agenda de TODA a equipe → exige `canManageAll` (DL-062): owner ou
+   * o flag `can_manage_all_appointments`. Gestão sem o flag → 403. Lido da linha
+   * fresca (`@Actor`) → revogação imediata.
+   */
   @Get("pending")
-  @Roles("owner", "manager")
-  async listPending(): Promise<{ appointments: AppointmentView[] }> {
+  async listPending(
+    @CurrentActor() actor: Actor,
+  ): Promise<{ appointments: AppointmentView[] }> {
+    requireManageAll(actor);
     return this.appointments.listPending();
   }
 
-  /** Contagem de pendentes (Story 5B.3) — o contador/badge. Só owner/gerente. */
+  /** Contagem de pendentes (Story 5B.3) — o contador/badge. Mesmo gate da fila. */
   @Get("pending-count")
-  @Roles("owner", "manager")
-  async pendingCount(): Promise<{ count: number }> {
+  async pendingCount(
+    @CurrentActor() actor: Actor,
+  ): Promise<{ count: number }> {
+    requireManageAll(actor);
     return this.appointments.pendingCount();
   }
 
@@ -74,9 +92,9 @@ export class AppointmentsController {
   @Post()
   async create(
     @Body() dto: CreateAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<CreatedAppointment> {
-    return this.appointments.createManual(dto, user);
+    return this.appointments.createManual(dto, actor);
   }
 
   /**
@@ -88,9 +106,9 @@ export class AppointmentsController {
   async cancel(
     @Param("id") id: string,
     @Body() dto: CancelAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.cancel(id, dto, user);
+    return this.appointments.cancel(id, dto, actor);
   }
 
   /**
@@ -102,9 +120,9 @@ export class AppointmentsController {
   async assignProfessional(
     @Param("id") id: string,
     @Body() dto: AssignProfessionalDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AssignProfessionalResult> {
-    return this.appointments.assignProfessional(id, dto.professionalId, user);
+    return this.appointments.assignProfessional(id, dto.professionalId, actor);
   }
 
   /**
@@ -116,9 +134,9 @@ export class AppointmentsController {
   async edit(
     @Param("id") id: string,
     @Body() dto: EditAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AssignProfessionalResult> {
-    return this.appointments.editAppointment(id, dto, user);
+    return this.appointments.editAppointment(id, dto, actor);
   }
 
   /**
@@ -136,9 +154,9 @@ export class AppointmentsController {
   async confirm(
     @Param("id") id: string,
     @Body() dto: ConfirmPendingDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.confirmPending(id, dto.professionalId, user);
+    return this.appointments.confirmPending(id, dto.professionalId, actor);
   }
 
   /**
@@ -150,17 +168,17 @@ export class AppointmentsController {
   async reject(
     @Param("id") id: string,
     @Body() dto: RejectPendingDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.rejectPending(id, dto.reason, user);
+    return this.appointments.rejectPending(id, dto.reason, actor);
   }
 
   @Patch(":id/status")
   async changeStatus(
     @Param("id") id: string,
     @Body() dto: ChangeStatusDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.changeStatus(id, dto.to, user);
+    return this.appointments.changeStatus(id, dto.to, actor);
   }
 }

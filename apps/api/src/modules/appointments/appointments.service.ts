@@ -17,7 +17,7 @@ import {
 } from "../../database/entities/appointment.entity";
 import { AppointmentChange } from "../../database/entities/appointment-change.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
-import type { AuthUser } from "../auth/auth-user";
+import type { Actor } from "../auth/actor.decorator";
 import {
   addDays,
   minutesToTime,
@@ -94,7 +94,7 @@ export class AppointmentsService {
   async listByPeriod(
     from: string,
     to: string,
-    user: AuthUser,
+    user: Actor,
   ): Promise<AgendaPeriod> {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
@@ -120,7 +120,7 @@ export class AppointmentsService {
   }
 
   /**
-   * Criação manual pelo painel (AC1–AC7). `basic` cria só para si; `source=manual`,
+   * Criação manual pelo painel (AC1–AC7). quem não gerencia a equipe cria só para si; `source=manual`,
    * `status=confirmed`. Overbooking é permitido (aviso, não bloqueio) → `enforce=false`.
    */
   async createManual(
@@ -131,7 +131,7 @@ export class AppointmentsService {
       date: string;
       time: string;
     },
-    user: AuthUser,
+    user: Actor,
   ): Promise<CreatedAppointment> {
     const professionalId = resolveProfessionalId(user, dto.professional_id);
 
@@ -154,12 +154,12 @@ export class AppointmentsService {
 
   /**
    * Histórico de agendamentos de uma cliente (Story 4.2). Mais recente primeiro;
-   * `basic` vê só os próprios + não atribuídos (roleScope, FR-D2). Horário no
+   * quem não gerencia a equipe vê só os próprios + não atribuídos (roleScope). Horário no
    * fuso do tenant. A validação de existência da cliente é do ClientsController.
    */
   async listByClient(
     clientId: string,
-    user: AuthUser,
+    user: Actor,
   ): Promise<{ appointments: AppointmentView[] }> {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
@@ -175,20 +175,20 @@ export class AppointmentsService {
    * Cancelamento pelo painel (Story 3.4). Transição de estado + rastro de autoria
    * (D1: `cancelled_by` = lado do salão; `cancelled_by_user_id` = a pessoa). Mantém
    * o registro visível (não é `is_deleted`); o slot volta aos livres porque a
-   * availability já exclui `cancelled`. `basic` só cancela os próprios (AC7).
+   * availability já exclui `cancelled`. quem não gerencia a equipe só cancela os próprios.
    */
   async cancel(
     id: string,
     dto: { reason?: string },
-    user: AuthUser,
+    user: Actor,
   ): Promise<AppointmentView> {
     const appt = await this.appointmentsRepo.findById(id);
     if (!appt) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
 
-    // Permissão (AC7): basic só cancela onde é o profissional; owner/gerente, todos.
-    if (user.accessLevel === "basic" && appt.professional_id !== user.userId) {
+    // Permissão (AC7): sem o flag, só onde é o profissional; com o flag (ou owner), todos.
+    if (!user.canManageAll && appt.professional_id !== user.userId) {
       throw new ForbiddenException(
         "Você só pode cancelar seus próprios atendimentos.",
       );
@@ -232,7 +232,7 @@ export class AppointmentsService {
   async assignProfessional(
     id: string,
     professionalId: string | null,
-    user: AuthUser,
+    user: Actor,
   ): Promise<AssignProfessionalResult> {
     const companyId = this.tenant.getCompanyId();
     const appt = await this.appointmentsRepo.findById(id);
@@ -249,7 +249,7 @@ export class AppointmentsService {
 
     // Permissão (D5): owner/gerente qualquer; basic só atribui A SI e só quando
     // o agendamento está sem profissional (não pode tirar de outra pessoa).
-    if (user.accessLevel === "basic") {
+    if (!user.canManageAll) {
       const assigningSelf = professionalId === user.userId;
       const currentlyUnassigned = appt.professional_id === null;
       if (!assigningSelf || !currentlyUnassigned) {
@@ -313,7 +313,7 @@ export class AppointmentsService {
   async editAppointment(
     id: string,
     dto: EditAppointmentInput,
-    user: AuthUser,
+    user: Actor,
   ): Promise<AssignProfessionalResult> {
     const companyId = this.tenant.getCompanyId();
     const appt = await this.appointmentsRepo.findById(id);
@@ -329,7 +329,7 @@ export class AppointmentsService {
 
     // Permissão (D-B1): basic edita o próprio OU um não atribuído (assume p/ si);
     // não pode editar de outra pessoa já atribuída.
-    if (user.accessLevel === "basic") {
+    if (!user.canManageAll) {
       const ownOrUnassigned =
         appt.professional_id === user.userId || appt.professional_id === null;
       if (!ownOrUnassigned) {
@@ -394,7 +394,7 @@ export class AppointmentsService {
     if (dto.professionalId !== undefined) {
       const target = dto.professionalId;
       if (
-        user.accessLevel === "basic" &&
+        !user.canManageAll &&
         target !== null &&
         target !== user.userId
       ) {
@@ -487,7 +487,7 @@ export class AppointmentsService {
   async changeStatus(
     id: string,
     to: "completed" | "no_show",
-    user: AuthUser,
+    user: Actor,
   ): Promise<AppointmentView> {
     const companyId = this.tenant.getCompanyId();
     const appt = await this.appointmentsRepo.findById(id);
@@ -495,8 +495,8 @@ export class AppointmentsService {
       throw new NotFoundException("Agendamento não encontrado.");
     }
 
-    // Permissão (D3): basic só marca onde é o profissional (igual ao cancelamento).
-    if (user.accessLevel === "basic" && appt.professional_id !== user.userId) {
+    // Permissão (D3): sem o flag, só onde é o profissional.
+    if (!user.canManageAll && appt.professional_id !== user.userId) {
       throw new ForbiddenException(
         "Você só pode marcar seus próprios atendimentos.",
       );
@@ -568,16 +568,16 @@ export class AppointmentsService {
   async confirmPending(
     id: string,
     professionalId: string | null | undefined,
-    user: AuthUser,
+    user: Actor,
   ): Promise<AppointmentView> {
     const companyId = this.tenant.getCompanyId();
     const appt = await this.appointmentsRepo.findById(id);
     if (!appt) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    if (user.accessLevel === "basic") {
+    if (!user.canManageAll) {
       throw new ForbiddenException(
-        "Apenas dono ou gerente podem tratar pendentes.",
+        "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
       );
     }
     if (appt.status !== "pending") {
@@ -657,16 +657,16 @@ export class AppointmentsService {
   async rejectPending(
     id: string,
     reason: string,
-    user: AuthUser,
+    user: Actor,
   ): Promise<AppointmentView> {
     const companyId = this.tenant.getCompanyId();
     const appt = await this.appointmentsRepo.findById(id);
     if (!appt) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    if (user.accessLevel === "basic") {
+    if (!user.canManageAll) {
       throw new ForbiddenException(
-        "Apenas dono ou gerente podem tratar pendentes.",
+        "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
       );
     }
     if (appt.status !== "pending") {

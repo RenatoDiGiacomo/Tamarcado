@@ -1,6 +1,6 @@
 # Story 5.1: Fundação de permissões — visibilidade de MÓDULO + interruptores por pessoa
 
-Status: **draft — aguardando revisão do Renato antes de virar código** (DL-062)
+Status: **em implementação** — decisões aprovadas (Renato, 2026-08-13); PR-1 (backend) aberto; PR-2 (frontend + screenshots) a seguir.
 
 > Esta é a **fundação** do bloco DL-061/DL-062: é onde Financeiro (5.2–5.5) e
 > Dashboard (5.6) plugam a proteção. **Erro de permissão aqui custa caro** — por
@@ -365,4 +365,48 @@ forma independente: `can_manage_all_appointments` (operar a agenda toda),
 
 ### Agent Model Used
 
-claude-opus-4-8 (Amelia) — spec em draft para revisão (sem código).
+claude-opus-4-8 (Amelia).
+
+### PR-1 — Backend (branch `story/5.1-fundacao-permissoes`)
+
+**Entregue (TDD):**
+- Migration `AddModuleFlagsAndRetireBasic`: 3 flags (`can_view_financeiro`,
+  `can_view_dashboard`, `can_manage_all_appointments`, tinyint default 0) +
+  aposenta `basic` (converte → `manager` em `users` e `user_invites`, estreita os
+  enums). Reversível.
+- `AccessLevel` = `owner|manager`; entidades/DTOs atualizados.
+- `ActiveUserGuard` anexa a **linha fresca** em `req.currentUser`.
+- `@RequireModule` + `ModuleGuard` (visibilidade de módulo, 403 pela linha
+  fresca; owner passa) — **unit 6/6**.
+- `@Actor()` / `toActor` (identidade + `canManageAll` da linha fresca) — usado na
+  Agenda no lugar do antigo `accessLevel === "basic"`.
+- **Reescopo da Agenda** (AC9): `roleScope`, `resolveProfessionalId` e as 8
+  checagens do `appointments.service` passam de `basic` → `!canManageAll`.
+- `PATCH /users/:id` aceita os 3 flags (só Dono); **owner ignora flags** → Dono
+  não remove o próprio acesso (AC5). `/users/me` e `/users` expõem os flags.
+- **e2e `permissions.e2e-spec`**: REVOGAÇÃO IMEDIATA (liga→200, desliga→próxima
+  request 403 com o MESMO token), `/users/me` expõe flags, só-Dono concede, owner
+  não se autolimita, `basic` rejeitado (400).
+
+**Achado durante a implementação (furo do reescopo):** as rotas de **pendentes**
+(`GET /pending`, `/pending-count`) só tinham `@Roles("owner","manager")`. Com o
+`basic` aposentado, um `manager` restrito **passaria** a listar/contar pendentes
+(o RolesGuard deixa de barrar). Corrigido: as 4 rotas de pendentes agora exigem
+`canManageAll` (owner ou o flag) — coerente com "tratar a fila é operação de
+agenda de toda a equipe". O teste que provava "basic → 403" virou "Gestão sem o
+flag → 403" e segue válido.
+
+**Verificação local:** typecheck **0 erros**; **unit 113/113**; lint limpo. Os
+**e2e não rodaram nesta máquina** (Docker daemon indisponível → sem MySQL); eles
+compilam e rodam no **CI** (serviço MySQL). A prova visual (screenshots) vem no
+**PR-2** com o frontend + script Playwright (decisão "e2e prova + você captura").
+
+**Dependência:** PR-1 estreita o enum de papel — o frontend ainda oferece
+"Básico" (será removido no **PR-2**). Landar PR-1 e PR-2 juntos (ou PR-2 logo em
+seguida) para o painel de Equipe não enviar `access_level: "basic"` (→ 400).
+
+### Change Log
+
+| Data | Mudança |
+|---|---|
+| 2026-08-13 | Spec aprovada (draft→implementação). PR-1 backend: migration + guards + reescopo da Agenda + flags em users + e2e de revogação imediata. |

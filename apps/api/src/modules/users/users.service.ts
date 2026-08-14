@@ -342,6 +342,20 @@ export class UsersService {
     if (dto.is_active !== undefined) {
       user.is_active = dto.is_active;
     }
+    // Flags de permissão (DL-062): só valem para Gestão. O `owner` IGNORA os
+    // flags (sempre pode) — por isso NÃO os persistimos nele. Consequência: um
+    // Dono não consegue remover o próprio acesso (AC5), mesmo que o body tente.
+    if (user.access_level !== "owner") {
+      if (dto.can_view_financeiro !== undefined) {
+        user.can_view_financeiro = dto.can_view_financeiro;
+      }
+      if (dto.can_view_dashboard !== undefined) {
+        user.can_view_dashboard = dto.can_view_dashboard;
+      }
+      if (dto.can_manage_all_appointments !== undefined) {
+        user.can_manage_all_appointments = dto.can_manage_all_appointments;
+      }
+    }
     return this.tenantUsers.save(user);
   }
 }

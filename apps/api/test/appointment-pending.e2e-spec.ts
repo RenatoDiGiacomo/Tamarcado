@@ -86,7 +86,7 @@ describe("Pendentes no painel (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@pend.dev", "owner")).id;
-    profId = (await seedUser("prof@pend.dev", "basic")).id;
+    profId = (await seedUser("prof@pend.dev", "manager")).id;
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(
         ctx.dataSource.getRepository(SalonService).create({
@@ -184,13 +184,15 @@ describe("Pendentes no painel (e2e)", () => {
     await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${owner}`).send({ reason: "x" }).expect(409);
   });
 
-  it("PERMISSÃO: basic não trata pendentes (list/count/confirm/reject → 403)", async () => {
+  it("PERMISSÃO: Gestão SEM gerência da agenda não trata pendentes (list/count/confirm/reject → 403)", async () => {
+    // prof@pend.dev é manager sem `can_manage_all_appointments` (DL-062): tratar a
+    // fila de pendentes é operação de agenda de toda a equipe → 403 nas 4 rotas.
     const id = await seedPending();
-    const basic = await login("prof@pend.dev");
-    await api().get("/api/appointments/pending").set("Authorization", `Bearer ${basic}`).expect(403);
-    await api().get("/api/appointments/pending-count").set("Authorization", `Bearer ${basic}`).expect(403);
-    await api().patch(`/api/appointments/${id}/confirm`).set("Authorization", `Bearer ${basic}`).send({}).expect(403);
-    await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${basic}`).send({ reason: "x" }).expect(403);
+    const restrito = await login("prof@pend.dev");
+    await api().get("/api/appointments/pending").set("Authorization", `Bearer ${restrito}`).expect(403);
+    await api().get("/api/appointments/pending-count").set("Authorization", `Bearer ${restrito}`).expect(403);
+    await api().patch(`/api/appointments/${id}/confirm`).set("Authorization", `Bearer ${restrito}`).send({}).expect(403);
+    await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${restrito}`).send({ reason: "x" }).expect(403);
   });
 
   it("id inexistente → 404", async () => {

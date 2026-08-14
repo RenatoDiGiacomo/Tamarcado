@@ -57,7 +57,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
   async function inviteAndAccept(
     ownerToken: string,
     email: string,
-    accessLevel: "manager" | "basic",
+    accessLevel: "manager",
     attends: boolean,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const inv = await request(ctx.app.getHttpServer())
@@ -96,7 +96,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .send({
         name: "Convidada",
         email: "convidada@eq.dev",
-        access_level: "basic",
+        access_level: "manager",
         attends_clients: true,
       });
     expect(res.status).toBe(201);
@@ -147,7 +147,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const basic = await inviteAndAccept(
       await login("dono@eq.dev"),
       "basico@eq.dev",
-      "basic",
+      "manager",
       true,
     );
     const res = await request(ctx.app.getHttpServer())
@@ -156,7 +156,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .send({
         name: "X",
         email: "x@eq.dev",
-        access_level: "basic",
+        access_level: "manager",
         attends_clients: false,
       });
     expect(res.status).toBe(403);
@@ -185,9 +185,9 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const r2 = await request(ctx.app.getHttpServer())
       .patch(`/api/users/${created.id}`)
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ access_level: "basic" });
+      .send({ access_level: "manager" });
     expect(r2.status).toBe(200);
-    expect(r2.body.accessLevel).toBe("basic");
+    expect(r2.body.accessLevel).toBe("manager");
     expect(r2.body.attendsClients).toBe(true);
   });
 
@@ -211,7 +211,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const victim = await inviteAndAccept(
       ownerToken,
       "demitido@eq.dev",
-      "basic",
+      "manager",
       true,
     );
 

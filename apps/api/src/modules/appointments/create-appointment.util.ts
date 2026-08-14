@@ -1,16 +1,17 @@
-import type { AuthUser } from "../auth/auth-user";
+import type { Actor } from "../auth/actor.decorator";
 import { utcToZonedParts } from "../availability/tz.util";
 
 /**
- * Resolve quem atende (FR-D2/DL-009): `basic` cria **só para si** (ignora o que
- * veio no body); `owner`/`manager` escolhem qualquer profissional (ou `null` =
- * não atribuído). Função pura — unit-testável.
+ * Resolve quem atende (FR-D2/DL-009, revisado DL-062): quem NÃO gerencia a
+ * agenda de toda a equipe cria **só para si** (ignora o que veio no body); quem
+ * gerencia (`owner` ou `can_manage_all_appointments`) escolhe qualquer
+ * profissional (ou `null` = não atribuído). Função pura — unit-testável.
  */
 export function resolveProfessionalId(
-  user: AuthUser,
+  user: Actor,
   requested: string | null | undefined,
 ): string | null {
-  if (user.accessLevel === "basic") return user.userId;
+  if (!user.canManageAll) return user.userId;
   return requested ?? null;
 }
 

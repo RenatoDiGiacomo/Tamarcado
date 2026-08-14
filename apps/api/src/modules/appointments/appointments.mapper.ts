@@ -1,4 +1,4 @@
-import type { AuthUser } from "../auth/auth-user";
+import type { Actor } from "../auth/actor.decorator";
 import type {
   AppointmentSource,
   AppointmentStatus,
@@ -64,14 +64,13 @@ export function toAppointmentView(
 }
 
 /**
- * Escopo de visibilidade por papel (FR-D2/DL-022): `owner`/`manager` veem todos
- * (retorna `undefined` = sem filtro); `basic` vê só os próprios agendamentos e os
- * não atribuídos (`professional_id = self OR professional_id IS NULL`).
+ * Escopo de visibilidade por papel (FR-D2/DL-022, revisado DL-062): quem
+ * gerencia a agenda de toda a equipe (`owner` ou `can_manage_all_appointments`)
+ * vê todos (retorna `undefined` = sem filtro); quem NÃO gerencia vê só os
+ * próprios agendamentos e os não atribuídos (`professional_id = self OR NULL`).
  */
 export function roleScope(
-  user: AuthUser,
+  user: Actor,
 ): { professionalId: string } | undefined {
-  return user.accessLevel === "basic"
-    ? { professionalId: user.userId }
-    : undefined;
+  return user.canManageAll ? undefined : { professionalId: user.userId };
 }
