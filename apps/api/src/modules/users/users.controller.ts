@@ -32,6 +32,11 @@ interface UserProfile {
   attendsClients: boolean;
   isActive: boolean;
   theme: User["theme"];
+  // Flags de permissão (DL-062) — o front monta o menu e os interruptores da
+  // Equipe a partir daqui; o owner sempre pode (os flags não o restringem).
+  canViewFinanceiro: boolean;
+  canViewDashboard: boolean;
+  canManageAllAppointments: boolean;
 }
 
 function toProfile(user: User): UserProfile {
@@ -44,6 +49,9 @@ function toProfile(user: User): UserProfile {
     attendsClients: user.attends_clients,
     isActive: user.is_active,
     theme: user.theme,
+    canViewFinanceiro: user.can_view_financeiro,
+    canViewDashboard: user.can_view_dashboard,
+    canManageAllAppointments: user.can_manage_all_appointments,
   };
 }
 

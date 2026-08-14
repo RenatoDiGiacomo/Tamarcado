@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { UsersService } from "../../users/users.service";
 import type { AuthUser } from "../auth-user";
+import type { User } from "../../../database/entities/user.entity";
 
 /**
  * Revogação de acesso imediata (AC6, FR-G4, DL-029 item 2). Roda DEPOIS do
@@ -16,15 +17,21 @@ import type { AuthUser } from "../auth-user";
  * O MESMO lookup por request valida a versão de sessão (1.2.04): se a senha foi
  * trocada/redefinida (que bumpa `token_version`), os access tokens antigos caem
  * na requisição seguinte — sem custo extra de banco além do já feito aqui.
+ *
+ * Story 5.1 (DL-062): a LINHA FRESCA já buscada aqui é ANEXADA ao request como
+ * `req.currentUser` — sem query nova. É dela (não do token) que o `ModuleGuard`
+ * e o `@Actor()` leem os flags de permissão, garantindo revogação IMEDIATA:
+ * o Dono desliga um flag e a PRÓXIMA requisição já reflete.
  */
 @Injectable()
 export class ActiveUserGuard implements CanActivate {
   constructor(private readonly users: UsersService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const { user } = context
+    const request = context
       .switchToHttp()
-      .getRequest<{ user?: AuthUser }>();
+      .getRequest<{ user?: AuthUser; currentUser?: User }>();
+    const { user } = request;
     if (!user) {
       throw new UnauthorizedException();
     }
@@ -35,6 +42,7 @@ export class ActiveUserGuard implements CanActivate {
     if (current.token_version !== user.tokenVersion) {
       throw new UnauthorizedException("Sessão expirada");
     }
+    request.currentUser = current;
     return true;
   }
 }

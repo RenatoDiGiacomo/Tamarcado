@@ -118,8 +118,8 @@ describe("Edição de agendamento (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@edit.dev", "owner", true)).id;
-    profId = (await seedUser("prof@edit.dev", "basic", true)).id;
-    otherProfId = (await seedUser("outra@edit.dev", "basic", true)).id;
+    profId = (await seedUser("prof@edit.dev", "manager", true)).id;
+    otherProfId = (await seedUser("outra@edit.dev", "manager", true)).id;
 
     const services = ctx.dataSource.getRepository(SalonService);
     corteId = (

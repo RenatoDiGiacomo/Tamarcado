@@ -19,6 +19,7 @@ import { AddAssignmentAuditToAppointments1718900700000 } from "./migrations/1718
 import { CreateAppointmentChanges1718900800000 } from "./migrations/1718900800000-CreateAppointmentChanges";
 import { AddLinkToAppointmentSource1718900900000 } from "./migrations/1718900900000-AddLinkToAppointmentSource";
 import { AddTokenVersionToUsers1718901000000 } from "./migrations/1718901000000-AddTokenVersionToUsers";
+import { AddModuleFlagsAndRetireBasic1718901100000 } from "./migrations/1718901100000-AddModuleFlagsAndRetireBasic";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -57,6 +58,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreateAppointmentChanges1718900800000,
       AddLinkToAppointmentSource1718900900000,
       AddTokenVersionToUsers1718901000000,
+      AddModuleFlagsAndRetireBasic1718901100000,
     ],
     synchronize: false,
     migrationsRun: false,

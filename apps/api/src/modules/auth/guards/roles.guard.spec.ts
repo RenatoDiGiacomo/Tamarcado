@@ -24,12 +24,12 @@ function makeReflector(required: AccessLevel[] | undefined): Reflector {
 describe("RolesGuard (FR-I2)", () => {
   it("sem @Roles → libera", () => {
     const guard = new RolesGuard(makeReflector(undefined));
-    expect(guard.canActivate(makeContext("basic"))).toBe(true);
+    expect(guard.canActivate(makeContext("manager"))).toBe(true);
   });
 
   it("@Roles vazio → libera", () => {
     const guard = new RolesGuard(makeReflector([]));
-    expect(guard.canActivate(makeContext("basic"))).toBe(true);
+    expect(guard.canActivate(makeContext("manager"))).toBe(true);
   });
 
   it("nível compatível → libera", () => {
@@ -40,9 +40,6 @@ describe("RolesGuard (FR-I2)", () => {
   it("nível insuficiente → 403", () => {
     const guard = new RolesGuard(makeReflector(["owner"]));
     expect(() => guard.canActivate(makeContext("manager"))).toThrow(
-      ForbiddenException,
-    );
-    expect(() => guard.canActivate(makeContext("basic"))).toThrow(
       ForbiddenException,
     );
   });

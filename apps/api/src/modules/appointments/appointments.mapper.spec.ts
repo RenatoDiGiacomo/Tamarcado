@@ -1,4 +1,4 @@
-import type { AuthUser } from "../auth/auth-user";
+import type { Actor } from "../auth/actor.decorator";
 import {
   roleScope,
   toAppointmentView,
@@ -85,25 +85,26 @@ describe("toAppointmentView", () => {
   });
 });
 
-describe("roleScope (FR-D2/DL-022)", () => {
-  const base: AuthUser = {
+describe("roleScope (FR-D2/DL-022, revisado DL-062)", () => {
+  const base: Actor = {
     userId: "7",
     companyId: "1",
-    accessLevel: "basic",
-    attendsClients: true,
-    tokenVersion: 0,
+    accessLevel: "manager",
+    canManageAll: false,
   };
 
-  it("owner vê todos (sem filtro)", () => {
-    expect(roleScope({ ...base, accessLevel: "owner" })).toBeUndefined();
+  it("quem gerencia a equipe vê todos (sem filtro) — owner", () => {
+    expect(
+      roleScope({ ...base, accessLevel: "owner", canManageAll: true }),
+    ).toBeUndefined();
   });
 
-  it("manager vê todos (sem filtro)", () => {
-    expect(roleScope({ ...base, accessLevel: "manager" })).toBeUndefined();
+  it("Gestão COM o flag vê todos (sem filtro)", () => {
+    expect(roleScope({ ...base, canManageAll: true })).toBeUndefined();
   });
 
-  it("basic limita ao próprio profissional", () => {
-    expect(roleScope({ ...base, accessLevel: "basic", userId: "7" })).toEqual({
+  it("Gestão SEM o flag limita ao próprio profissional", () => {
+    expect(roleScope({ ...base, canManageAll: false, userId: "7" })).toEqual({
       professionalId: "7",
     });
   });

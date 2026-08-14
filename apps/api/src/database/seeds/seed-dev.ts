@@ -99,7 +99,7 @@ async function seedAgenda(
         name,
         email,
         password_hash: await bcrypt.hash(SEED_OWNER_PASSWORD, 10),
-        access_level: "basic",
+        access_level: "manager",
         attends_clients: true,
         theme: "light",
         is_active: true,

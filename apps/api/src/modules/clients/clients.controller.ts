@@ -12,8 +12,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { CurrentUser } from "../auth/current-user.decorator";
-import type { AuthUser } from "../auth/auth-user";
+import { CurrentActor, type Actor } from "../auth/actor.decorator";
 import {
   ClientsService,
   type ClientListView,
@@ -69,15 +68,15 @@ export class ClientsController {
 
   /**
    * Histórico de agendamentos da cliente (Story 4.2). Valida a cliente (404) e
-   * reusa o AppointmentsService; `basic` vê só os próprios (roleScope).
+   * reusa o AppointmentsService; quem não gerencia a equipe vê só os próprios (roleScope).
    */
   @Get(":id/appointments")
   async history(
     @Param("id") id: string,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<{ appointments: AppointmentView[] }> {
     await this.clients.getById(id); // 404 se inválida/deletada/fora do tenant
-    return this.appointments.listByClient(id, user);
+    return this.appointments.listByClient(id, actor);
   }
 
   /** Cadastro inline: nome obrigatório, WhatsApp opcional. */

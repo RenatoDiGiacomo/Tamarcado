@@ -13,7 +13,9 @@ import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorSt
 import { Users } from "lucide-react";
 
 
-type AccessLevel = "owner" | "manager" | "basic";
+// Papéis: Dono e Gestão. "Básico" foi aposentado (DL-062) — o que ele
+// restringia virou a ausência dos flags de permissão (ver Story 5.1).
+type AccessLevel = "owner" | "manager";
 interface Member {
   id: string;
   name: string;
@@ -26,7 +28,6 @@ interface Member {
 const ROLE_LABEL: Record<AccessLevel, string> = {
   owner: "Dono",
   manager: "Gerente",
-  basic: "Básico",
 };
 
 const inputCls =
@@ -60,7 +61,7 @@ export function ConfiguracoesEquipe() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invName, setInvName] = useState("");
   const [invEmail, setInvEmail] = useState("");
-  const [invRole, setInvRole] = useState<"manager" | "basic">("basic");
+  const [invRole, setInvRole] = useState<"manager">("manager");
   const [invAttends, setInvAttends] = useState(true);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -186,9 +187,8 @@ export function ConfiguracoesEquipe() {
                     id="inv-role"
                     className={cn(inputCls, "w-40")}
                     value={invRole}
-                    onChange={(e) => setInvRole(e.target.value as "manager" | "basic")}
+                    onChange={(e) => setInvRole(e.target.value as "manager")}
                   >
-                    <option value="basic">Básico</option>
                     <option value="manager">Gerente</option>
                   </select>
                 </div>
@@ -305,7 +305,6 @@ export function ConfiguracoesEquipe() {
                       })
                     }
                   >
-                    <option value="basic">Básico</option>
                     <option value="manager">Gerente</option>
                   </select>
                 )}

@@ -1,33 +1,35 @@
-import type { AuthUser } from "../auth/auth-user";
+import type { Actor } from "../auth/actor.decorator";
 import { isPastCivilDate, resolveProfessionalId } from "./create-appointment.util";
 
 const TZ = "America/Sao_Paulo"; // UTC-3
 
-function user(over: Partial<AuthUser> = {}): AuthUser {
+function user(over: Partial<Actor> = {}): Actor {
   return {
     userId: "7",
     companyId: "1",
     accessLevel: "owner",
-    attendsClients: true,
-    tokenVersion: 0,
+    canManageAll: true,
     ...over,
   };
 }
 
-describe("resolveProfessionalId (FR-D2/DL-009)", () => {
-  it("basic sempre cria para si (ignora o body)", () => {
-    expect(resolveProfessionalId(user({ accessLevel: "basic", userId: "7" }), "99")).toBe("7");
-    expect(resolveProfessionalId(user({ accessLevel: "basic", userId: "7" }), null)).toBe("7");
+describe("resolveProfessionalId (FR-D2/DL-009, revisado DL-062)", () => {
+  it("SEM o flag (Gestão restrita) sempre cria para si (ignora o body)", () => {
+    const restrito = { accessLevel: "manager" as const, canManageAll: false, userId: "7" };
+    expect(resolveProfessionalId(user(restrito), "99")).toBe("7");
+    expect(resolveProfessionalId(user(restrito), null)).toBe("7");
   });
 
-  it("owner/manager usam o escolhido", () => {
-    expect(resolveProfessionalId(user({ accessLevel: "owner" }), "42")).toBe("42");
-    expect(resolveProfessionalId(user({ accessLevel: "manager" }), "42")).toBe("42");
+  it("COM o flag (ou owner) usa o escolhido", () => {
+    expect(resolveProfessionalId(user({ accessLevel: "owner", canManageAll: true }), "42")).toBe("42");
+    expect(
+      resolveProfessionalId(user({ accessLevel: "manager", canManageAll: true }), "42"),
+    ).toBe("42");
   });
 
-  it("owner sem escolha → não atribuído (null)", () => {
-    expect(resolveProfessionalId(user({ accessLevel: "owner" }), null)).toBeNull();
-    expect(resolveProfessionalId(user({ accessLevel: "owner" }), undefined)).toBeNull();
+  it("gerenciando a equipe, sem escolha → não atribuído (null)", () => {
+    expect(resolveProfessionalId(user({ canManageAll: true }), null)).toBeNull();
+    expect(resolveProfessionalId(user({ canManageAll: true }), undefined)).toBeNull();
   });
 });
 

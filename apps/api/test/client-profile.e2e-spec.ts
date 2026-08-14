@@ -79,8 +79,8 @@ describe("Perfil da cliente — histórico e observações (e2e)", () => {
     );
     companyId = company.id;
     await seedUser("dono@perfil.dev", "owner");
-    profId = (await seedUser("prof@perfil.dev", "basic")).id;
-    otherProfId = (await seedUser("outra@perfil.dev", "basic")).id;
+    profId = (await seedUser("prof@perfil.dev", "manager")).id;
+    otherProfId = (await seedUser("outra@perfil.dev", "manager")).id;
 
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(

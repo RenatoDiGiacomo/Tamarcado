@@ -56,7 +56,7 @@ describe("Catálogo de serviços (e2e)", () => {
       companies.create({ name: "Salão Serviços", slug: SLUG }),
     );
     await seedUser(company.id, "dono@sv.dev", "owner", true);
-    const prof = await seedUser(company.id, "prof@sv.dev", "basic", true);
+    const prof = await seedUser(company.id, "prof@sv.dev", "manager", true);
     const recep = await seedUser(company.id, "recep@sv.dev", "manager", false);
     attenderId = prof.id;
     nonAttenderId = recep.id;
