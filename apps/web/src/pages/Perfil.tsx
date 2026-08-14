@@ -10,7 +10,7 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 const ACCESS_LABEL: Record<string, string> = {
   owner: "Dono",
-  manager: "Gestão",
+  professional: "Profissional",
 };
 
 /**

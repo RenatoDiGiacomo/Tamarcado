@@ -79,8 +79,8 @@ describe("Perfil da cliente — histórico e observações (e2e)", () => {
     );
     companyId = company.id;
     await seedUser("dono@perfil.dev", "owner");
-    profId = (await seedUser("prof@perfil.dev", "manager")).id;
-    otherProfId = (await seedUser("outra@perfil.dev", "manager")).id;
+    profId = (await seedUser("prof@perfil.dev", "professional")).id;
+    otherProfId = (await seedUser("outra@perfil.dev", "professional")).id;
 
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(
@@ -167,15 +167,15 @@ describe("Perfil da cliente — histórico e observações (e2e)", () => {
     expect(res.body.appointments).toEqual([]);
   });
 
-  it("basic vê só os próprios + não atribuídos no histórico (roleScope)", async () => {
+  it("Profissional vê SÓ os SEUS atendimentos no histórico (refino DL-062: nem de outras, nem não atribuídos)", async () => {
     const tok = await login("prof@perfil.dev"); // é o profId
     const res = await request(ctx.app.getHttpServer())
       .get(`/api/clients/${clientId}/appointments`)
       .set("Authorization", `Bearer ${tok}`);
     expect(res.status).toBe(200);
     const dates = res.body.appointments.map((a: { date: string }) => a.date);
-    // a3 (não atribuído) + a1 (dele); NÃO a2 (da outra profissional).
-    expect(dates).toEqual(["2026-03-20", "2026-01-10"]);
+    // SÓ a1 (dele). NÃO a2 (da outra profissional) NEM a3 (não atribuído).
+    expect(dates).toEqual(["2026-01-10"]);
   });
 
   it("histórico de cliente de outro tenant → 404 (não vaza)", async () => {

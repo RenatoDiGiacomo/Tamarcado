@@ -42,7 +42,7 @@ describe("Configuracoes (casca)", () => {
   });
 
   it("não-Dono é redirecionado para fora (AC2)", () => {
-    renderAt("manager");
+    renderAt("professional");
     expect(screen.getByText("HOME")).toBeInTheDocument();
     expect(screen.queryByText("ABA IDENTIDADE")).not.toBeInTheDocument();
   });

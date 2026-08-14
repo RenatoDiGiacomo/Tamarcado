@@ -7,12 +7,12 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 
-export type AccessLevel = "owner" | "manager";
+export type AccessLevel = "owner" | "professional";
 export type UserTheme = "light" | "dark";
 
 /**
  * Usuário interno (Dono, Gestão). Schema em architecture.md §3.2.
- * Papéis: `owner` (acesso total) e `manager` (Gestão). O antigo `basic` foi
+ * Papéis: `owner` (Dono) e `professional` (Profissional). O antigo `basic` foi
  * **aposentado** (DL-062) — o que o restringia virou a AUSÊNCIA dos flags abaixo.
  * Dois eixos independentes (DL-022): `access_level` + `attends_clients`.
  * `theme` é preferência individual (DL-021).
@@ -46,7 +46,7 @@ export class User {
   @Column({ type: "varchar", length: 255 })
   password_hash!: string;
 
-  @Column({ type: "enum", enum: ["owner", "manager"] })
+  @Column({ type: "enum", enum: ["owner", "professional"] })
   access_level!: AccessLevel;
 
   @Column({ type: "boolean", default: false })

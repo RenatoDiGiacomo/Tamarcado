@@ -2,7 +2,7 @@ import { IsBoolean, IsIn, IsOptional } from "class-validator";
 
 /**
  * Edição de usuário pelo Dono (AC2, AC5, AC6 + DL-062). `access_level` aqui só
- * pode ser `manager` (o `basic` foi aposentado; promover a `owner` seria
+ * pode ser `professional` (o `basic` foi aposentado; promover a `owner` seria
  * transferência de titularidade, fora de escopo). Rebaixar/desativar o último
  * Dono é bloqueado no serviço (FR-I3).
  *
@@ -13,8 +13,8 @@ import { IsBoolean, IsIn, IsOptional } from "class-validator";
  */
 export class UpdateUserDto {
   @IsOptional()
-  @IsIn(["manager"])
-  access_level?: "manager";
+  @IsIn(["professional"])
+  access_level?: "professional";
 
   @IsOptional()
   @IsBoolean()

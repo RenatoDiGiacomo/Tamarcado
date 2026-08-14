@@ -13,9 +13,9 @@ import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorSt
 import { Users } from "lucide-react";
 
 
-// Papéis: Dono e Gestão. "Básico" foi aposentado (DL-062) — o que ele
+// Papéis: Dono e Profissional. "Básico" foi aposentado (DL-062) — o que ele
 // restringia virou a ausência dos flags de permissão (ver Story 5.1).
-type AccessLevel = "owner" | "manager";
+type AccessLevel = "owner" | "professional";
 interface Member {
   id: string;
   name: string;
@@ -23,7 +23,7 @@ interface Member {
   accessLevel: AccessLevel;
   attendsClients: boolean;
   isActive: boolean;
-  // Interruptores de permissão (DL-062). Só valem para Gestão; o Dono ignora.
+  // Interruptores de permissão (DL-062). Só valem para Profissional; o Dono ignora.
   canViewFinanceiro: boolean;
   canViewDashboard: boolean;
   canManageAllAppointments: boolean;
@@ -31,7 +31,7 @@ interface Member {
 
 const ROLE_LABEL: Record<AccessLevel, string> = {
   owner: "Dono",
-  manager: "Gerente",
+  professional: "Profissional",
 };
 
 const inputCls =
@@ -65,7 +65,7 @@ export function ConfiguracoesEquipe() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invName, setInvName] = useState("");
   const [invEmail, setInvEmail] = useState("");
-  const [invRole, setInvRole] = useState<"manager">("manager");
+  const [invRole, setInvRole] = useState<"professional">("professional");
   const [invAttends, setInvAttends] = useState(true);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -195,9 +195,9 @@ export function ConfiguracoesEquipe() {
                     id="inv-role"
                     className={cn(inputCls, "w-40")}
                     value={invRole}
-                    onChange={(e) => setInvRole(e.target.value as "manager")}
+                    onChange={(e) => setInvRole(e.target.value as "professional")}
                   >
-                    <option value="manager">Gerente</option>
+                    <option value="professional">Profissional</option>
                   </select>
                 </div>
                 <label className="flex items-center gap-2 pb-2 text-sm">
@@ -313,7 +313,7 @@ export function ConfiguracoesEquipe() {
                       })
                     }
                   >
-                    <option value="manager">Gerente</option>
+                    <option value="professional">Profissional</option>
                   </select>
                 )}
               </div>
@@ -328,7 +328,7 @@ export function ConfiguracoesEquipe() {
                 />
               </div>
 
-              {/* Interruptores de permissão (DL-062) — só para Gestão; o Dono
+              {/* Interruptores de permissão (DL-062) — só para Profissional; o Dono
                   ignora (sempre pode). Concedidos só pelo Dono, OFF por padrão. */}
               {!isOwner && (
                 <div className="flex flex-col gap-2 border-t border-border pt-3">

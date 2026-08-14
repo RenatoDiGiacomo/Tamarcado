@@ -436,9 +436,32 @@ vivo foi entregue no PR.
 (PDF = evolução); 5.7 (navegação) não é story (tab bar entra com o módulo); 5.8
 (PaymentGateway) sai da 1ª leva (evolução).
 
+### Refinamento (2026-08-14) — escopo de dados + renomeação para PROFISSIONAL
+
+**Processo (Renato):** uma story = uma branch = um PR; a 5.1 só entra no `dev`
+**completa**. Tudo isto foi feito **na mesma branch** do PR-2 (que passa a ser a
+PR única da 5.1). Detalhe da decisão no **DL-062 → Refinamento (2026-08-14)**.
+
+- **Renomeação `manager` → `professional` (DONO / PROFISSIONAL)** em banco
+  (migration `RenameManagerToProfessional`), enums, tipos, código, rótulos e
+  docs. Pré-produção (o `main` não tem o modelo novo); `owner` não muda.
+- **Escopo de dados do Profissional — tudo no BACKEND** ("vê, mas só o que é
+  dele"): pendentes/histórico **self-only** (`roleScope(user, false)` +
+  `includeUnassigned`); **Clientes (lista do módulo)** recortada por
+  `attendedByProfessionalId` (EXISTS em `appointments`); **serviços** recortados
+  por `professional_services`; **exceção** — a **busca de cliente do agendamento
+  não recorta**. **Valores:** regra registrada, sem campo hoje (ponto de corte
+  no `@Actor` para a 5.2 plugar).
+- **Front:** Pendentes reativado para todos (backend escopa); ações
+  Confirmar/Recusar só para quem gerencia a equipe (Profissional em somente
+  leitura). **Cabeçalho:** logo **e** nome juntos (logo maior).
+- **e2e:** revogação imediata provada por **flip de visibilidade** do pendente
+  não atribuído; + e2e de rule 2 (Clientes) e rule 5 (Serviços).
+
 ### Change Log
 
 | Data | Mudança |
 |---|---|
 | 2026-08-13 | Spec aprovada (draft→implementação). PR-1 backend: migration + guards + reescopo da Agenda + flags em users + e2e de revogação imediata. |
 | 2026-08-14 | PR-2 frontend: permissions helpers + polling de flags + menu/rota condicional (Pendentes) + 403-reativo + 3 interruptores na Equipe. Cortes de escopo 5.4/5.7/5.8 no epics. |
+| 2026-08-14 | Refinamento (mesma branch, PR única da 5.1): renomeação manager→professional + escopo de dados do Profissional (backend) + cabeçalho logo+nome. |

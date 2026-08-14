@@ -21,7 +21,7 @@ function makeReflector(required: ModuleName | undefined): Reflector {
 describe("ModuleGuard (DL-062 — visibilidade de módulo)", () => {
   it("sem @RequireModule → libera", () => {
     const guard = new ModuleGuard(makeReflector(undefined));
-    expect(guard.canActivate(makeContext({ access_level: "manager" }))).toBe(
+    expect(guard.canActivate(makeContext({ access_level: "professional" }))).toBe(
       true,
     );
   });
@@ -39,7 +39,7 @@ describe("ModuleGuard (DL-062 — visibilidade de módulo)", () => {
     const guard = new ModuleGuard(makeReflector("financeiro"));
     expect(
       guard.canActivate(
-        makeContext({ access_level: "manager", can_view_financeiro: true }),
+        makeContext({ access_level: "professional", can_view_financeiro: true }),
       ),
     ).toBe(true);
   });
@@ -48,7 +48,7 @@ describe("ModuleGuard (DL-062 — visibilidade de módulo)", () => {
     const guard = new ModuleGuard(makeReflector("financeiro"));
     expect(() =>
       guard.canActivate(
-        makeContext({ access_level: "manager", can_view_financeiro: false }),
+        makeContext({ access_level: "professional", can_view_financeiro: false }),
       ),
     ).toThrow(ForbiddenException);
   });
@@ -59,7 +59,7 @@ describe("ModuleGuard (DL-062 — visibilidade de módulo)", () => {
     expect(() =>
       guard.canActivate(
         makeContext({
-          access_level: "manager",
+          access_level: "professional",
           can_view_financeiro: true,
           can_view_dashboard: false,
         }),

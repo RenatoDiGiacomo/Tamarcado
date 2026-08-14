@@ -95,8 +95,8 @@ Este documento decompõe os requisitos do PRD, da UX Design Spec e da Arquitetur
 
 **FR-I: Permissões e Controle de Acesso**
 
-- FR-I1: Controle de acesso em dois eixos independentes (DL-022): **nível de acesso** (Dono/Gestão/~~Básico~~) + **atende clientes** (sim/não). Papéis não são mutuamente exclusivos — uma pessoa pode acumular função administrativa e agenda própria. "Atende clientes" determina quem entra na disponibilidade e pode ser `professional_id`. *(**Revisado — DL-062, 2026-08-12:** o papel **"Básico" é aposentado** (ficam **Dono/Gestão**); soma-se o eixo de **visibilidade de MÓDULO** — quem não tem acesso não vê o menu — controlado por **toggles por pessoa** na tela de Equipe. O eixo "atende clientes" permanece.)*
-- FR-I2: Matriz de permissões por nível de acesso (ver tabela no PRD): Dono e Gestão agem sobre todos; ~~Básico só sobre os próprios/não atribuídos~~. Só Dono vê relatórios consolidados, configura sistema e gerencia usuários. *(**Revisado — DL-062:** a matriz de **ações** permanece; soma-se o eixo de **visibilidade de MÓDULO** (Financeiro/Dashboard/Equipe são menus próprios e só aparecem para quem tem o toggle). **Gestão por padrão** vê **só os próprios agendamentos e as clientes que atende** — sem Financeiro/Dashboard/admin. Toggles por pessoa (só o Dono, OFF por padrão); o **Dono não pode remover o próprio acesso**; bloqueio **também no backend**.)*
+- FR-I1: Controle de acesso em dois eixos independentes (DL-022): **nível de acesso** (Dono/Profissional/~~Básico~~) + **atende clientes** (sim/não). Papéis não são mutuamente exclusivos — uma pessoa pode acumular função administrativa e agenda própria. "Atende clientes" determina quem entra na disponibilidade e pode ser `professional_id`. *(**Revisado — DL-062, 2026-08-12:** o papel **"Básico" é aposentado** (ficam **Dono/Profissional**); soma-se o eixo de **visibilidade de MÓDULO** — quem não tem acesso não vê o menu — controlado por **toggles por pessoa** na tela de Equipe. O eixo "atende clientes" permanece.)*
+- FR-I2: Matriz de permissões por nível de acesso (ver tabela no PRD): Dono e Profissional agem sobre todos; ~~Básico só sobre os próprios/não atribuídos~~. Só Dono vê relatórios consolidados, configura sistema e gerencia usuários. *(**Revisado — DL-062:** a matriz de **ações** permanece; soma-se o eixo de **visibilidade de MÓDULO** (Financeiro/Dashboard/Equipe são menus próprios e só aparecem para quem tem o toggle). **Profissional por padrão** vê **só os próprios agendamentos e as clientes que atende** — sem Financeiro/Dashboard/admin. Toggles por pessoa (só o Dono, OFF por padrão); o **Dono não pode remover o próprio acesso**; bloqueio **também no backend**.)*
 - FR-I3: Exatamente um usuário com nível Dono por instalação; não pode ser removido sem transferência prévia.
 - FR-I4: Isolamento completo de dados entre instalações (ver NFR-S1).
 
@@ -236,7 +236,7 @@ O salão mantém o cadastro de clientes com histórico e observações, transfor
 **UX-DRs:** UX-DR11, UX-DR17
 
 ### Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO — DL-061/DL-062)*
-O salão registra manualmente o recebimento por agendamento e passa a ter **visão de gestão**. **Ampliado (DL-061) em duas levas:** **1ª leva** — **Financeiro** (menu próprio: valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; Recebimentos por período; **exportação CSV+PDF**; situação financeira em Clientes) e **Dashboard** (faturamento dia/semana/mês, atendimentos, clientes, fluxo/semana — leitura + exportação); **2ª leva** — **Equipe** vira menu próprio com **remuneração** (comissão %/fixo, por serviço/profissional, salário diário/semanal/mensal, previsão→real) e **"quanto gastei com a equipe"** no Dashboard. **Permissões (DL-062):** visibilidade de módulo + papéis Dono/Gestão + toggles por pessoa. A abstração `PaymentGateway`/`NullPaymentGateway` segue preparada sem integração ativa. Full-stack. **Roadmap (DL-061):** o bloco **sobe para ANTES do Épico 6**.
+O salão registra manualmente o recebimento por agendamento e passa a ter **visão de gestão**. **Ampliado (DL-061) em duas levas:** **1ª leva** — **Financeiro** (menu próprio: valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; Recebimentos por período; **exportação CSV+PDF**; situação financeira em Clientes) e **Dashboard** (faturamento dia/semana/mês, atendimentos, clientes, fluxo/semana — leitura + exportação); **2ª leva** — **Equipe** vira menu próprio com **remuneração** (comissão %/fixo, por serviço/profissional, salário diário/semanal/mensal, previsão→real) e **"quanto gastei com a equipe"** no Dashboard. **Permissões (DL-062):** visibilidade de módulo + papéis Dono/Profissional + toggles por pessoa. A abstração `PaymentGateway`/`NullPaymentGateway` segue preparada sem integração ativa. Full-stack. **Roadmap (DL-061):** o bloco **sobe para ANTES do Épico 6**.
 **FRs cobertas:** FR-F1–F5 · **NFRs:** NFR-O4
 **UX-DRs:** UX-DR12
 
@@ -275,7 +275,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - **3a — 1ª leva (fecha venda): Financeiro + Dashboard.**
   - **Financeiro** (vira **menu próprio**): registrar pagamento no agendamento (**valor**; **forma de pagamento OPCIONAL**; **situação pago/pendente**); **Recebimentos** por período (total recebido/pendente); **exportação CSV + PDF**; **situação financeira da cliente** em Clientes.
   - **Dashboard** (somente leitura + exportação): faturamento por **dia/semana/mês**, quantidade de atendimentos, total de clientes, média de fluxo/semana. *(Sem "relatório anual" no 1º momento.)*
-  - **Permissões (DL-062):** visibilidade de **módulo** (não só de ação); papéis **Dono/Gestão** (Básico aposentado); toggles por pessoa **"Pode ver Financeiro/Dashboard"** (só o Dono, OFF por padrão); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
+  - **Permissões (DL-062):** visibilidade de **módulo** (não só de ação); papéis **Dono/Profissional** (Básico aposentado); toggles por pessoa **"Pode ver Financeiro/Dashboard"** (só o Dono, OFF por padrão); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
 - **3b — 2ª leva (custo da equipe): Equipe.**
   - **Equipe sai de Configurações e vira menu próprio** — também **fonte de dado financeiro**.
   - **Remuneração por profissional:** comissão (%) **ou** valor fixo (ambos existem); comissão por **serviço** ou por **profissional** (ambos reais); **salário fixo** diário/semanal/mensal; **fixo + comissão coexistem**.
@@ -478,11 +478,11 @@ So that minha equipe use o sistema com as permissões corretas, refletindo quem 
 **Then** o convite é gerado e o usuário cria a própria senha no primeiro acesso (UX-DR14)
 
 **Given** o modelo de dois eixos (FR-I1, DL-022)
-**When** defino ou altero o **nível de acesso** (Dono/Gestão/Básico) e o atributo **atende clientes** (sim/não) de um usuário
-**Then** os dois campos são persistidos de forma independente e passam a valer nas próximas requisições (FR-G5); ex.: uma manicure pode ser Gestão + atende, e uma recepcionista pura pode ser Gestão + não atende
+**When** defino ou altero o **nível de acesso** (Dono/Profissional/Básico) e o atributo **atende clientes** (sim/não) de um usuário
+**Then** os dois campos são persistidos de forma independente e passam a valer nas próximas requisições (FR-G5); ex.: uma manicure pode ser Profissional + atende, e uma recepcionista pura pode ser Profissional + não atende
 
 **Given** a matriz de permissões por nível de acesso (FR-I2)
-**When** um usuário tenta uma ação fora do seu nível (ex: Gestão acessando relatórios consolidados)
+**When** um usuário tenta uma ação fora do seu nível (ex: Profissional acessando relatórios consolidados)
 **Then** o `RolesGuard` rejeita a ação com `403`
 
 **Given** um usuário com `attends_clients = true` (FR-I1)
@@ -876,7 +876,7 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 > **Ampliação (DL-061/DL-062, 2026-08-12):** este épico deixa de ser só "registro de pagamentos" e passa a abrigar o bloco **Financeiro + Dashboard + Equipe + Permissões**, em **duas levas** (detalhe nos DLs). A **1ª leva já está quebrada em stories** (5.1–5.8, na ordem de implementação — ver abaixo, 2026-08-13); a **2ª leva** (Equipe/remuneração) segue registrada só nos DLs. Resumo:
 > - **1ª leva:** **Financeiro** vira **menu próprio** — valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; **Recebimentos** por período (total recebido/pendente); **exportação CSV+PDF**; **situação financeira da cliente** em Clientes. **Dashboard** (leitura + exportação): faturamento **dia/semana/mês**, atendimentos, clientes, fluxo/semana *(sem "relatório anual" no 1º momento)*.
 > - **2ª leva:** **Equipe** **sai de Configurações e vira menu próprio** (fonte de custo) — **remuneração** por profissional (comissão %/valor fixo; por serviço/por profissional; salário diário/semanal/mensal; **fixo+comissão coexistem**), modelo **previsão→real**, e **"quanto gastei com a equipe"** no Dashboard. *(Fora, evolução: metas/faixas de comissão.)*
-> - **Permissões (DL-062):** visibilidade de **módulo** (não só ação/FR-I2); papéis **Dono/Gestão** (**"Básico" aposentado**); **toggles por pessoa** na Equipe (só o Dono, OFF por padrão — "Pode ver Financeiro/Dashboard"); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
+> - **Permissões (DL-062):** visibilidade de **módulo** (não só ação/FR-I2); papéis **Dono/Profissional** (**"Básico" aposentado**); **toggles por pessoa** na Equipe (só o Dono, OFF por padrão — "Pode ver Financeiro/Dashboard"); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
 > - **Posição no roadmap:** **ANTES do Épico 6** (DL-061). **Navegação:** desktop = Configurações na sidebar; mobile = Configurações pelo perfil; **tab bar mobile revista** para os novos módulos sem truncar.
 
 **Objetivo:** dar ao salão **visão de gestão financeira** — recebimento por agendamento (registro manual), Recebimentos por período, Dashboard de leitura e, na 2ª leva, custo com a equipe — com **visibilidade por módulo e por papel** (DL-062). Sem gateway no MVP, mas com a abstração `PaymentGateway` preparada. Full-stack. **Posição (DL-061):** o bloco **sobe para ANTES do Épico 6**; o **Monitoramento do bot** (DL-058) fica com o Épico 6, **fora** das duas levas.
@@ -888,6 +888,17 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 ### Story 5.1: Fundação de permissões — visibilidade de MÓDULO + interruptores por pessoa (DL-062)
 
+> **Refinamento (2026-08-14) — ver DL-062 → Refinamento.** (a) O papel foi
+> **renomeado `manager` → `professional`**: os papéis são **DONO** e
+> **PROFISSIONAL**. (b) O escopo do Profissional é **"vê, mas só o que é dele"**,
+> tudo no **backend**: **Pendentes** reativado mas só os DELE (não atribuído só
+> para quem gerencia a equipe; badge idem; Confirmar/Recusar só de quem gerencia);
+> **Clientes** (lista do módulo) só as que ELE atendeu — **exceto** a busca do
+> agendamento, que acha qualquer cliente; **histórico da cliente** só os
+> atendimentos DELE; **serviços** só os que ELE executa; **valores** não trafegam
+> para Profissional sem Financeiro (regra pronta; sem campo hoje). (c) Cabeçalho:
+> logo **e** nome juntos.
+
 As a Dono,
 I want conceder ou negar cada módulo (Financeiro, Dashboard) por pessoa,
 So that módulos sensíveis não nasçam visíveis para toda a equipe.
@@ -896,7 +907,7 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 
 **Given** a migration desta story
 **When** aplicada
-**Then** cada usuário ganha os interruptores de visibilidade de módulo (ex.: `can_view_financeiro`, `can_view_dashboard`), **default `false`**, com **estrutura extensível** para módulos futuros; os papéis passam a **Dono/Gestão** (o **"Básico" é aposentado** — migração converte os existentes; revisa DL-022/FR-I1/FR-I2)
+**Then** cada usuário ganha os interruptores de visibilidade de módulo (ex.: `can_view_financeiro`, `can_view_dashboard`), **default `false`**, com **estrutura extensível** para módulos futuros; os papéis passam a **Dono/Profissional** (o **"Básico" é aposentado** — migração converte os existentes; revisa DL-022/FR-I1/FR-I2)
 
 **Given** o eixo de módulo (DL-062, camada de BACKEND)
 **When** alguém sem o interruptor chama o endpoint do módulo (direto na API)
@@ -911,11 +922,11 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 **Then** **só o Dono** concede/revoga, os interruptores vêm **desligados por padrão**, e o **Dono não pode remover o próprio acesso** (DL-062, regra 5a)
 
 **Given** a Agenda e o interruptor **"Pode gerenciar agendamentos de toda a equipe"** (`can_manage_all_appointments`, adição DL-062 2026-08-13)
-**When** um Gestão **com** o interruptor opera a agenda
+**When** um Profissional **com** o interruptor opera a agenda
 **Then** cria/remarca/cancela/atribui para **qualquer profissional** (delegação da operação da agenda **sem** ganhar Financeiro/Dashboard); **sem** o interruptor, só os **próprios**. *(Não é flag de módulo — é **escopo de ação** dentro da Agenda; lido da linha fresca → revogação imediata.)*
 
-**Given** o padrão da Gestão (DL-062, item 3)
-**When** um usuário Gestão sem interruptores acessa o sistema
+**Given** o padrão do Profissional (DL-062, item 3)
+**When** um usuário Profissional sem interruptores acessa o sistema
 **Then** vê/opera **apenas os próprios agendamentos e as clientes que atende** — sem Financeiro, sem Dashboard, sem agenda de terceiros, sem telas administrativas
 
 **Given** a segurança (e2e — hostil por padrão)
@@ -924,7 +935,7 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 
 ### Story 5.2: Financeiro — registro de pagamento no agendamento (menu próprio)
 
-As a Dono/Gestão com acesso a Financeiro,
+As a Dono/Profissional com acesso a Financeiro,
 I want registrar o pagamento recebido de um agendamento,
 So that o salão tenha o histórico de recebimentos sem integração externa.
 
@@ -948,7 +959,7 @@ So that o salão tenha o histórico de recebimentos sem integração externa.
 
 ### Story 5.3: Financeiro — Recebimentos (lista com filtro por período + totais)
 
-As a Dono/Gestão com acesso a Financeiro,
+As a Dono/Profissional com acesso a Financeiro,
 I want ver os recebimentos de um período com os totais,
 So that eu saiba quanto entrou e quanto ainda está pendente.
 
@@ -968,7 +979,7 @@ So that eu saiba quanto entrou e quanto ainda está pendente.
 > resolve o caso real (contabilidade, comprovação). **PDF fica como evolução** —
 > não bloqueia a 1ª leva.
 
-As a Dono/Gestão com acesso a Financeiro,
+As a Dono/Profissional com acesso a Financeiro,
 I want exportar os recebimentos do período em CSV,
 So that eu leve os números para fora do sistema (abre no Excel).
 
@@ -984,7 +995,7 @@ So that eu leve os números para fora do sistema (abre no Excel).
 
 ### Story 5.5: Situação financeira da cliente (no módulo Clientes)
 
-As a Dono/Gestão com acesso a Financeiro,
+As a Dono/Profissional com acesso a Financeiro,
 I want ver a situação financeira da cliente no perfil dela,
 So that eu saiba quanto ela deve e o que já pagou.
 
@@ -1000,7 +1011,7 @@ So that eu saiba quanto ela deve e o que já pagou.
 
 ### Story 5.6: Dashboard (menu próprio, somente leitura + exportação)
 
-As a Dono/Gestão com acesso a Dashboard,
+As a Dono/Profissional com acesso a Dashboard,
 I want um painel de leitura com os números do negócio,
 So that eu acompanhe faturamento e fluxo sem depender de planilha.
 

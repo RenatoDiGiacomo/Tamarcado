@@ -57,11 +57,32 @@ export class ServicesService {
     return this.tenantServices.save(service);
   }
 
-  /** Lista serviços do tenant; `activeOnly` exclui inativos (AC3). */
-  list(activeOnly: boolean): Promise<SalonService[]> {
-    return activeOnly
-      ? this.tenantServices.findAll({ where: { is_active: true } })
-      : this.tenantServices.findAll();
+  /**
+   * Lista serviços do tenant; `activeOnly` exclui inativos (AC3).
+   * `performedByProfessionalId` (refinamento DL-062, 2026-08-14): quando presente,
+   * restringe aos serviços que ESTE profissional executa (relação
+   * `professional_services`). Ex.: Ana vê Corte/Escova, não Coloração (só o Dono).
+   * `undefined` = todos (quem gerencia a equipe / Configurações → Serviços).
+   */
+  async list(
+    activeOnly: boolean,
+    performedByProfessionalId?: string,
+  ): Promise<SalonService[]> {
+    const all = activeOnly
+      ? await this.tenantServices.findAll({ where: { is_active: true } })
+      : await this.tenantServices.findAll();
+    if (!performedByProfessionalId) {
+      return all;
+    }
+    const companyId = this.tenantContext.getCompanyId();
+    const rows = await this.profServices.find({
+      where: {
+        company_id: companyId,
+        professional_id: performedByProfessionalId,
+      },
+    });
+    const allowed = new Set(rows.map((r) => r.service_id));
+    return all.filter((s) => allowed.has(s.id));
   }
 
   async findOne(id: string): Promise<SalonService> {

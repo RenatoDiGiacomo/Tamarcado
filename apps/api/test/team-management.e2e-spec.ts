@@ -57,7 +57,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
   async function inviteAndAccept(
     ownerToken: string,
     email: string,
-    accessLevel: "manager",
+    accessLevel: "professional",
     attends: boolean,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const inv = await request(ctx.app.getHttpServer())
@@ -96,7 +96,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .send({
         name: "Convidada",
         email: "convidada@eq.dev",
-        access_level: "manager",
+        access_level: "professional",
         attends_clients: true,
       });
     expect(res.status).toBe(201);
@@ -112,7 +112,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .send({
         name: "Ana",
         email: "ana@eq.dev",
-        access_level: "manager",
+        access_level: "professional",
         attends_clients: false,
       });
     const token = tokenFromLink(inv.body.link);
@@ -147,7 +147,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const basic = await inviteAndAccept(
       await login("dono@eq.dev"),
       "basico@eq.dev",
-      "manager",
+      "professional",
       true,
     );
     const res = await request(ctx.app.getHttpServer())
@@ -156,7 +156,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .send({
         name: "X",
         email: "x@eq.dev",
-        access_level: "manager",
+        access_level: "professional",
         attends_clients: false,
       });
     expect(res.status).toBe(403);
@@ -168,7 +168,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       (await ctx.dataSource.getRepository(User).findOneByOrFail({ id: ownerId }))
         .company_id,
       "edit@eq.dev",
-      "manager",
+      "professional",
       false,
     );
 
@@ -178,16 +178,16 @@ describe("Gestão de equipe e permissões (e2e)", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ attends_clients: true });
     expect(r1.status).toBe(200);
-    expect(r1.body.accessLevel).toBe("manager");
+    expect(r1.body.accessLevel).toBe("professional");
     expect(r1.body.attendsClients).toBe(true);
 
     // muda só access_level → attends_clients permanece true
     const r2 = await request(ctx.app.getHttpServer())
       .patch(`/api/users/${created.id}`)
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ access_level: "manager" });
+      .send({ access_level: "professional" });
     expect(r2.status).toBe(200);
-    expect(r2.body.accessLevel).toBe("manager");
+    expect(r2.body.accessLevel).toBe("professional");
     expect(r2.body.attendsClients).toBe(true);
   });
 
@@ -196,7 +196,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const demote = await request(ctx.app.getHttpServer())
       .patch(`/api/users/${ownerId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
-      .send({ access_level: "manager" });
+      .send({ access_level: "professional" });
     expect(demote.status).toBe(409);
 
     const deactivate = await request(ctx.app.getHttpServer())
@@ -211,7 +211,7 @@ describe("Gestão de equipe e permissões (e2e)", () => {
     const victim = await inviteAndAccept(
       ownerToken,
       "demitido@eq.dev",
-      "manager",
+      "professional",
       true,
     );
 

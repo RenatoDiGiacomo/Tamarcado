@@ -110,8 +110,8 @@ describe("Cancelamento de agendamento (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@cancel.dev", "owner", true)).id;
-    profId = (await seedUser("prof@cancel.dev", "manager", true)).id;
-    otherProfId = (await seedUser("outra@cancel.dev", "manager", true)).id;
+    profId = (await seedUser("prof@cancel.dev", "professional", true)).id;
+    otherProfId = (await seedUser("outra@cancel.dev", "professional", true)).id;
 
     const corte = await ctx.dataSource.getRepository(SalonService).save(
       ctx.dataSource.getRepository(SalonService).create({

@@ -49,14 +49,14 @@ describe("Pendentes no painel (e2e)", () => {
       .send({ email, password: PASSWORD, companySlug: SLUG });
     return res.body.accessToken as string;
   }
-  async function seedPending(): Promise<string> {
+  async function seedPending(professionalId: string | null = null): Promise<string> {
     const repo = ctx.dataSource.getRepository(Appointment);
     const saved = await repo.save(
       repo.create({
         company_id: companyId,
         client_id: clientId,
         service_id: serviceId,
-        professional_id: null,
+        professional_id: professionalId,
         scheduled_at: new Date(Date.now() + 3 * 86400000),
         duration_minutes: 60,
         price_snapshot: "50.00",
@@ -86,7 +86,7 @@ describe("Pendentes no painel (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@pend.dev", "owner")).id;
-    profId = (await seedUser("prof@pend.dev", "manager")).id;
+    profId = (await seedUser("prof@pend.dev", "professional")).id;
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(
         ctx.dataSource.getRepository(SalonService).create({
@@ -184,15 +184,38 @@ describe("Pendentes no painel (e2e)", () => {
     await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${owner}`).send({ reason: "x" }).expect(409);
   });
 
-  it("PERMISSÃO: Gestão SEM gerência da agenda não trata pendentes (list/count/confirm/reject → 403)", async () => {
-    // prof@pend.dev é manager sem `can_manage_all_appointments` (DL-062): tratar a
-    // fila de pendentes é operação de agenda de toda a equipe → 403 nas 4 rotas.
-    const id = await seedPending();
-    const restrito = await login("prof@pend.dev");
-    await api().get("/api/appointments/pending").set("Authorization", `Bearer ${restrito}`).expect(403);
-    await api().get("/api/appointments/pending-count").set("Authorization", `Bearer ${restrito}`).expect(403);
-    await api().patch(`/api/appointments/${id}/confirm`).set("Authorization", `Bearer ${restrito}`).send({}).expect(403);
-    await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${restrito}`).send({ reason: "x" }).expect(403);
+  it("ESCOPO (DL-062, refino): Profissional vê SÓ os pendentes DELE; não confirma/recusa (403)", async () => {
+    // prof@pend.dev é professional sem `can_manage_all_appointments`.
+    const unassigned = await seedPending(null); // não atribuído → NÃO é dele
+    await seedPending(profId); // atribuído a ele → é dele
+    const prof = await login("prof@pend.dev");
+
+    // list/count agora são ESCOPADOS (200), não 403: vê só o pendente dele (1),
+    // o não atribuído fica para quem gerencia a equipe.
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${prof}`);
+    expect(list.status).toBe(200);
+    expect(list.body.appointments).toHaveLength(1);
+    expect(String(list.body.appointments[0].professionalId)).toBe(profId);
+    const count = await api()
+      .get("/api/appointments/pending-count")
+      .set("Authorization", `Bearer ${prof}`);
+    expect(count.body).toEqual({ count: 1 });
+
+    // Mas CONFIRMAR/RECUSAR seguem exigindo gerência da equipe → 403.
+    await api().patch(`/api/appointments/${unassigned}/confirm`).set("Authorization", `Bearer ${prof}`).send({}).expect(403);
+    await api().patch(`/api/appointments/${unassigned}/reject`).set("Authorization", `Bearer ${prof}`).send({ reason: "x" }).expect(403);
+  });
+
+  it("owner vê TODOS os pendentes (atribuídos e não atribuídos)", async () => {
+    await seedPending(null);
+    await seedPending(profId);
+    const owner = await login("dono@pend.dev");
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${owner}`);
+    expect(list.body.appointments).toHaveLength(2);
   });
 
   it("id inexistente → 404", async () => {

@@ -24,7 +24,7 @@ export interface CurrentUser {
   companyId: string;
   name: string;
   email: string;
-  accessLevel: "owner" | "manager";
+  accessLevel: "owner" | "professional";
   attendsClients: boolean;
   theme: "light" | "dark";
   // Flags de permissão (DL-062) — o front monta menu/rotas/escopo a partir daqui.

@@ -1,7 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth, loginPath } from "./auth/AuthContext";
-import { canManageAllAppointments } from "./lib/permissions";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
@@ -35,17 +34,6 @@ function Protected({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Rota que exige gerenciar a agenda de TODA a equipe (DL-062): Pendentes. Quem
- * não tem cai na Agenda — a rota não "existe" para essa pessoa. Se o Dono revoga
- * com a sessão aberta, o polling de flags atualiza o `user` e este guard passa a
- * redirecionar sozinho (403-reativo no nível da rota), sem relogar.
- */
-function RequireManageAll({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  return canManageAllAppointments(user) ? <>{children}</> : <Navigate to="/" replace />;
-}
-
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
 function Layout() {
   return (
@@ -76,14 +64,9 @@ export function App() {
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Agenda />} />
-        <Route
-          path="/pendentes"
-          element={
-            <RequireManageAll>
-              <Pendentes />
-            </RequireManageAll>
-          }
-        />
+        {/* Pendentes é acessível a todo autenticado; o backend ESCOPA (o
+            profissional vê só os seus). Refino DL-062 (2026-08-14). */}
+        <Route path="/pendentes" element={<Pendentes />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/clientes/:id" element={<ClientePerfil />} />
         <Route path="/perfil" element={<Perfil />} />

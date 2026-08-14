@@ -63,14 +63,27 @@ export function toAppointmentView(
   };
 }
 
+/** Recorte por profissional aplicado no repositório. */
+export interface ProfessionalScope {
+  professionalId: string;
+  /** `true` inclui os NÃO ATRIBUÍDOS (`professional_id IS NULL`); `false` = só os do profissional. */
+  includeUnassigned: boolean;
+}
+
 /**
  * Escopo de visibilidade por papel (FR-D2/DL-022, revisado DL-062): quem
  * gerencia a agenda de toda a equipe (`owner` ou `can_manage_all_appointments`)
  * vê todos (retorna `undefined` = sem filtro); quem NÃO gerencia vê só os
- * próprios agendamentos e os não atribuídos (`professional_id = self OR NULL`).
+ * próprios. `includeUnassigned` decide se os NÃO ATRIBUÍDOS entram junto:
+ * - **agenda** (listByPeriod): `true` — o profissional vê os próprios + os livres;
+ * - **pendentes e histórico da cliente** (refinamento 2026-08-14): `false` —
+ *   só os DELE; não atribuído fica só para quem gerencia a equipe.
  */
 export function roleScope(
   user: Actor,
-): { professionalId: string } | undefined {
-  return user.canManageAll ? undefined : { professionalId: user.userId };
+  includeUnassigned = true,
+): ProfessionalScope | undefined {
+  return user.canManageAll
+    ? undefined
+    : { professionalId: user.userId, includeUnassigned };
 }

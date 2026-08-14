@@ -44,17 +44,23 @@ export class ClientsController {
 
   /**
    * `?search=` → autocomplete (3.3): vazio→[], termo→limitado, `{ clients }`.
-   * `?page&pageSize` → modo lista da gestão (4.1): `{ clients, total, page, pageSize }`.
+   *   **Exceção (DL-062, 2026-08-14):** a busca do AGENDAMENTO NÃO é recortada —
+   *   o profissional pode escolher qualquer cliente (inclusive nova) ao agendar.
+   * `?page&pageSize` → modo LISTA do módulo (4.1): `{ clients, total, ... }`.
+   *   **Recortado (DL-062):** o profissional vê só as clientes que ELE atendeu;
+   *   quem gerencia a equipe vê a carteira inteira.
    */
   @Get()
   async list(
     @Query() q: ListClientsQueryDto,
+    @CurrentActor() actor: Actor,
   ): Promise<{ clients: ClientView[] } | ClientListView> {
     if (q.page !== undefined || q.pageSize !== undefined) {
       return this.clients.list({
         search: q.search,
         page: q.page,
         pageSize: q.pageSize,
+        attendedByProfessionalId: actor.canManageAll ? undefined : actor.userId,
       });
     }
     return { clients: await this.clients.search(q.search) };

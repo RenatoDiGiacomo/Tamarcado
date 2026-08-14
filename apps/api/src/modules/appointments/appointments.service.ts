@@ -164,9 +164,12 @@ export class AppointmentsService {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
+    // Refinamento DL-062 (2026-08-14): no histórico da cliente, o profissional
+    // vê SÓ os atendimentos DELE — nem de outras, nem os não atribuídos
+    // (includeUnassigned=false). Quem gerencia a equipe vê todos.
     const rows = await this.appointmentsRepo.findByClient(
       clientId,
-      roleScope(user),
+      roleScope(user, false),
     );
     return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
   }
@@ -545,18 +548,25 @@ export class AppointmentsService {
     return toAppointmentView(row, tz);
   }
 
-  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. */
-  async listPending(): Promise<{ appointments: AppointmentView[] }> {
+  /**
+   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Recorte
+   * (refinamento DL-062, 2026-08-14): quem gerencia a equipe vê todos; o
+   * profissional vê **só os pendentes em que ELE é o profissional** (não
+   * atribuído fica só para quem gerencia — `includeUnassigned=false`).
+   */
+  async listPending(user: Actor): Promise<{ appointments: AppointmentView[] }> {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
-    const rows = await this.appointmentsRepo.findPending();
+    const rows = await this.appointmentsRepo.findPending(roleScope(user, false));
     return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
   }
 
-  /** Contagem de pendentes do tenant (Story 5B.3) — o contador/badge. */
-  async pendingCount(): Promise<{ count: number }> {
-    return { count: await this.appointmentsRepo.countPending() };
+  /** Contagem de pendentes — MESMO recorte da listPending (o badge segue a regra). */
+  async pendingCount(user: Actor): Promise<{ count: number }> {
+    return {
+      count: await this.appointmentsRepo.countPending(roleScope(user, false)),
+    };
   }
 
   /**

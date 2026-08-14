@@ -8,7 +8,6 @@ import {
 } from "react";
 import { authedRequest } from "./session";
 import { useAuth } from "../auth/AuthContext";
-import { canManageAllAppointments } from "./permissions";
 
 const POLL_MS = 15000; // refresh curto (Story 5B.3)
 
@@ -25,13 +24,15 @@ const PendentesContext = createContext<PendentesCtx>({
 
 /**
  * Estado compartilhado do contador de PENDENTES (Story 5B.3) — um provider com
- * refresh curto que alimenta o badge da navegação, sem recarregar a página. Só
- * consulta para quem gerencia a agenda de toda a equipe (owner ou o flag,
- * DL-062); os demais ficam em 0 (e o endpoint responde 403).
+ * refresh curto que alimenta o badge da navegação, sem recarregar a página.
+ * Consulta para TODO autenticado; o backend ESCOPA o contador (o profissional
+ * conta só os pendentes dele; quem gerencia a equipe conta todos — refino
+ * DL-062, 2026-08-14). O polling de flags do AuthContext faz o número mudar
+ * (todos ↔ só os meus) sem relogar quando o Dono liga/desliga o acesso.
  */
 export function PendentesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const canSee = canManageAllAppointments(user);
+  const canSee = user != null;
   const [count, setCount] = useState(0);
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -41,10 +42,6 @@ export function PendentesProvider({ children }: { children: ReactNode }) {
         });
       if (res.ok) {
         setCount(((await res.json()) as { count: number }).count);
-      } else if (res.status === 403) {
-        // Acesso revogado enquanto a sessão estava aberta: zera o badge na hora
-        // (o polling de flags do AuthContext some com o item logo em seguida).
-        setCount(0);
       }
     } catch {
       /* best-effort — não quebra a navegação */

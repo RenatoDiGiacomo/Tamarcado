@@ -114,7 +114,7 @@ describe("Agenda — listagem (e2e)", () => {
     );
     companyId = company.id;
     const owner = await seedUser(companyId, "dono@ag.dev", "owner", true);
-    const prof = await seedUser(companyId, "prof@ag.dev", "manager", true);
+    const prof = await seedUser(companyId, "prof@ag.dev", "professional", true);
     ownerId = owner.id;
     profId = prof.id;
 

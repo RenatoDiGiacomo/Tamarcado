@@ -12,6 +12,13 @@ vi.mock("../lib/usePendentes", () => ({
   usePendentes: () => ({ count: 0, refresh: refreshMock }),
 }));
 
+// useAuth: por padrão owner (canManageAll → ações Confirmar/Recusar visíveis).
+// O caso do profissional read-only tem teste próprio.
+const useAuthMock = vi.fn();
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => useAuthMock(),
+}));
+
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 function jsonRes(body: unknown, ok = true): Response {
@@ -54,6 +61,8 @@ describe("Pendentes", () => {
   beforeEach(() => {
     apiMock.mockReset();
     refreshMock.mockReset();
+    useAuthMock.mockReset();
+    useAuthMock.mockReturnValue({ user: { accessLevel: "owner" } });
     localStorage.setItem("tamarcado.access", "tok");
   });
 
@@ -147,5 +156,17 @@ describe("Pendentes", () => {
       expect(screen.queryByText("Maria das Dores")).toBeNull(),
     );
     expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("Profissional (sem gerência) vê os pendentes em SOMENTE LEITURA (sem Confirmar/Recusar)", async () => {
+    useAuthMock.mockReturnValue({
+      user: { accessLevel: "professional", canManageAllAppointments: false },
+    });
+    seedLoad();
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores"); // vê o pendente dele
+    // Mas SEM as ações — confirmar/recusar são de quem gerencia a equipe.
+    expect(screen.queryByRole("button", { name: "Confirmar" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Recusar" })).toBeNull();
   });
 });

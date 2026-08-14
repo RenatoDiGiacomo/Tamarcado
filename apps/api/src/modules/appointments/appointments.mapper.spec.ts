@@ -89,7 +89,7 @@ describe("roleScope (FR-D2/DL-022, revisado DL-062)", () => {
   const base: Actor = {
     userId: "7",
     companyId: "1",
-    accessLevel: "manager",
+    accessLevel: "professional",
     canManageAll: false,
   };
 
@@ -99,13 +99,21 @@ describe("roleScope (FR-D2/DL-022, revisado DL-062)", () => {
     ).toBeUndefined();
   });
 
-  it("Gestão COM o flag vê todos (sem filtro)", () => {
+  it("Profissional COM o flag vê todos (sem filtro)", () => {
     expect(roleScope({ ...base, canManageAll: true })).toBeUndefined();
   });
 
-  it("Gestão SEM o flag limita ao próprio profissional", () => {
+  it("Profissional SEM o flag: por padrão inclui os NÃO ATRIBUÍDOS (agenda)", () => {
     expect(roleScope({ ...base, canManageAll: false, userId: "7" })).toEqual({
       professionalId: "7",
+      includeUnassigned: true,
+    });
+  });
+
+  it("includeUnassigned=false (pendentes/histórico): SÓ os do profissional", () => {
+    expect(roleScope({ ...base, canManageAll: false, userId: "7" }, false)).toEqual({
+      professionalId: "7",
+      includeUnassigned: false,
     });
   });
 });

@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { usePendentes } from "../lib/usePendentes";
+import { useAuth } from "../auth/AuthContext";
+import { canManageAllAppointments } from "../lib/permissions";
 import { bumpAppointments } from "../lib/appointmentsSignal";
 
 
@@ -41,9 +43,13 @@ interface Attender {
  * Pendentes no painel (Story 5B.3). Lista as solicitações `pending` — o link
  * público gera agendamentos que caem aqui para o dono/gerente CONFIRMAR (vira o
  * badge "Confirmado" da 3.7, profissional opcional) ou RECUSAR (com motivo, o
- * bot avisa a cliente depois). Só owner/gerente chegam aqui (RolesGuard no back).
+ * Refino DL-062 (2026-08-14): TODO autenticado acessa; o backend ESCOPA (o
+ * profissional vê só os SEUS pendentes). Confirmar/Recusar seguem sendo de quem
+ * gerencia a agenda de toda a equipe — para os demais a tela é somente leitura.
  */
 export function Pendentes() {
+  const { user } = useAuth();
+  const managesAll = canManageAllAppointments(user);
   const { refresh: refreshCount } = usePendentes();
   const [items, setItems] = useState<PendingAppointment[]>([]);
   const [attenders, setAttenders] = useState<Attender[]>([]);
@@ -189,44 +195,48 @@ export function Pendentes() {
                   value={`${item.date.split("-").reverse().join("/")} · ${item.start}–${item.end}`}
                 />
               </dl>
-              <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
-                <label className="flex flex-col gap-1.5 text-sm sm:max-w-56">
-                  <span className="font-medium text-foreground">
-                    Profissional (opcional)
-                  </span>
-                  <select
-                    aria-label="Profissional"
-                    value={chosen[item.id] ?? ""}
-                    onChange={(e) =>
-                      setChosen((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
-                    className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="">Sem preferência</option>
-                    {attenders.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    className="text-muted-foreground"
-                    disabled={busyId === item.id}
-                    onClick={() => setRejecting(item)}
-                  >
-                    Recusar
-                  </Button>
-                  <Button
-                    disabled={busyId === item.id}
-                    onClick={() => void confirm(item)}
-                  >
-                    Confirmar
-                  </Button>
+              {/* Ações só para quem gerencia a agenda de toda a equipe (DL-062).
+                  O profissional vê os seus pendentes em SOMENTE LEITURA. */}
+              {managesAll && (
+                <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
+                  <label className="flex flex-col gap-1.5 text-sm sm:max-w-56">
+                    <span className="font-medium text-foreground">
+                      Profissional (opcional)
+                    </span>
+                    <select
+                      aria-label="Profissional"
+                      value={chosen[item.id] ?? ""}
+                      onChange={(e) =>
+                        setChosen((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">Sem preferência</option>
+                      {attenders.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      disabled={busyId === item.id}
+                      onClick={() => setRejecting(item)}
+                    >
+                      Recusar
+                    </Button>
+                    <Button
+                      disabled={busyId === item.id}
+                      onClick={() => void confirm(item)}
+                    >
+                      Confirmar
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </li>
           ))}
         </ul>
