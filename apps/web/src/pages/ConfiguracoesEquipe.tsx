@@ -23,6 +23,10 @@ interface Member {
   accessLevel: AccessLevel;
   attendsClients: boolean;
   isActive: boolean;
+  // Interruptores de permissão (DL-062). Só valem para Gestão; o Dono ignora.
+  canViewFinanceiro: boolean;
+  canViewDashboard: boolean;
+  canManageAllAppointments: boolean;
 }
 
 const ROLE_LABEL: Record<AccessLevel, string> = {
@@ -98,6 +102,10 @@ export function ConfiguracoesEquipe() {
     if (patch.accessLevel !== undefined) body.access_level = patch.accessLevel;
     if (patch.attendsClients !== undefined) body.attends_clients = patch.attendsClients;
     if (patch.isActive !== undefined) body.is_active = patch.isActive;
+    if (patch.canViewFinanceiro !== undefined) body.can_view_financeiro = patch.canViewFinanceiro;
+    if (patch.canViewDashboard !== undefined) body.can_view_dashboard = patch.canViewDashboard;
+    if (patch.canManageAllAppointments !== undefined)
+      body.can_manage_all_appointments = patch.canManageAllAppointments;
 
     const res = await authedRequest(`/users/${id}`, {
       method: "PATCH",
@@ -319,6 +327,52 @@ export function ConfiguracoesEquipe() {
                   label={`Atende clientes — ${m.name}`}
                 />
               </div>
+
+              {/* Interruptores de permissão (DL-062) — só para Gestão; o Dono
+                  ignora (sempre pode). Concedidos só pelo Dono, OFF por padrão. */}
+              {!isOwner && (
+                <div className="flex flex-col gap-2 border-t border-border pt-3">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Permissões
+                  </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      Pode ver Financeiro
+                    </span>
+                    <ToggleSwitch
+                      checked={m.canViewFinanceiro}
+                      onChange={(v) =>
+                        void patchMember(m.id, { canViewFinanceiro: v })
+                      }
+                      label={`Pode ver Financeiro — ${m.name}`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      Pode ver Dashboard
+                    </span>
+                    <ToggleSwitch
+                      checked={m.canViewDashboard}
+                      onChange={(v) =>
+                        void patchMember(m.id, { canViewDashboard: v })
+                      }
+                      label={`Pode ver Dashboard — ${m.name}`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      Pode gerenciar agendamentos de toda a equipe
+                    </span>
+                    <ToggleSwitch
+                      checked={m.canManageAllAppointments}
+                      onChange={(v) =>
+                        void patchMember(m.id, { canManageAllAppointments: v })
+                      }
+                      label={`Pode gerenciar agendamentos de toda a equipe — ${m.name}`}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Ativar/desativar — desativar exige confirmação (D2) */}
               <div className="flex items-center justify-between gap-3 border-t border-border pt-3">

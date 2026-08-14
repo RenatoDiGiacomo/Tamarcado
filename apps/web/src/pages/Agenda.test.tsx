@@ -320,7 +320,7 @@ describe("Agenda", () => {
     });
   });
 
-  it("Confirmar não aparece para basic (permissão owner/gerente)", async () => {
+  it("Confirmar não aparece em agendamento já confirmado", async () => {
     // Nota: o useAuth do teste é owner; aqui só garantimos que confirmado NÃO
     // oferece Confirmar (o botão é exclusivo do status pendente).
     apiMock.mockResolvedValue(

@@ -106,9 +106,14 @@ describe("AppShell", () => {
     expect(screen.getByLabelText("3 pendentes")).toBeInTheDocument();
   });
 
-  it("Pendentes: sem pendentes (count 0) não mostra badge", () => {
+  it("Pendentes: Gestão COM o flag de gerenciar a agenda vê o item; count 0 não mostra badge", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Gestor", accessLevel: "manager", theme: "light" },
+      user: {
+        name: "Gestor",
+        accessLevel: "manager",
+        theme: "light",
+        canManageAllAppointments: true,
+      },
       logout: vi.fn(),
     });
     usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
@@ -118,9 +123,14 @@ describe("AppShell", () => {
     expect(screen.queryByLabelText(/pendentes$/)).toBeNull();
   });
 
-  it("Pendentes: basic não vê o item (owner/gerente apenas)", () => {
+  it("Pendentes: Gestão SEM o flag NÃO vê o item (DL-062)", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Profissional", accessLevel: "basic", theme: "light" },
+      user: {
+        name: "Profissional",
+        accessLevel: "manager",
+        theme: "light",
+        canManageAllAppointments: false,
+      },
       logout: vi.fn(),
     });
     usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });

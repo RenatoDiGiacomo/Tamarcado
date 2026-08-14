@@ -405,8 +405,40 @@ compilam e rodam no **CI** (serviço MySQL). A prova visual (screenshots) vem no
 "Básico" (será removido no **PR-2**). Landar PR-1 e PR-2 juntos (ou PR-2 logo em
 seguida) para o painel de Equipe não enviar `access_level: "basic"` (→ 400).
 
+### PR-2 — Frontend (branch `story/5.1-pr2-frontend-permissoes`)
+
+**Entregue:**
+- `lib/permissions.ts`: `canManageAllAppointments` / `canViewModule` (espelham o
+  backend; owner ignora flags). É o que 5.2/5.6 usarão para gatear seus menus.
+- `AuthContext`: `CurrentUser` ganha os 3 flags; **`refreshUser`** (não desloga em
+  falha transitória) + **polling dos flags** (~20s) → concessão/revogação
+  "aparece" sem relogar.
+- **Menu condicional:** AppShell mostra **Pendentes** só para quem gerencia a
+  agenda de toda a equipe (`canManageAll`) — antes era owner/manager.
+- **Rota condicional + 403-reativo:** `/pendentes` embrulhada em `RequireManageAll`
+  (redireciona quem não tem; converge na revogação via polling). `usePendentes`:
+  só consulta com `canManageAll`; **403 → zera o badge**.
+- **3 interruptores na Equipe** (só Gestão; Dono não tem): "Pode ver Financeiro",
+  "Pode ver Dashboard", "Pode gerenciar agendamentos de toda a equipe" — PATCH dos
+  flags, OFF por padrão.
+- Agenda/NovoAgendamento: `accessLevel === "basic"` → `canManageAllAppointments`
+  (editar/marcar/confirmar/atribuir e o campo Profissional).
+- **"Básico" 100% aposentado no front** (tipos, rótulos, mocks).
+
+**Verificação:** web **189 testes** verdes (novos: interruptores; Pendentes por
+flag), typecheck 0 erros, lint limpo.
+
+**Screenshots:** **sem Playwright no repo** (decisão do Renato). O e2e do PR-1
+prova a revogação imediata; o passo a passo para capturar Equipe + revogação ao
+vivo foi entregue no PR.
+
+**Cortes de escopo (Renato, 2026-08-14)** registrados no epics.md: 5.4 só CSV
+(PDF = evolução); 5.7 (navegação) não é story (tab bar entra com o módulo); 5.8
+(PaymentGateway) sai da 1ª leva (evolução).
+
 ### Change Log
 
 | Data | Mudança |
 |---|---|
 | 2026-08-13 | Spec aprovada (draft→implementação). PR-1 backend: migration + guards + reescopo da Agenda + flags em users + e2e de revogação imediata. |
+| 2026-08-14 | PR-2 frontend: permissions helpers + polling de flags + menu/rota condicional (Pendentes) + 403-reativo + 3 interruptores na Equipe. Cortes de escopo 5.4/5.7/5.8 no epics. |

@@ -15,10 +15,15 @@ interface Opts {
   body?: Record<string, unknown>;
 }
 
+const flags = {
+  canViewFinanceiro: false,
+  canViewDashboard: false,
+  canManageAllAppointments: false,
+};
 const members = [
-  { id: "o1", name: "Dona", email: "dona@x", accessLevel: "owner", attendsClients: true, isActive: true },
-  { id: "m1", name: "Bia", email: "bia@x", accessLevel: "manager", attendsClients: false, isActive: true },
-  { id: "b1", name: "Cida", email: "cida@x", accessLevel: "manager", attendsClients: true, isActive: true },
+  { id: "o1", name: "Dona", email: "dona@x", accessLevel: "owner", attendsClients: true, isActive: true, ...flags },
+  { id: "m1", name: "Bia", email: "bia@x", accessLevel: "manager", attendsClients: false, isActive: true, ...flags },
+  { id: "b1", name: "Cida", email: "cida@x", accessLevel: "manager", attendsClients: true, isActive: true, ...flags },
 ];
 
 function routeApi(path: string, opts: Opts = {}): Response {
@@ -50,6 +55,28 @@ describe("ConfiguracoesEquipe", () => {
     // Dono não tem select de papel (read-only).
     expect(screen.queryByLabelText("Papel de Dona")).toBeNull();
     expect(screen.getByLabelText("Papel de Bia")).toBeInTheDocument();
+  });
+
+  it("interruptores de permissão (DL-062): Gestão tem os 3; Dono não tem; ligar → PATCH do flag", async () => {
+    render(<ConfiguracoesEquipe />);
+    await screen.findByText("Bia");
+    // Gestão (Bia) tem os três interruptores; o Dono (Dona) não.
+    expect(screen.getByLabelText("Pode ver Financeiro — Bia")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pode ver Dashboard — Bia")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Pode gerenciar agendamentos de toda a equipe — Bia"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pode ver Financeiro — Dona")).toBeNull();
+
+    // Ligar "Pode ver Financeiro" → PATCH { can_view_financeiro: true }.
+    fireEvent.click(screen.getByLabelText("Pode ver Financeiro — Bia"));
+    await waitFor(() =>
+      expect(
+        apiMock.mock.calls.find(([p, o]) => p === "/users/m1" && o?.method === "PATCH"),
+      ).toBeTruthy(),
+    );
+    const patch = apiMock.mock.calls.find(([p, o]) => p === "/users/m1" && o?.method === "PATCH");
+    expect(patch?.[1].body).toEqual({ can_view_financeiro: true });
   });
 
   it("select de papel NÃO oferece 'Básico' (aposentado — DL-062)", async () => {

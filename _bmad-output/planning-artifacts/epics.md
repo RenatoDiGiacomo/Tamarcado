@@ -883,7 +883,8 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 
 **FRs:** FR-F1–F5 · **NFRs:** NFR-O4 · **UX-DRs:** UX-DR12
 
-> **1ª LEVA — quebra em stories na ordem de implementação (DL-061/DL-062, 2026-08-13).** Reescreve as antigas 5.1–5.3 (base). **A ordem não é negociável:** a **fundação de permissões (5.1) vem primeiro** — sem ela, o Financeiro **nasceria visível para toda a equipe**, que é justamente o que o DL-062 existe para evitar. Depois o Financeiro (registro → recebimentos → exportação → situação em Clientes), então o Dashboard, e por fim a navegação. **Fora desta leva (2ª leva, já registrada no DL-061):** remuneração de equipe, comissão, "quanto gastei com a equipe".
+> **1ª LEVA — quebra em stories na ordem de implementação (DL-061/DL-062, 2026-08-13; cortes 2026-08-14).** Reescreve as antigas 5.1–5.3 (base). **A ordem não é negociável:** a **fundação de permissões (5.1) vem primeiro** — sem ela, o Financeiro **nasceria visível para toda a equipe**, que é justamente o que o DL-062 existe para evitar. Depois o Financeiro (registro → recebimentos → **exportação CSV** → situação em Clientes) e o Dashboard.
+> **Cortes de escopo (Renato, 2026-08-14):** **(a)** exportação **só CSV** — PDF é evolução (5.4); **(b)** **5.7 (navegação) não é story** — o ajuste da tab bar entra junto da story do módulo que a exige; **(c)** **5.8 (PaymentGateway) sai da leva** — vira evolução (não entrega nada visível). **Fora desta leva (2ª leva, DL-061):** remuneração de equipe, comissão, "quanto gastei com a equipe".
 
 ### Story 5.1: Fundação de permissões — visibilidade de MÓDULO + interruptores por pessoa (DL-062)
 
@@ -961,17 +962,21 @@ So that eu saiba quanto entrou e quanto ainda está pendente.
 **When** o backend calcula os totais
 **Then** é sempre **escopado por `company_id`** (isolamento de tenant) e protegido pelo interruptor do módulo (`403` sem acesso)
 
-### Story 5.4: Financeiro — exportação em CSV e PDF
+### Story 5.4: Financeiro — exportação em CSV
+
+> **Corte de escopo (Renato, 2026-08-14): SOMENTE CSV.** O CSV abre no Excel e
+> resolve o caso real (contabilidade, comprovação). **PDF fica como evolução** —
+> não bloqueia a 1ª leva.
 
 As a Dono/Gestão com acesso a Financeiro,
-I want exportar os recebimentos do período,
-So that eu leve os números para fora do sistema (contabilidade, comprovação).
+I want exportar os recebimentos do período em CSV,
+So that eu leve os números para fora do sistema (abre no Excel).
 
 **Acceptance Criteria:**
 
 **Given** a lista de Recebimentos de um período
 **When** exporto
-**Then** gero **CSV** e **PDF** com os mesmos dados e totais exibidos na tela
+**Then** gero **CSV** com os mesmos dados e totais exibidos na tela *(PDF = evolução, fora desta leva)*
 
 **Given** a exportação
 **When** implementada
@@ -1007,31 +1012,29 @@ So that eu acompanhe faturamento e fluxo sem depender de planilha.
 
 **Given** a exportação
 **When** exporto o Dashboard
-**Then** reaproveito o mecanismo da 5.4 (CSV/PDF). *(Sem "relatório anual" neste momento — evolução.)*
+**Then** reaproveito o mecanismo da 5.4 (**CSV**). *(Sem "relatório anual" e sem PDF neste momento — evolução.)*
 
 **Given** o eixo de módulo (DL-062)
 **When** alguém sem o interruptor acessa
 **Then** o backend nega com `403` e o menu não aparece
 
-### Story 5.7: Navegação — tab bar mobile + Configurações pelo perfil (mobile)
+### ~~Story 5.7: Navegação~~ — *NÃO é story própria (corte 2026-08-14)*
 
-As a usuário do painel,
-I want navegar pelos novos módulos sem quebrar a barra do celular,
-So that Financeiro e Dashboard caibam na navegação mobile.
+> **Corte de escopo (Renato, 2026-08-14):** a navegação **não** é uma story
+> separada. O **ajuste da tab bar mobile** (comportar o menu novo sem truncar)
+> entra **junto da story que introduz o módulo novo** — ou seja, no Financeiro
+> (5.2) quando ele vira menu próprio, e no Dashboard (5.6). Cada módulo que nasce
+> é responsável por caber na navegação. Regra permanente de navegação (desktop =
+> Configurações na sidebar; mobile = Configurações pelo perfil) segue no DL-061,
+> não precisa de story.
 
-**Acceptance Criteria:**
+### ~~Story 5.8: Abstração PaymentGateway~~ — *FORA da 1ª leva (corte 2026-08-14)*
 
-**Given** os novos menus (Financeiro, Dashboard)
-**When** reviso a **tab bar do mobile**
-**Then** ela comporta os módulos **sem truncar** (os que a pessoa não tem acesso já não aparecem — DL-062)
-
-**Given** a navegação por plataforma
-**When** comparo desktop e mobile
-**Then** no **desktop** Configurações segue na **sidebar**; no **mobile** Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile conscientemente aceita — DL-061)
-
-### Story 5.8: Abstração PaymentGateway (preparação, sem integração) — *mantida, não gate da 1ª leva*
-
-> Preparação de arquitetura (NFR-O4). **Não** é obrigatória para vender a 1ª leva (o registro manual opera sem ela); pode acompanhar a 5.2 ou ficar para o momento da integração real.
+> **Corte de escopo (Renato, 2026-08-14): SAI da 1ª leva.** Não entrega nada
+> visível e prepara um futuro incerto (gateway de pagamento). Vira **evolução** —
+> volta a entrar em cena **quando/se** houver integração real (ex.: Asaas). O
+> registro manual de pagamento (5.2) opera sem ela. A abstração `PaymentGateway`
+> segue **documentada** (abaixo) para quando a hora chegar; não é trabalho da leva.
 
 As a operador da plataforma,
 I want a abstração de gateway de pagamento preparada sem integração ativa,

@@ -15,14 +15,23 @@ import {
   setTokens,
 } from "../lib/session";
 
+// Intervalo do polling de flags (DL-062). ~20s: rápido o bastante para uma
+// revogação "sumir" quase na hora, leve o bastante para não pesar.
+const FLAGS_POLL_MS = 20000;
+
 export interface CurrentUser {
   id: string;
   companyId: string;
   name: string;
   email: string;
-  accessLevel: "owner" | "manager" | "basic";
+  accessLevel: "owner" | "manager";
   attendsClients: boolean;
   theme: "light" | "dark";
+  // Flags de permissão (DL-062) — o front monta menu/rotas/escopo a partir daqui.
+  // O `owner` ignora os flags (ver lib/permissions). Vêm de /users/me.
+  canViewFinanceiro: boolean;
+  canViewDashboard: boolean;
+  canManageAllAppointments: boolean;
 }
 
 /** Estabelecimento oferecido na desambiguação de e-mail (DL-052). */
@@ -49,6 +58,12 @@ interface AuthContextValue {
   setTheme: (theme: "light" | "dark") => Promise<void>;
   /** Aplica uma sessão a partir de tokens (ex.: aceite de convite) e carrega o perfil. */
   applySession: (accessToken: string, refreshToken: string) => Promise<void>;
+  /**
+   * Recarrega o perfil (flags) SEM derrubar a sessão em falha transitória — é o
+   * que faz uma concessão/revogação de acesso pelo Dono "aparecer" sem relogar
+   * (DL-062). Chamado por polling e sob demanda (ex.: 403 de módulo).
+   */
+  refreshUser: () => Promise<void>;
 }
 
 /**
@@ -90,6 +105,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
   }, []);
+
+  /**
+   * Recarrega os flags do /users/me SEM derrubar a sessão em falha (≠ loadProfile,
+   * que zera o usuário no erro). Assim o polling não desloga por um blip, e uma
+   * concessão/revogação de acesso pelo Dono converge sozinha (DL-062).
+   */
+  const refreshUser = useCallback(async (): Promise<void> => {
+    if (!getAccessToken()) return;
+    try {
+      const res = await authedRequest("/users/me");
+      if (res.ok) {
+        setUser((await res.json()) as CurrentUser);
+      }
+    } catch {
+      /* poll é best-effort — mantém a sessão atual */
+    }
+  }, []);
+
+  // Polling dos flags: enquanto autenticado, revê o /users/me periodicamente para
+  // que ligar/desligar um acesso pelo Dono apareça sem relogar (menu/rotas somem
+  // ou surgem no próximo ciclo). Gated por um BOOLEAN estável (não pelo objeto
+  // `user`), senão o intervalo se reinicia a cada refresh.
+  const authed = user !== null;
+  useEffect(() => {
+    if (!authed) return;
+    const t = setInterval(() => void refreshUser(), FLAGS_POLL_MS);
+    return () => clearInterval(t);
+  }, [authed, refreshUser]);
 
   // Quando a sessão morre dentro de uma requisição (refresh também venceu),
   // o session.ts chama isto → zera o usuário → o `Protected` redireciona ao
@@ -163,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         setTheme,
         applySession,
+        refreshUser,
       }}
     >
       {children}

@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { canManageAllAppointments } from "../lib/permissions";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
 import { usePendentes } from "../lib/usePendentes";
@@ -65,8 +66,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isOwner = user?.accessLevel === "owner";
-  const canSeePendentes =
-    user?.accessLevel === "owner" || user?.accessLevel === "manager";
+  // Pendentes = tratar a fila da equipe → exige gerenciar a agenda de TODA a
+  // equipe (owner ou o flag). Gestão sem o flag não vê o item (DL-062). O
+  // polling de flags do AuthContext faz isto convergir sem relogar.
+  const canSeePendentes = canManageAllAppointments(user);
 
   // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
   useEffect(() => {
