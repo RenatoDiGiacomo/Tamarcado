@@ -452,9 +452,10 @@ PR única da 5.1). Detalhe da decisão no **DL-062 → Refinamento (2026-08-14)*
   por `professional_services`; **exceção** — a **busca de cliente do agendamento
   não recorta**. **Valores:** regra registrada, sem campo hoje (ponto de corte
   no `@Actor` para a 5.2 plugar).
-- **Front:** Pendentes reativado para todos (backend escopa); ações
-  Confirmar/Recusar só para quem gerencia a equipe (Profissional em somente
-  leitura). **Cabeçalho:** logo **e** nome juntos (logo maior).
+- **Front:** Pendentes reativado para todos (backend escopa). **Confirmar/Recusar
+  liberados ao Profissional nos pendentes DELE** (dono-do-item, decisão
+  2026-08-14) — sem o seletor de reatribuir; o não atribuído fica com quem
+  gerencia. **Cabeçalho:** logo **e** nome juntos (logo maior).
 - **e2e:** revogação imediata provada por **flip de visibilidade** do pendente
   não atribuído; + e2e de rule 2 (Clientes) e rule 5 (Serviços).
 

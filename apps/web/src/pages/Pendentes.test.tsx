@@ -158,15 +158,17 @@ describe("Pendentes", () => {
     expect(refreshMock).toHaveBeenCalled();
   });
 
-  it("Profissional (sem gerência) vê os pendentes em SOMENTE LEITURA (sem Confirmar/Recusar)", async () => {
+  it("Profissional (sem gerência) confirma/recusa os SEUS pendentes, mas SEM reatribuir (DL-062)", async () => {
     useAuthMock.mockReturnValue({
       user: { accessLevel: "professional", canManageAllAppointments: false },
     });
     seedLoad();
     render(<Pendentes />);
-    await screen.findByText("Maria das Dores"); // vê o pendente dele
-    // Mas SEM as ações — confirmar/recusar são de quem gerencia a equipe.
-    expect(screen.queryByRole("button", { name: "Confirmar" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Recusar" })).toBeNull();
+    await screen.findByText("Maria das Dores"); // vê o pendente dele (lista escopada)
+    // Pode confirmar/recusar (dono-do-item) — a lista já vem só com os dele.
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recusar" })).toBeInTheDocument();
+    // Mas NÃO reatribui → sem o seletor de Profissional.
+    expect(screen.queryByLabelText("Profissional")).toBeNull();
   });
 });

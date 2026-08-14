@@ -195,10 +195,13 @@ export function Pendentes() {
                   value={`${item.date.split("-").reverse().join("/")} · ${item.start}–${item.end}`}
                 />
               </dl>
-              {/* Ações só para quem gerencia a agenda de toda a equipe (DL-062).
-                  O profissional vê os seus pendentes em SOMENTE LEITURA. */}
-              {managesAll && (
-                <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
+              {/* Confirmar/Recusar: quem gerencia a equipe trata qualquer; o
+                  Profissional trata os SEUS (dono-do-item, DL-062) — e como a
+                  lista dele já vem escopada aos seus, os botões valem em todos.
+                  O seletor de profissional (reatribuir) fica só para quem
+                  gerencia — o Profissional não reatribui a outra. */}
+              <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
+                {managesAll ? (
                   <label className="flex flex-col gap-1.5 text-sm sm:max-w-56">
                     <span className="font-medium text-foreground">
                       Profissional (opcional)
@@ -219,24 +222,26 @@ export function Pendentes() {
                       ))}
                     </select>
                   </label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      className="text-muted-foreground"
-                      disabled={busyId === item.id}
-                      onClick={() => setRejecting(item)}
-                    >
-                      Recusar
-                    </Button>
-                    <Button
-                      disabled={busyId === item.id}
-                      onClick={() => void confirm(item)}
-                    >
-                      Confirmar
-                    </Button>
-                  </div>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    disabled={busyId === item.id}
+                    onClick={() => setRejecting(item)}
+                  >
+                    Recusar
+                  </Button>
+                  <Button
+                    disabled={busyId === item.id}
+                    onClick={() => void confirm(item)}
+                  >
+                    Confirmar
+                  </Button>
                 </div>
-              )}
+              </div>
             </li>
           ))}
         </ul>

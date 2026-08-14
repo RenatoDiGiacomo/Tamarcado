@@ -135,7 +135,7 @@ export class AppointmentsController {
   /**
    * Confirma um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
    * profissional OPCIONALMENTE (PR-1). Leva ao badge "confirmado" da 3.7. Só
-   * owner/gerente (PR-3). Auditado em `appointment_changes`. Também no modal.
+   * quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado. Também no modal.
    */
   @Patch(":id/confirm")
   @Roles("owner", "professional")
@@ -149,7 +149,7 @@ export class AppointmentsController {
 
   /**
    * Recusa um PENDENTE (Story 5B.3/FR-B4): `pending → cancelled` com motivo
-   * OBRIGATÓRIO (reusa o padrão da 3.4). Só owner/gerente. Auditado.
+   * OBRIGATÓRIO (reusa o padrão da 3.4). Quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado.
    */
   @Patch(":id/reject")
   @Roles("owner", "professional")

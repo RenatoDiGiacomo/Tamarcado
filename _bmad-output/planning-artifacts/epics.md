@@ -892,7 +892,7 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 > **renomeado `manager` → `professional`**: os papéis são **DONO** e
 > **PROFISSIONAL**. (b) O escopo do Profissional é **"vê, mas só o que é dele"**,
 > tudo no **backend**: **Pendentes** reativado mas só os DELE (não atribuído só
-> para quem gerencia a equipe; badge idem; Confirmar/Recusar só de quem gerencia);
+> para quem gerencia a equipe; badge idem; **Confirmar/Recusar liberados ao Profissional nos pendentes DELE** — dono-do-item, sem reatribuir; o não atribuído fica com quem gerencia);
 > **Clientes** (lista do módulo) só as que ELE atendeu — **exceto** a busca do
 > agendamento, que acha qualquer cliente; **histórico da cliente** só os
 > atendimentos DELE; **serviços** só os que ELE executa; **valores** não trafegam

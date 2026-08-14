@@ -184,14 +184,14 @@ describe("Pendentes no painel (e2e)", () => {
     await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${owner}`).send({ reason: "x" }).expect(409);
   });
 
-  it("ESCOPO (DL-062, refino): Profissional vê SÓ os pendentes DELE; não confirma/recusa (403)", async () => {
+  it("ESCOPO (DL-062, refino): Profissional vê e trata SÓ os pendentes DELE; o não atribuído → 403", async () => {
     // prof@pend.dev é professional sem `can_manage_all_appointments`.
     const unassigned = await seedPending(null); // não atribuído → NÃO é dele
-    await seedPending(profId); // atribuído a ele → é dele
+    const own = await seedPending(profId); // atribuído a ele → é dele
     const prof = await login("prof@pend.dev");
 
-    // list/count agora são ESCOPADOS (200), não 403: vê só o pendente dele (1),
-    // o não atribuído fica para quem gerencia a equipe.
+    // list/count ESCOPADOS (200): vê só o pendente dele (1); o não atribuído
+    // fica para quem gerencia a equipe.
     const list = await api()
       .get("/api/appointments/pending")
       .set("Authorization", `Bearer ${prof}`);
@@ -203,9 +203,34 @@ describe("Pendentes no painel (e2e)", () => {
       .set("Authorization", `Bearer ${prof}`);
     expect(count.body).toEqual({ count: 1 });
 
-    // Mas CONFIRMAR/RECUSAR seguem exigindo gerência da equipe → 403.
+    // No NÃO ATRIBUÍDO (não é dele) → 403 no confirmar e no recusar.
     await api().patch(`/api/appointments/${unassigned}/confirm`).set("Authorization", `Bearer ${prof}`).send({}).expect(403);
     await api().patch(`/api/appointments/${unassigned}/reject`).set("Authorization", `Bearer ${prof}`).send({ reason: "x" }).expect(403);
+
+    // No DELE → pode RECUSAR com justificativa (dono-do-item).
+    await api()
+      .patch(`/api/appointments/${own}/reject`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({ reason: "Sem horário nesse dia" })
+      .expect(200);
+  });
+
+  it("CONFIRMAR o próprio pendente (Profissional, dono-do-item) → 200; reatribuir a outra → 403", async () => {
+    const own = await seedPending(profId);
+    const alheio = await seedPending(profId);
+    const prof = await login("prof@pend.dev");
+    // Confirma o DELE (sem reatribuir) → 200.
+    await api()
+      .patch(`/api/appointments/${own}/confirm`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({})
+      .expect(200);
+    // Tentar reatribuir o DELE a OUTRA pessoa → 403 (não reatribui).
+    await api()
+      .patch(`/api/appointments/${alheio}/confirm`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({ professionalId: ownerId })
+      .expect(403);
   });
 
   it("owner vê TODOS os pendentes (atribuídos e não atribuídos)", async () => {
