@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { authedRequest } from "../lib/session";
 import { useAuth } from "../auth/AuthContext";
+import { canManageAllAppointments } from "../lib/permissions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export interface EditingAppointment {
 /**
  * Novo agendamento manual (Story 3.3, D4 = modal sobre a agenda) — e **edição**
  * unificada (Story 3.6/DL-044). Cliente com busca + cadastro inline (FR-D7);
- * serviço; profissional (oculto para `basic`, D6); data/horário com slots livres
+ * serviço; profissional (oculto p/ Profissional sem o flag, D6); data/horário com slots livres
  * de `/availability` + "outro horário". Overbooking = aviso, não bloqueio (D1).
  * Cria via `POST /appointments`; em modo edição, **cliente fixo** e salva via
  * `PATCH /appointments/:id` (serviço + horário + profissional juntos).
@@ -96,7 +97,7 @@ export function NovoAgendamento({
   editing?: EditingAppointment | null;
 }) {
   const { user } = useAuth();
-  const isBasic = user?.accessLevel === "basic";
+  const isRestricted = !canManageAllAppointments(user); // Profissional sem o flag = só para si (DL-062)
 
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [attenders, setAttenders] = useState<Attender[]>([]);
@@ -267,15 +268,16 @@ export function NovoAgendamento({
     setSubmitting(true);
     try {
       if (editing) {
-        // Edição (3.6): cliente fixo; envia serviço/horário/profissional. `basic`
-        // assume para si (professionalId = self); owner/gerente enviam o escolhido.
+        // Edição (3.6): cliente fixo; envia serviço/horário/profissional. Profissional
+        // sem o flag assume para si (professionalId = self); quem gerencia a
+        // equipe (owner ou o flag) envia o escolhido.
         const res = await authedRequest(`/appointments/${editing.appointmentId}`, {
           method: "PATCH",
           body: {
             serviceId,
             date: formDate,
             time: chosenTime,
-            professionalId: isBasic
+            professionalId: isRestricted
               ? (user?.id ?? null)
               : professionalId || null,
           } ,
@@ -295,7 +297,7 @@ export function NovoAgendamento({
         body: {
           client_id: selectedClient.id,
           service_id: serviceId,
-          professional_id: isBasic ? undefined : professionalId || null,
+          professional_id: isRestricted ? undefined : professionalId || null,
           date: formDate,
           time: chosenTime,
         } ,
@@ -440,8 +442,8 @@ export function NovoAgendamento({
             </select>
           </div>
 
-          {/* Profissional (oculto para basic — D6) */}
-          {!isBasic && (
+          {/* Profissional (oculto p/ Profissional sem o flag — D6) */}
+          {!isRestricted && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="prof">Profissional</Label>
               <select

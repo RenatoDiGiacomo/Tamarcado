@@ -15,7 +15,7 @@ function user(over: Partial<Actor> = {}): Actor {
 
 describe("resolveProfessionalId (FR-D2/DL-009, revisado DL-062)", () => {
   it("SEM o flag (Gestão restrita) sempre cria para si (ignora o body)", () => {
-    const restrito = { accessLevel: "manager" as const, canManageAll: false, userId: "7" };
+    const restrito = { accessLevel: "professional" as const, canManageAll: false, userId: "7" };
     expect(resolveProfessionalId(user(restrito), "99")).toBe("7");
     expect(resolveProfessionalId(user(restrito), null)).toBe("7");
   });
@@ -23,7 +23,7 @@ describe("resolveProfessionalId (FR-D2/DL-009, revisado DL-062)", () => {
   it("COM o flag (ou owner) usa o escolhido", () => {
     expect(resolveProfessionalId(user({ accessLevel: "owner", canManageAll: true }), "42")).toBe("42");
     expect(
-      resolveProfessionalId(user({ accessLevel: "manager", canManageAll: true }), "42"),
+      resolveProfessionalId(user({ accessLevel: "professional", canManageAll: true }), "42"),
     ).toBe("42");
   });
 

@@ -84,7 +84,7 @@ describe("AppShell", () => {
 
   it("desktop: esconde Configurações de não-owner", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Gestor", accessLevel: "manager", theme: "light" },
+      user: { name: "Gestor", accessLevel: "professional", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(true);
@@ -106,9 +106,14 @@ describe("AppShell", () => {
     expect(screen.getByLabelText("3 pendentes")).toBeInTheDocument();
   });
 
-  it("Pendentes: sem pendentes (count 0) não mostra badge", () => {
+  it("Pendentes: Profissional COM o flag de gerenciar a agenda vê o item; count 0 não mostra badge", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Gestor", accessLevel: "manager", theme: "light" },
+      user: {
+        name: "Gestor",
+        accessLevel: "professional",
+        theme: "light",
+        canManageAllAppointments: true,
+      },
       logout: vi.fn(),
     });
     usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
@@ -118,15 +123,21 @@ describe("AppShell", () => {
     expect(screen.queryByLabelText(/pendentes$/)).toBeNull();
   });
 
-  it("Pendentes: basic não vê o item (owner/gerente apenas)", () => {
+  it("Pendentes: Profissional SEM o flag TAMBÉM vê o item (escopado no backend — refino DL-062)", () => {
     useAuthMock.mockReturnValue({
-      user: { name: "Profissional", accessLevel: "basic", theme: "light" },
+      user: {
+        name: "Profissional",
+        accessLevel: "professional",
+        theme: "light",
+        canManageAllAppointments: false,
+      },
       logout: vi.fn(),
     });
     usePendentesMock.mockReturnValue({ count: 0, refresh: vi.fn() });
     mockMatchMedia(true);
     renderShell();
-    expect(screen.queryByRole("link", { name: /Pendentes/ })).toBeNull();
+    // Antes ficava escondido; agora aparece (o backend recorta aos DELE).
+    expect(screen.getByRole("link", { name: /Pendentes/ })).toBeInTheDocument();
   });
 
   it("mobile (<768px): tab bar de 4 abas + FAB direto para Novo agendamento (Épico 7)", () => {

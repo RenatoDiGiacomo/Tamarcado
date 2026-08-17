@@ -12,6 +12,13 @@ vi.mock("../lib/usePendentes", () => ({
   usePendentes: () => ({ count: 0, refresh: refreshMock }),
 }));
 
+// useAuth: por padrão owner (canManageAll → ações Confirmar/Recusar visíveis).
+// O caso do profissional read-only tem teste próprio.
+const useAuthMock = vi.fn();
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => useAuthMock(),
+}));
+
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 function jsonRes(body: unknown, ok = true): Response {
@@ -54,6 +61,8 @@ describe("Pendentes", () => {
   beforeEach(() => {
     apiMock.mockReset();
     refreshMock.mockReset();
+    useAuthMock.mockReset();
+    useAuthMock.mockReturnValue({ user: { accessLevel: "owner" } });
     localStorage.setItem("tamarcado.access", "tok");
   });
 
@@ -147,5 +156,19 @@ describe("Pendentes", () => {
       expect(screen.queryByText("Maria das Dores")).toBeNull(),
     );
     expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("Profissional (sem gerência) confirma/recusa os SEUS pendentes, mas SEM reatribuir (DL-062)", async () => {
+    useAuthMock.mockReturnValue({
+      user: { accessLevel: "professional", canManageAllAppointments: false },
+    });
+    seedLoad();
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores"); // vê o pendente dele (lista escopada)
+    // Pode confirmar/recusar (dono-do-item) — a lista já vem só com os dele.
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recusar" })).toBeInTheDocument();
+    // Mas NÃO reatribui → sem o seletor de Profissional.
+    expect(screen.queryByLabelText("Profissional")).toBeNull();
   });
 });

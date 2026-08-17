@@ -164,9 +164,12 @@ export class AppointmentsService {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
+    // Refinamento DL-062 (2026-08-14): no histórico da cliente, o profissional
+    // vê SÓ os atendimentos DELE — nem de outras, nem os não atribuídos
+    // (includeUnassigned=false). Quem gerencia a equipe vê todos.
     const rows = await this.appointmentsRepo.findByClient(
       clientId,
-      roleScope(user),
+      roleScope(user, false),
     );
     return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
   }
@@ -545,25 +548,32 @@ export class AppointmentsService {
     return toAppointmentView(row, tz);
   }
 
-  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. */
-  async listPending(): Promise<{ appointments: AppointmentView[] }> {
+  /**
+   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Recorte
+   * (refinamento DL-062, 2026-08-14): quem gerencia a equipe vê todos; o
+   * profissional vê **só os pendentes em que ELE é o profissional** (não
+   * atribuído fica só para quem gerencia — `includeUnassigned=false`).
+   */
+  async listPending(user: Actor): Promise<{ appointments: AppointmentView[] }> {
     const companyId = this.tenant.getCompanyId();
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
-    const rows = await this.appointmentsRepo.findPending();
+    const rows = await this.appointmentsRepo.findPending(roleScope(user, false));
     return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
   }
 
-  /** Contagem de pendentes do tenant (Story 5B.3) — o contador/badge. */
-  async pendingCount(): Promise<{ count: number }> {
-    return { count: await this.appointmentsRepo.countPending() };
+  /** Contagem de pendentes — MESMO recorte da listPending (o badge segue a regra). */
+  async pendingCount(user: Actor): Promise<{ count: number }> {
+    return {
+      count: await this.appointmentsRepo.countPending(roleScope(user, false)),
+    };
   }
 
   /**
    * Confirmar um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
    * profissional **opcionalmente** (PR-1). Leva ao StatusChip "confirmado" já
    * existente (3.7). Auditoria unificada em `appointment_changes` (status e, se
-   * atribuiu, profissional). Só owner/gerente (PR-3). Também disponível no modal.
+   * atribuiu, profissional). Quem gerencia a equipe trata qualquer pendente; o Profissional só os DELE (dono-do-item, DL-062). Também no modal.
    */
   async confirmPending(
     id: string,
@@ -575,10 +585,20 @@ export class AppointmentsService {
     if (!appt) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
+    // Quem gerencia a equipe trata qualquer pendente. O Profissional trata só os
+    // DELE (dono-do-item, refino DL-062): pendente em que ELE é o profissional;
+    // o NÃO ATRIBUÍDO fica só para quem gerencia. E não pode reatribuir a outro.
     if (!user.canManageAll) {
-      throw new ForbiddenException(
-        "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
-      );
+      if (appt.professional_id !== user.userId) {
+        throw new ForbiddenException(
+          "Você só pode confirmar os pendentes em que você é a profissional.",
+        );
+      }
+      if (professionalId != null && professionalId !== user.userId) {
+        throw new ForbiddenException(
+          "Você não pode atribuir o pendente a outra profissional.",
+        );
+      }
     }
     if (appt.status !== "pending") {
       throw new ConflictException(
@@ -652,7 +672,7 @@ export class AppointmentsService {
    * OBRIGATÓRIO. Reusa o padrão de cancelamento (3.4: `cancelled_by` = lado do
    * estabelecimento + `cancelled_by_user_id` = a pessoa + `cancellation_reason`)
    * e audita em `appointment_changes`. O motivo é o que o bot usa depois (FR-B5).
-   * Só owner/gerente (PR-3).
+   * Quem gerencia a equipe trata qualquer; o Profissional só os DELE (dono-do-item, DL-062).
    */
   async rejectPending(
     id: string,
@@ -664,9 +684,11 @@ export class AppointmentsService {
     if (!appt) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    if (!user.canManageAll) {
+    // Mesma regra do confirmar (refino DL-062): o Profissional recusa só os DELE
+    // (com justificativa); o não atribuído fica para quem gerencia a equipe.
+    if (!user.canManageAll && appt.professional_id !== user.userId) {
       throw new ForbiddenException(
-        "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
+        "Você só pode recusar os pendentes em que você é a profissional.",
       );
     }
     if (appt.status !== "pending") {

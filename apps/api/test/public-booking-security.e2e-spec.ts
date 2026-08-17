@@ -74,7 +74,7 @@ describe("Segurança do agendamento público (e2e)", () => {
       await ctx.dataSource.getRepository(User).save(
         ctx.dataSource.getRepository(User).create({
           company_id: a.id, name: "Ana", email: "ana@a.dev", password_hash: "x",
-          access_level: "manager", attends_clients: true, theme: "light", is_active: true,
+          access_level: "professional", attends_clients: true, theme: "light", is_active: true,
         }),
       )
     ).id;

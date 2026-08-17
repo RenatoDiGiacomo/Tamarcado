@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -37,15 +36,6 @@ import { Roles } from "../../common/decorators/roles.decorator";
  * (não com @Roles — todos leem, mas o `basic` só vê os próprios + não atribuídos).
  * Tenant-aware: registrado em TENANT_AWARE_CONTROLLERS (guard-rail 1.3.01).
  */
-/** Tratar a fila de pendentes é operação de agenda de TODA a equipe (DL-062). */
-function requireManageAll(actor: Actor): void {
-  if (!actor.canManageAll) {
-    throw new ForbiddenException(
-      "Apenas quem gerencia a agenda de toda a equipe pode tratar pendentes.",
-    );
-  }
-}
-
 @ApiTags("appointments")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
@@ -63,26 +53,24 @@ export class AppointmentsController {
   }
 
   /**
-   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Tratar a fila é
-   * operação de agenda de TODA a equipe → exige `canManageAll` (DL-062): owner ou
-   * o flag `can_manage_all_appointments`. Gestão sem o flag → 403. Lido da linha
-   * fresca (`@Actor`) → revogação imediata.
+   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. **Escopado**
+   * (refinamento DL-062, 2026-08-14): quem gerencia a equipe vê todos; o
+   * profissional vê **só os seus** (o service aplica o recorte por `@Actor`). Por
+   * isso NÃO há mais gate de acesso aqui — todo autenticado lista, filtrado.
    */
   @Get("pending")
   async listPending(
     @CurrentActor() actor: Actor,
   ): Promise<{ appointments: AppointmentView[] }> {
-    requireManageAll(actor);
-    return this.appointments.listPending();
+    return this.appointments.listPending(actor);
   }
 
-  /** Contagem de pendentes (Story 5B.3) — o contador/badge. Mesmo gate da fila. */
+  /** Contagem de pendentes (Story 5B.3) — o contador/badge, MESMO recorte. */
   @Get("pending-count")
   async pendingCount(
     @CurrentActor() actor: Actor,
   ): Promise<{ count: number }> {
-    requireManageAll(actor);
-    return this.appointments.pendingCount();
+    return this.appointments.pendingCount(actor);
   }
 
   /**
@@ -147,10 +135,10 @@ export class AppointmentsController {
   /**
    * Confirma um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
    * profissional OPCIONALMENTE (PR-1). Leva ao badge "confirmado" da 3.7. Só
-   * owner/gerente (PR-3). Auditado em `appointment_changes`. Também no modal.
+   * quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado. Também no modal.
    */
   @Patch(":id/confirm")
-  @Roles("owner", "manager")
+  @Roles("owner", "professional")
   async confirm(
     @Param("id") id: string,
     @Body() dto: ConfirmPendingDto,
@@ -161,10 +149,10 @@ export class AppointmentsController {
 
   /**
    * Recusa um PENDENTE (Story 5B.3/FR-B4): `pending → cancelled` com motivo
-   * OBRIGATÓRIO (reusa o padrão da 3.4). Só owner/gerente. Auditado.
+   * OBRIGATÓRIO (reusa o padrão da 3.4). Quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado.
    */
   @Patch(":id/reject")
-  @Roles("owner", "manager")
+  @Roles("owner", "professional")
   async reject(
     @Param("id") id: string,
     @Body() dto: RejectPendingDto,

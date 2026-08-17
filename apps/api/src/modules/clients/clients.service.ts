@@ -52,6 +52,8 @@ export class ClientsService {
     search?: string;
     page?: number;
     pageSize?: number;
+    /** Recorte por profissional (DL-062): só as clientes que ele atendeu. */
+    attendedByProfessionalId?: string;
   }): Promise<ClientListView> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize =
@@ -62,6 +64,7 @@ export class ClientsService {
       search: params.search,
       page,
       pageSize,
+      attendedByProfessionalId: params.attendedByProfessionalId,
     });
     return { clients: rows.map(toView), total, page, pageSize };
   }

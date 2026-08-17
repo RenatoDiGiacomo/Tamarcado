@@ -65,7 +65,7 @@ describe("Fundação pública por slug (e2e)", () => {
         name,
         email: `${name.replace(/\s/g, "").toLowerCase()}@${companyId}.dev`,
         password_hash: "x",
-        access_level: "manager",
+        access_level: "professional",
         attends_clients: attends,
         theme: "light",
         is_active: active,

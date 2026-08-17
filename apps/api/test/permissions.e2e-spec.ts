@@ -3,16 +3,20 @@ import request from "supertest";
 import { Company } from "../src/database/entities/company.entity";
 import { User } from "../src/database/entities/user.entity";
 import type { AccessLevel } from "../src/database/entities/user.entity";
+import { Client } from "../src/database/entities/client.entity";
+import { SalonService } from "../src/database/entities/salon-service.entity";
+import { ProfessionalService } from "../src/database/entities/professional-service.entity";
+import { Appointment } from "../src/database/entities/appointment.entity";
 import { resetSchema } from "./test-db";
 import { bootstrapE2E, teardownE2E, type E2EContext } from "./e2e-app";
 
 /**
  * Story 5.1 — Fundação de permissões (DL-062).
  * Prova, ponta a ponta:
- *  - REVOGAÇÃO IMEDIATA: o Dono desliga um flag e a PRÓXIMA requisição do
- *    usuário (MESMO token, sem relogar) já é 403 — porque a autorização lê a
- *    linha FRESCA do banco a cada request (ActiveUserGuard → @Actor/ModuleGuard),
- *    não o token. É a comprovação que substitui o screenshot da revogação.
+ *  - REVOGAÇÃO IMEDIATA: o Dono desliga um flag e, na PRÓXIMA requisição do
+ *    usuário (MESMO token, sem relogar), o dado JÁ some — porque a autorização
+ *    lê a linha FRESCA do banco a cada request (ActiveUserGuard → @Actor), não o
+ *    token. É a comprovação que substitui o screenshot da revogação.
  *  - `/users/me` expõe os flags (o front monta menu/escopo a partir daí).
  *  - só o Dono concede; o Dono não remove o próprio acesso (owner ignora flags).
  */
@@ -76,7 +80,56 @@ describe("Fundação de permissões (e2e, DL-062)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@perm.dev", "owner", true)).id;
-    managerId = (await seedUser("gestao@perm.dev", "manager", true)).id;
+    managerId = (await seedUser("gestao@perm.dev", "professional", true)).id;
+
+    // Um pendente NÃO ATRIBUÍDO: só quem gerencia a equipe o enxerga. É o alvo
+    // do teste de revogação imediata (aparece com o flag, some sem ele).
+    const client = await ctx.dataSource.getRepository(Client).save(
+      ctx.dataSource.getRepository(Client).create({
+        company_id: companyId,
+        name: "Cliente Perm",
+      }),
+    );
+    const service = await ctx.dataSource.getRepository(SalonService).save(
+      ctx.dataSource.getRepository(SalonService).create({
+        company_id: companyId,
+        name: "Corte",
+        duration_minutes: 60,
+        price: "50.00",
+        is_active: true,
+      }),
+    );
+    // Rule 5: o Profissional executa "Corte" (vínculo), mas NÃO "Coloração".
+    await ctx.dataSource.getRepository(SalonService).save(
+      ctx.dataSource.getRepository(SalonService).create({
+        company_id: companyId,
+        name: "Coloração",
+        duration_minutes: 90,
+        price: "120.00",
+        is_active: true,
+      }),
+    );
+    await ctx.dataSource.getRepository(ProfessionalService).save(
+      ctx.dataSource.getRepository(ProfessionalService).create({
+        company_id: companyId,
+        professional_id: managerId,
+        service_id: service.id,
+      }),
+    );
+    await ctx.dataSource.getRepository(Appointment).save(
+      ctx.dataSource.getRepository(Appointment).create({
+        company_id: companyId,
+        client_id: client.id,
+        service_id: service.id,
+        professional_id: null,
+        scheduled_at: new Date(Date.now() + 3 * 86400000),
+        duration_minutes: 60,
+        price_snapshot: "50.00",
+        status: "pending",
+        source: "manual",
+        created_by_user_id: null,
+      }),
+    );
   });
 
   afterAll(async () => {
@@ -95,37 +148,76 @@ describe("Fundação de permissões (e2e, DL-062)", () => {
     );
   });
 
-  it("REVOGAÇÃO IMEDIATA: Dono liga o escopo de agenda → 200; desliga → a PRÓXIMA requisição (mesmo token) já é 403", async () => {
+  it("REVOGAÇÃO IMEDIATA: Dono liga o escopo → o pendente NÃO ATRIBUÍDO aparece; desliga → some na PRÓXIMA requisição (mesmo token)", async () => {
     const ownerToken = await login("dono@perm.dev");
-    const managerToken = await login("gestao@perm.dev"); // capturado UMA vez
+    const profToken = await login("gestao@perm.dev"); // capturado UMA vez
 
-    // Sem o flag, a Gestão não trata a fila de pendentes (operação de equipe).
-    await api()
+    // Sem o flag, o Profissional vê SÓ os seus pendentes → o não atribuído some.
+    const before = await api()
       .get("/api/appointments/pending")
-      .set("Authorization", `Bearer ${managerToken}`)
-      .expect(403);
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(before.status).toBe(200);
+    expect(before.body.appointments).toHaveLength(0);
 
     // Dono LIGA can_manage_all_appointments.
     await setFlags(ownerToken, managerId, {
       can_manage_all_appointments: true,
     }).expect(200);
 
-    // MESMO token → agora 200, sem relogar.
-    await api()
+    // MESMO token → agora enxerga o pendente não atribuído (sem relogar).
+    const granted = await api()
       .get("/api/appointments/pending")
-      .set("Authorization", `Bearer ${managerToken}`)
-      .expect(200);
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(granted.body.appointments).toHaveLength(1);
 
     // Dono REVOGA.
     await setFlags(ownerToken, managerId, {
       can_manage_all_appointments: false,
     }).expect(200);
 
-    // MESMO token → a PRÓXIMA requisição JÁ é 403. Revogação imediata.
-    await api()
+    // MESMO token → o pendente JÁ sumiu na próxima requisição. Revogação imediata
+    // (a autorização lê a linha fresca do banco a cada request, não o token).
+    const revoked = await api()
       .get("/api/appointments/pending")
-      .set("Authorization", `Bearer ${managerToken}`)
-      .expect(403);
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(revoked.body.appointments).toHaveLength(0);
+  });
+
+  it("SERVIÇOS (rule 5): Profissional só enxerga os serviços que executa; owner vê todos", async () => {
+    const profToken = await login("gestao@perm.dev");
+    const profList = await api()
+      .get("/api/services")
+      .set("Authorization", `Bearer ${profToken}`);
+    const profNames = (profList.body.services as { name: string }[]).map(
+      (s) => s.name,
+    );
+    expect(profNames).toContain("Corte"); // executa
+    expect(profNames).not.toContain("Coloração"); // NÃO executa (só o Dono faria)
+
+    const ownerToken = await login("dono@perm.dev");
+    const ownerList = await api()
+      .get("/api/services")
+      .set("Authorization", `Bearer ${ownerToken}`);
+    const ownerNames = (ownerList.body.services as { name: string }[]).map(
+      (s) => s.name,
+    );
+    expect(ownerNames).toEqual(expect.arrayContaining(["Corte", "Coloração"]));
+  });
+
+  it("CLIENTES (rule 2): lista paginada do módulo recorta ao que o Profissional atendeu; busca do agendamento NÃO recorta", async () => {
+    const profToken = await login("gestao@perm.dev");
+    // O Profissional não atendeu ninguém (o pendente seedado é NÃO atribuído) →
+    // a LISTA do módulo (?page) vem vazia.
+    const list = await api()
+      .get("/api/clients?page=1&pageSize=20")
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.total).toBe(0);
+    // Mas a BUSCA do agendamento (sem ?page) NÃO recorta — acha a cliente.
+    const search = await api()
+      .get("/api/clients?search=Cliente")
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(search.body.clients.length).toBeGreaterThanOrEqual(1);
   });
 
   it("/users/me expõe os flags (o front monta menu e escopo a partir daqui)", async () => {

@@ -95,7 +95,7 @@ describe("Agendamento manual — criação (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser(companyId, "dono@cr.dev", "owner", true)).id;
-    profId = (await seedUser(companyId, "prof@cr.dev", "manager", true)).id;
+    profId = (await seedUser(companyId, "prof@cr.dev", "professional", true)).id;
 
     const corte = await services.save(
       services.create({
@@ -169,7 +169,7 @@ describe("Agendamento manual — criação (e2e)", () => {
 
   it("D1: profissional sem vínculo ao serviço NÃO bloqueia o manual (cria)", async () => {
     // Atende clientes e ativo, mas sem professional_services p/ o serviço.
-    const solo = await seedUser(companyId, "solo@cr.dev", "manager", true);
+    const solo = await seedUser(companyId, "solo@cr.dev", "professional", true);
     const tok = await login("dono@cr.dev");
     const res = await request(ctx.app.getHttpServer())
       .post("/api/appointments")

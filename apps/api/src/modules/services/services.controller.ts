@@ -14,6 +14,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { CurrentActor, type Actor } from "../auth/actor.decorator";
 import { SalonService } from "../../database/entities/salon-service.entity";
 import { ServicesService } from "./services.service";
 import { CreateServiceDto } from "./dto/create-service.dto";
@@ -48,12 +49,21 @@ function toServiceDto(s: SalonService): ServiceDto {
 export class ServicesController {
   constructor(private readonly services: ServicesService) {}
 
-  /** Lista serviços do tenant. `?activeOnly=true` exclui inativos (AC3). */
+  /**
+   * Lista serviços do tenant. `?activeOnly=true` exclui inativos (AC3).
+   * **Recortado (DL-062, 2026-08-14):** o profissional (sem gerência da equipe)
+   * vê só os serviços que ELE executa — é o que ele pode escolher ao agendar.
+   * Quem gerencia a equipe (e Configurações → Serviços, owner) vê todos.
+   */
   @Get()
   async list(
+    @CurrentActor() actor: Actor,
     @Query("activeOnly") activeOnly?: string,
   ): Promise<{ services: ServiceDto[] }> {
-    const items = await this.services.list(activeOnly === "true");
+    const items = await this.services.list(
+      activeOnly === "true",
+      actor.canManageAll ? undefined : actor.userId,
+    );
     return { services: items.map(toServiceDto) };
   }
 

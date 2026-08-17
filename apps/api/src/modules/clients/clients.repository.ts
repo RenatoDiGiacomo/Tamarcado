@@ -43,6 +43,12 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
     search?: string;
     page: number;
     pageSize: number;
+    /**
+     * Refinamento DL-062 (2026-08-14): quando presente, restringe às clientes
+     * que ESTE profissional atendeu (tem ≥1 agendamento não deletado com ela).
+     * `undefined` = sem recorte (quem gerencia a equipe vê a carteira inteira).
+     */
+    attendedByProfessionalId?: string;
   }): Promise<{ rows: Client[]; total: number }> {
     const qb = this.repo
       .createQueryBuilder("c")
@@ -54,6 +60,15 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
       qb.andWhere(
         "(c.name LIKE :like OR c.phone_whatsapp LIKE :like OR c.phone_whatsapp_normalized LIKE :like)",
         { like: `%${term}%` },
+      );
+    }
+
+    if (params.attendedByProfessionalId) {
+      qb.andWhere(
+        "EXISTS (SELECT 1 FROM appointments ap WHERE ap.client_id = c.id " +
+          "AND ap.company_id = c.company_id AND ap.is_deleted = false " +
+          "AND ap.professional_id = :attendedBy)",
+        { attendedBy: params.attendedByProfessionalId },
       );
     }
 

@@ -8,7 +8,7 @@ vi.mock("../lib/api", () => ({
 }));
 
 // Papel do usuário controlável por teste.
-let role: "owner" | "basic" = "owner";
+let role: "owner" | "professional" = "owner";
 vi.mock("../auth/AuthContext", () => ({
   useAuth: () => ({ user: { id: "u1", accessLevel: role } }),
 }));
@@ -53,7 +53,7 @@ function routeApi(path: string, opts: Opts = {}): Response {
   return jsonRes({});
 }
 
-function setup(role_: "owner" | "basic" = "owner") {
+function setup(role_: "owner" | "professional" = "owner") {
   role = role_;
   const onCreated = vi.fn();
   const onOpenChange = vi.fn();
@@ -177,8 +177,8 @@ describe("NovoAgendamento", () => {
     ).toBeInTheDocument();
   });
 
-  it("oculta o campo Profissional para basic (D6)", async () => {
-    setup("basic");
+  it("oculta o campo Profissional para Profissional sem o flag (D6)", async () => {
+    setup("professional");
     await screen.findByText("Novo agendamento");
     expect(screen.getByLabelText("Serviço")).toBeInTheDocument();
     expect(screen.queryByLabelText("Profissional")).toBeNull();

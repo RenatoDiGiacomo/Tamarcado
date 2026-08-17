@@ -115,8 +115,8 @@ describe("Marcar comparecimento (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@status.dev", "owner", true)).id;
-    profId = (await seedUser("prof@status.dev", "manager", true)).id;
-    otherProfId = (await seedUser("outra@status.dev", "manager", true)).id;
+    profId = (await seedUser("prof@status.dev", "professional", true)).id;
+    otherProfId = (await seedUser("outra@status.dev", "professional", true)).id;
 
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(

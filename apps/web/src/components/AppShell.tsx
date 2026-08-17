@@ -65,8 +65,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isOwner = user?.accessLevel === "owner";
-  const canSeePendentes =
-    user?.accessLevel === "owner" || user?.accessLevel === "manager";
+  // Pendentes é visível a todo autenticado; o backend ESCOPA (o profissional vê
+  // só os pendentes dele; quem gerencia a equipe vê todos). Refino DL-062
+  // (2026-08-14) — antes o item era escondido de quem não gerencia.
+  const canSeePendentes = user != null;
 
   // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
   useEffect(() => {
@@ -105,12 +107,21 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // Desktop: sidebar inclui Configurações (owner) ao fim.
   const items: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
 
-  const brand = installation?.logoUrl ? (
-    <img src={installation.logoUrl} alt={installation.name} className="h-7" />
-  ) : (
-    <strong className="text-sm font-semibold text-foreground">
-      {installation?.name ?? "Tamarcado"}
-    </strong>
+  // Cabeçalho (rule 6, 2026-08-14): mostra logo E nome juntos (antes era um OU
+  // outro). O logo, quando existe, vem maior; o nome fica ao lado na mesma linha.
+  const brand = (
+    <div className="flex items-center gap-2">
+      {installation?.logoUrl && (
+        <img
+          src={installation.logoUrl}
+          alt=""
+          className="h-10 w-auto shrink-0"
+        />
+      )}
+      <strong className="truncate text-sm font-semibold text-foreground">
+        {installation?.name ?? "Tamarcado"}
+      </strong>
+    </div>
   );
 
   if (isDesktop) {

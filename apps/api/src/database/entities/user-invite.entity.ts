@@ -31,8 +31,8 @@ export class UserInvite {
   name!: string;
 
   // Convite nunca cria 'owner' (FR-I3 / DL-029 item 4); validado no DTO. O
-  // 'basic' foi aposentado (DL-062) — restam owner/manager no enum da coluna.
-  @Column({ type: "enum", enum: ["owner", "manager"] })
+  // 'basic' foi aposentado (DL-062) — restam owner/professional no enum da coluna.
+  @Column({ type: "enum", enum: ["owner", "professional"] })
   access_level!: AccessLevel;
 
   @Column({ type: "boolean", default: false })

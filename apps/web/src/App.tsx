@@ -64,6 +64,8 @@ export function App() {
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Agenda />} />
+        {/* Pendentes é acessível a todo autenticado; o backend ESCOPA (o
+            profissional vê só os seus). Refino DL-062 (2026-08-14). */}
         <Route path="/pendentes" element={<Pendentes />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/clientes/:id" element={<ClientePerfil />} />
