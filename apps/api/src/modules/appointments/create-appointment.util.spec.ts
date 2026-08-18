@@ -9,6 +9,7 @@ function user(over: Partial<Actor> = {}): Actor {
     companyId: "1",
     accessLevel: "owner",
     canManageAll: true,
+    canViewFinanceiro: true,
     ...over,
   };
 }

@@ -8,7 +8,7 @@ import {
   useAppointmentsVersion,
 } from "../../lib/appointmentsSignal";
 import { useAuth } from "../../auth/AuthContext";
-import { canManageAllAppointments } from "../../lib/permissions";
+import { canManageAllAppointments, canViewModule } from "../../lib/permissions";
 import { usePendentes } from "../../lib/usePendentes";
 import {
   periodRange,
@@ -126,6 +126,8 @@ export function useAgenda() {
     hasStarted &&
     (managesAll || selected?.professionalId === user?.id);
   const canConfirm = selected?.status === "pending" && managesAll;
+  // Financeiro (Story 5.2): quem tem o módulo vê/registra o pagamento no detalhe.
+  const canViewFinanceiro = canViewModule(user, "financeiro");
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);
@@ -266,6 +268,7 @@ export function useAgenda() {
     canEdit,
     canMark,
     canConfirm,
+    canViewFinanceiro,
     // ações
     openEdit,
     markStatus,

@@ -16,15 +16,21 @@ export interface Actor {
   companyId: string;
   accessLevel: AccessLevel;
   canManageAll: boolean;
+  /**
+   * Acesso ao módulo Financeiro (owner OU `can_view_financeiro`). É o corte de
+   * VALOR (DL-062): dados de valor só entram no payload quando isto é `true`.
+   */
+  canViewFinanceiro: boolean;
 }
 
 export function toActor(current: User): Actor {
+  const isOwner = current.access_level === "owner";
   return {
     userId: current.id,
     companyId: current.company_id,
     accessLevel: current.access_level,
-    canManageAll:
-      current.access_level === "owner" || current.can_manage_all_appointments,
+    canManageAll: isOwner || current.can_manage_all_appointments,
+    canViewFinanceiro: isOwner || current.can_view_financeiro,
   };
 }
 

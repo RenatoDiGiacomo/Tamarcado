@@ -3,9 +3,13 @@ import type {
   AppointmentSource,
   AppointmentStatus,
 } from "../../database/entities/appointment.entity";
+import type {
+  PaymentMethod,
+  PaymentStatus,
+} from "../../database/entities/payment.entity";
 import { minutesToTime, utcToZonedParts } from "../availability/tz.util";
 
-/** Linha crua vinda do join appointments×clients×salon_services×users. */
+/** Linha crua vinda do join appointments×clients×salon_services×users×payments. */
 export interface RawAppointmentRow {
   id: string;
   scheduled_at: Date;
@@ -17,6 +21,17 @@ export interface RawAppointmentRow {
   client_name: string | null;
   service_name: string | null;
   professional_name: string | null;
+  // Pagamento (Story 5.2) — via LEFT JOIN; null quando não há registro.
+  payment_status: PaymentStatus | null;
+  payment_amount: string | null;
+  payment_method: PaymentMethod | null;
+}
+
+/** Pagamento exposto na view — SÓ para quem tem o módulo Financeiro (DL-062). */
+export interface PaymentSummary {
+  status: PaymentStatus;
+  amount: number;
+  method: PaymentMethod | null;
 }
 
 /**
@@ -36,19 +51,28 @@ export interface AppointmentView {
   end: string; // HH:MM
   status: AppointmentStatus;
   source: AppointmentSource;
+  /**
+   * Pagamento (Story 5.2). SÓ presente para quem tem o módulo Financeiro
+   * (`includePayment`); ausente do payload para os demais (corte de VALOR,
+   * DL-062). `null` = tem acesso, mas o agendamento ainda não tem pagamento.
+   */
+  payment?: PaymentSummary | null;
 }
 
 /**
  * Converte uma linha crua (UTC) para a visão da agenda no fuso do tenant.
  * `scheduled_at` está em UTC (ADR-008); `end` = início + `duration_minutes`.
- * Função pura — todo o cálculo de fuso passa por aqui (unit-testável).
+ * `includePayment` (DL-062): quando `true` (usuário com Financeiro), inclui o
+ * pagamento; quando `false`, o campo `payment` **nem entra** no objeto — o valor
+ * não trafega. Função pura — todo o cálculo de fuso passa por aqui (unit-testável).
  */
 export function toAppointmentView(
   row: RawAppointmentRow,
   timeZone: string,
+  includePayment = false,
 ): AppointmentView {
   const { dateStr, minutesOfDay } = utcToZonedParts(row.scheduled_at, timeZone);
-  return {
+  const view: AppointmentView = {
     id: String(row.id),
     clientName: row.client_name ?? "",
     serviceId: String(row.service_id),
@@ -61,6 +85,17 @@ export function toAppointmentView(
     status: row.status,
     source: row.source,
   };
+  if (includePayment) {
+    view.payment =
+      row.payment_status != null
+        ? {
+            status: row.payment_status,
+            amount: Number(row.payment_amount),
+            method: row.payment_method,
+          }
+        : null;
+  }
+  return view;
 }
 
 /** Recorte por profissional aplicado no repositório. */

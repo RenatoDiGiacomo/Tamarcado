@@ -20,6 +20,9 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     client_name: "Maria",
     service_name: "Corte",
     professional_name: "Ana",
+    payment_status: null,
+    payment_amount: null,
+    payment_method: null,
     ...over,
   };
 }
@@ -85,12 +88,36 @@ describe("toAppointmentView", () => {
   });
 });
 
+describe("toAppointmentView — pagamento (Story 5.2, corte de valor DL-062)", () => {
+  const paid = row({
+    payment_status: "pago",
+    payment_amount: "50.00",
+    payment_method: "pix",
+  });
+
+  it("SEM Financeiro (includePayment=false): `payment` NEM entra no payload", () => {
+    const v = toAppointmentView(paid, TZ, false);
+    expect("payment" in v).toBe(false);
+  });
+
+  it("COM Financeiro: expõe status/valor/forma", () => {
+    const v = toAppointmentView(paid, TZ, true);
+    expect(v.payment).toEqual({ status: "pago", amount: 50, method: "pix" });
+  });
+
+  it("COM Financeiro, sem pagamento registrado: `payment` = null", () => {
+    const v = toAppointmentView(row(), TZ, true);
+    expect(v.payment).toBeNull();
+  });
+});
+
 describe("roleScope (FR-D2/DL-022, revisado DL-062)", () => {
   const base: Actor = {
     userId: "7",
     companyId: "1",
     accessLevel: "professional",
     canManageAll: false,
+    canViewFinanceiro: false,
   };
 
   it("quem gerencia a equipe vê todos (sem filtro) — owner", () => {

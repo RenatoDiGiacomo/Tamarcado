@@ -324,6 +324,11 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
 - ✅ **4.2** Perfil da cliente (histórico + observações) — mergeada (PR #32) — **Épico 4 completo**
 
+**Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
+- ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
+- ✅ **5.2** Financeiro — registro de pagamento no agendamento (menu próprio): tabela `payments` (upsert, 1/agendamento; valor + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (o campo `payment` só entra no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`). `pendente` não mexe no status do agendamento. e2e cobrindo gate/valor/upsert.
+- ⏳ **5.3–5.6** (recebimentos por período, exportação CSV, situação em Clientes, Dashboard) — próximas.
+
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
 - ✅ **5B.2** Disponibilidade pública + POST hostil-por-padrão — mergeada (PR #42)
@@ -934,6 +939,14 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 **Then** há teste de que **sem o interruptor a API responde `403`** batendo direto **e** o item **não aparece** na navegação
 
 ### Story 5.2: Financeiro — registro de pagamento no agendamento (menu próprio)
+
+> **✅ Implementada (2026-08-18).** Tabela `payments` (upsert, 1/agendamento);
+> `PUT /appointments/:id/payment` protegido por `@RequireModule('financeiro')`;
+> `payment` no view da agenda **só para quem tem Financeiro** (`@Actor.canViewFinanceiro`
+> — corte de valor). Menu **Financeiro** (item próprio, ícone) + rota gateada; UI
+> de registro no **detalhe do agendamento** (valor, forma opcional, situação). e2e
+> em `payment.e2e-spec`. **Fora (próximas):** lista/totais (5.3), CSV (5.4),
+> situação em Clientes (5.5), Dashboard (5.6).
 
 As a Dono/Profissional com acesso a Financeiro,
 I want registrar o pagamento recebido de um agendamento,

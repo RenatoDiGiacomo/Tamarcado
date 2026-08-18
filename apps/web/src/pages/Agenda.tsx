@@ -3,6 +3,7 @@ import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { StatusChip } from "../components/StatusChip";
+import { PaymentSection } from "../components/agenda/PaymentSection";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import {
@@ -134,6 +135,11 @@ export function Agenda() {
                   muted={!a.selected.professionalName}
                 />
               </dl>
+              {/* Pagamento (Story 5.2) — só para quem tem o módulo Financeiro
+                  (DL-062); o registro acontece a partir do agendamento. */}
+              {a.canViewFinanceiro && (
+                <PaymentSection appointment={a.selected} />
+              )}
               {(a.canConfirm || a.canMark || a.canEdit || a.canCancel) && (
                 <div className="flex flex-col gap-3 pt-1">
                   {a.canConfirm && (

@@ -137,6 +137,13 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
         "u",
         "u.id = a.professional_id AND u.company_id = a.company_id",
       )
+      // Pagamento (Story 5.2) — 0 ou 1 por agendamento (unique). Sempre no join;
+      // o mapper só EXPÕE o valor para quem tem Financeiro (`includePayment`).
+      .leftJoin(
+        "payments",
+        "p",
+        "p.appointment_id = a.id AND p.company_id = a.company_id",
+      )
       .select("a.id", "id")
       .addSelect("a.scheduled_at", "scheduled_at")
       .addSelect("a.duration_minutes", "duration_minutes")
@@ -147,6 +154,9 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
       .addSelect("c.name", "client_name")
       .addSelect("s.name", "service_name")
       .addSelect("u.name", "professional_name")
+      .addSelect("p.status", "payment_status")
+      .addSelect("p.amount", "payment_amount")
+      .addSelect("p.method", "payment_method")
       .where("a.company_id = :companyId", { companyId: this.companyId })
       .andWhere("a.is_deleted = false");
   }

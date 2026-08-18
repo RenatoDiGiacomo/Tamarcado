@@ -140,6 +140,37 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /Pendentes/ })).toBeInTheDocument();
   });
 
+  it("Financeiro (5.2): item aparece para quem tem o módulo", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        name: "Prof",
+        accessLevel: "professional",
+        theme: "light",
+        canViewFinanceiro: true,
+      },
+      logout: vi.fn(),
+    });
+    mockMatchMedia(true);
+    renderShell();
+    const link = screen.getByRole("link", { name: /Financeiro/ });
+    expect(link).toHaveAttribute("href", "/financeiro");
+  });
+
+  it("Financeiro (5.2): item AUSENTE para quem não tem o módulo (DL-062)", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        name: "Prof",
+        accessLevel: "professional",
+        theme: "light",
+        canViewFinanceiro: false,
+      },
+      logout: vi.fn(),
+    });
+    mockMatchMedia(true);
+    renderShell();
+    expect(screen.queryByRole("link", { name: /Financeiro/ })).toBeNull();
+  });
+
   it("mobile (<768px): tab bar de 4 abas + FAB direto para Novo agendamento (Épico 7)", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },

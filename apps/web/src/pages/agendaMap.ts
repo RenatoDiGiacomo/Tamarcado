@@ -14,6 +14,25 @@ export interface ApiAppointment {
   end: string; // HH:MM
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: "whatsapp" | "manual" | "app" | "link"; // 5B.2: link público
+  /**
+   * Pagamento (Story 5.2) — SÓ presente para quem tem o módulo Financeiro
+   * (o backend omite o campo para os demais — corte de valor, DL-062). `null` =
+   * tem acesso, mas ainda sem pagamento registrado.
+   */
+  payment?: PaymentInfo | null;
+}
+
+export type PaymentMethod =
+  | "dinheiro"
+  | "pix"
+  | "debito"
+  | "credito"
+  | "outro";
+
+export interface PaymentInfo {
+  status: "pago" | "pendente";
+  amount: number;
+  method: PaymentMethod | null;
 }
 
 const STATUS_MAP: Record<ApiAppointment["status"], AppointmentStatus> = {
