@@ -21,6 +21,7 @@ export interface RawAppointmentRow {
   client_name: string | null;
   service_name: string | null;
   professional_name: string | null;
+  price_snapshot: string | null;
   // Pagamento (Story 5.2) — via LEFT JOIN; null quando não há registro.
   payment_status: PaymentStatus | null;
   payment_amount: string | null;
@@ -51,6 +52,12 @@ export interface AppointmentView {
   end: string; // HH:MM
   status: AppointmentStatus;
   source: AppointmentSource;
+  /**
+   * Preço do serviço no agendamento (`price_snapshot`, DL-038). Também é VALOR —
+   * só entra para quem tem Financeiro (`includePayment`). Serve para
+   * PRÉ-PREENCHER o "Valor recebido" (Story 5.2). `null` = serviço sob consulta.
+   */
+  price?: number | null;
   /**
    * Pagamento (Story 5.2). SÓ presente para quem tem o módulo Financeiro
    * (`includePayment`); ausente do payload para os demais (corte de VALOR,
@@ -86,6 +93,7 @@ export function toAppointmentView(
     source: row.source,
   };
   if (includePayment) {
+    view.price = row.price_snapshot != null ? Number(row.price_snapshot) : null;
     view.payment =
       row.payment_status != null
         ? {

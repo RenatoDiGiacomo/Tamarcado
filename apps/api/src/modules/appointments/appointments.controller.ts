@@ -16,7 +16,11 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { ModuleGuard } from "../auth/guards/module.guard";
 import { RequireModule } from "../../common/decorators/require-module.decorator";
 import { CurrentActor, type Actor } from "../auth/actor.decorator";
-import { PaymentsService, type PaymentView } from "./payments.service";
+import {
+  PaymentsService,
+  type PaymentView,
+  type ReceiptsView,
+} from "./payments.service";
 import { RegisterPaymentDto } from "./dto/register-payment.dto";
 import {
   AppointmentsService,
@@ -79,6 +83,19 @@ export class AppointmentsController {
     @CurrentActor() actor: Actor,
   ): Promise<{ count: number }> {
     return this.appointments.pendingCount(actor);
+  }
+
+  /**
+   * Recebimentos do período (Story 5.3) — a lista do menu Financeiro, com total
+   * recebido e total pendente. **Exige o módulo Financeiro** (`ModuleGuard`).
+   * Antes de `@Get(":id")` (não há), mas por segurança fica entre os GETs fixos.
+   */
+  @Get("payments")
+  @RequireModule("financeiro")
+  async receipts(
+    @Query() q: ListAppointmentsQueryDto,
+  ): Promise<ReceiptsView> {
+    return this.payments.listReceipts(q.from, q.to);
   }
 
   /**

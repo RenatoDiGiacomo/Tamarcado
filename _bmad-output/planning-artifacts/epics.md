@@ -326,8 +326,8 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
 - ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
-- ✅ **5.2** Financeiro — registro de pagamento no agendamento (menu próprio): tabela `payments` (upsert, 1/agendamento; valor + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (o campo `payment` só entra no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`). `pendente` não mexe no status do agendamento. e2e cobrindo gate/valor/upsert.
-- ⏳ **5.3–5.6** (recebimentos por período, exportação CSV, situação em Clientes, Dashboard) — próximas.
+- ✅ **5.2 (+ 5.3 absorvida)** Financeiro — registro de pagamento no agendamento **e a lista de Recebimentos** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos por período com total recebido/pendente** (`GET /appointments/payments`). `pendente` não mexe no status do agendamento. e2e cobrindo gate/valor/upsert/recebimentos + **teste de migration contra base populada (DL-064)**.
+- ⏳ **5.4–5.6** (exportação **CSV**, situação financeira em Clientes, Dashboard) — próximas.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -940,13 +940,17 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 
 ### Story 5.2: Financeiro — registro de pagamento no agendamento (menu próprio)
 
-> **✅ Implementada (2026-08-18).** Tabela `payments` (upsert, 1/agendamento);
-> `PUT /appointments/:id/payment` protegido por `@RequireModule('financeiro')`;
-> `payment` no view da agenda **só para quem tem Financeiro** (`@Actor.canViewFinanceiro`
-> — corte de valor). Menu **Financeiro** (item próprio, ícone) + rota gateada; UI
-> de registro no **detalhe do agendamento** (valor, forma opcional, situação). e2e
-> em `payment.e2e-spec`. **Fora (próximas):** lista/totais (5.3), CSV (5.4),
-> situação em Clientes (5.5), Dashboard (5.6).
+> **✅ Implementada (2026-08-18) — inclui a 5.3 (Recebimentos), absorvida a pedido
+> do Renato (menu que só explica "em breve" parece produto incompleto).** Tabela
+> `payments` (upsert, 1/agendamento); `PUT /appointments/:id/payment` protegido
+> por `@RequireModule('financeiro')`; `payment` **e `price`** no view da agenda
+> **só para quem tem Financeiro** (`@Actor.canViewFinanceiro` — corte de valor).
+> Menu **Financeiro** (item + ícone) + rota gateada. UI de registro no **detalhe
+> do agendamento**: valor **pré-preenchido pelo preço do serviço** + **máscara de
+> moeda BR**, forma opcional, situação. **Recebimentos** por período com total
+> recebido/pendente (`GET /appointments/payments`, tela Financeiro). e2e em
+> `payment.e2e-spec` + **`migration-rename-professional` (base populada, DL-064)**.
+> **Fora (próximas):** CSV (5.4), situação em Clientes (5.5), Dashboard (5.6).
 
 As a Dono/Profissional com acesso a Financeiro,
 I want registrar o pagamento recebido de um agendamento,
@@ -969,6 +973,14 @@ So that o salão tenha o histórico de recebimentos sem integração externa.
 **Given** o eixo de módulo (DL-062)
 **When** alguém sem o módulo tenta registrar/ler pagamentos
 **Then** o backend nega com `403` e o menu não aparece para essa pessoa
+
+### ~~Story 5.3~~ → **ABSORVIDA na 5.2** (2026-08-18)
+
+> Trazida para a 5.2 a pedido do Renato: um menu Financeiro que só dizia "lista
+> chega em breve" parece produto incompleto numa demonstração. A lista de
+> Recebimentos (filtro por período + total recebido/pendente) nasceu junto do
+> menu. Implementada em `GET /appointments/payments` + tela Financeiro. AC abaixo
+> mantido como referência.
 
 ### Story 5.3: Financeiro — Recebimentos (lista com filtro por período + totais)
 

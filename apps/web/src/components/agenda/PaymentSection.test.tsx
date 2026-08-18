@@ -46,8 +46,9 @@ describe("PaymentSection (Story 5.2)", () => {
   it("registrar (pago, valor, PIX) → PUT /appointments/:id/payment e recarrega", async () => {
     render(<PaymentSection appointment={appt()} />);
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    // Máscara: dígitos são centavos → "5000" = R$ 50,00.
     fireEvent.change(screen.getByLabelText("Valor recebido"), {
-      target: { value: "50" },
+      target: { value: "5000" },
     });
     fireEvent.change(screen.getByLabelText("Forma de pagamento"), {
       target: { value: "pix" },
@@ -71,7 +72,7 @@ describe("PaymentSection (Story 5.2)", () => {
     render(<PaymentSection appointment={appt()} />);
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
     fireEvent.change(screen.getByLabelText("Valor recebido"), {
-      target: { value: "80" },
+      target: { value: "8000" }, // R$ 80,00
     });
     apiMock.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
@@ -88,6 +89,20 @@ describe("PaymentSection (Story 5.2)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
     expect(await screen.findByText(/Informe o valor recebido/i)).toBeInTheDocument();
     expect(apiMock).not.toHaveBeenCalled();
+  });
+
+  it("pré-preenche o valor com o preço do serviço (editável); salva sem redigitar", async () => {
+    render(<PaymentSection appointment={appt({ price: 120 })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    // O campo já vem com o preço do serviço mascarado (espaço pode ser NBSP do Intl).
+    expect(
+      (screen.getByLabelText("Valor recebido") as HTMLInputElement).value,
+    ).toMatch(/R\$\s*120,00/);
+    apiMock.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    const body = apiMock.mock.calls[0][1].body as Record<string, unknown>;
+    expect(body.amount).toBe(120);
   });
 
   it("com pagamento existente: mostra o resumo e o botão Editar", () => {

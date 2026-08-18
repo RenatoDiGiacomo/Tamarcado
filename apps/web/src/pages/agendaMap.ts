@@ -15,6 +15,11 @@ export interface ApiAppointment {
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: "whatsapp" | "manual" | "app" | "link"; // 5B.2: link público
   /**
+   * Preço do serviço no agendamento — SÓ para quem tem Financeiro (valor). Serve
+   * para pré-preencher o "Valor recebido" (Story 5.2). `null` = sob consulta.
+   */
+  price?: number | null;
+  /**
    * Pagamento (Story 5.2) — SÓ presente para quem tem o módulo Financeiro
    * (o backend omite o campo para os demais — corte de valor, DL-062). `null` =
    * tem acesso, mas ainda sem pagamento registrado.

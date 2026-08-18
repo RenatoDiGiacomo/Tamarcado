@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { authedRequest } from "../../lib/session";
 import { bumpAppointments } from "../../lib/appointmentsSignal";
 import type { ApiAppointment, PaymentMethod } from "../../pages/agendaMap";
+import { brl, maskBRL, brlToNumber } from "../../lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -21,10 +22,6 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   outro: "Outro",
 };
 
-function brl(n: number): string {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
 const selectCls =
   "flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring";
 
@@ -37,7 +34,15 @@ const selectCls =
 export function PaymentSection({ appointment }: { appointment: ApiAppointment }) {
   const payment = appointment.payment ?? null;
   const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState(payment ? String(payment.amount) : "");
+  // Pré-preenche (Story 5.2): pagamento existente > preço do serviço > vazio
+  // (serviço sob consulta). Sempre editável (desconto/acréscimo). Já mascarado.
+  const [amount, setAmount] = useState(
+    payment
+      ? brl(payment.amount)
+      : appointment.price != null
+        ? brl(appointment.price)
+        : "",
+  );
   const [method, setMethod] = useState<string>(payment?.method ?? "");
   const [status, setStatus] = useState<"pago" | "pendente">(
     payment?.status ?? "pago",
@@ -46,8 +51,8 @@ export function PaymentSection({ appointment }: { appointment: ApiAppointment })
   const [error, setError] = useState<string | null>(null);
 
   async function save(): Promise<void> {
-    const value = Number(amount.replace(",", "."));
-    if (amount.trim() === "" || Number.isNaN(value) || value < 0) {
+    const value = brlToNumber(amount);
+    if (value <= 0) {
       setError("Informe o valor recebido.");
       return;
     }
@@ -94,15 +99,14 @@ export function PaymentSection({ appointment }: { appointment: ApiAppointment })
       ) : (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-foreground">Valor recebido (R$)</span>
+            <span className="font-medium text-foreground">Valor recebido</span>
             <Input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
+              type="text"
+              inputMode="numeric"
+              placeholder="R$ 0,00"
               aria-label="Valor recebido"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(maskBRL(e.target.value))}
             />
           </label>
 

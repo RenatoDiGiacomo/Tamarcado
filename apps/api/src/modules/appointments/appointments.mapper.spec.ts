@@ -20,6 +20,7 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     client_name: "Maria",
     service_name: "Corte",
     professional_name: "Ana",
+    price_snapshot: null,
     payment_status: null,
     payment_amount: null,
     payment_method: null,
@@ -108,6 +109,12 @@ describe("toAppointmentView — pagamento (Story 5.2, corte de valor DL-062)", (
   it("COM Financeiro, sem pagamento registrado: `payment` = null", () => {
     const v = toAppointmentView(row(), TZ, true);
     expect(v.payment).toBeNull();
+  });
+
+  it("COM Financeiro: expõe o `price` (pré-preenchimento); SEM Financeiro, nem entra", () => {
+    const withPrice = row({ price_snapshot: "50.00" });
+    expect(toAppointmentView(withPrice, TZ, true).price).toBe(50);
+    expect("price" in toAppointmentView(withPrice, TZ, false)).toBe(false);
   });
 });
 

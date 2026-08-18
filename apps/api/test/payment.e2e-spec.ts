@@ -153,4 +153,36 @@ describe("Financeiro — pagamento no agendamento (e2e, Story 5.2)", () => {
       .findOne({ where: { id: apptId } });
     expect(saved?.status).toBe("confirmed"); // segue confirmed; pagamento é à parte
   });
+
+  it("RECEBIMENTOS (5.3): lista do período com totais; sem Financeiro → 403", async () => {
+    const owner = await login("dono@pay.dev");
+    // deixa um pagamento conhecido no agendamento do período (pago, 100).
+    await pay(owner, { amount: 100, status: "pago", method: "dinheiro" }).expect(200);
+
+    const res = await api()
+      .get(`/api/appointments/payments?from=${DATE}&to=${DATE}`)
+      .set("Authorization", `Bearer ${owner}`);
+    expect(res.status).toBe(200);
+    const item = res.body.receipts.find(
+      (r: { appointmentId: string }) => r.appointmentId === apptId,
+    );
+    expect(item).toMatchObject({
+      amount: 100,
+      status: "pago",
+      method: "dinheiro",
+      clientName: "Cliente Pay",
+      serviceName: "Corte",
+      date: DATE,
+    });
+    // Um único pagamento (pago) → total recebido 100, pendente 0.
+    expect(res.body.totalReceived).toBe(100);
+    expect(res.body.totalPending).toBe(0);
+
+    // Sem Financeiro → 403 também na lista de recebimentos.
+    const nofin = await login("nofin@pay.dev");
+    await api()
+      .get(`/api/appointments/payments?from=${DATE}&to=${DATE}`)
+      .set("Authorization", `Bearer ${nofin}`)
+      .expect(403);
+  });
 });
