@@ -236,7 +236,7 @@ O salão mantém o cadastro de clientes com histórico e observações, transfor
 **UX-DRs:** UX-DR11, UX-DR17
 
 ### Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO — DL-061/DL-062)*
-O salão registra manualmente o recebimento por agendamento e passa a ter **visão de gestão**. **Ampliado (DL-061) em duas levas:** **1ª leva** — **Financeiro** (menu próprio: valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; Recebimentos por período; **exportação CSV+PDF**; situação financeira em Clientes) e **Dashboard** (faturamento dia/semana/mês, atendimentos, clientes, fluxo/semana — leitura + exportação); **2ª leva** — **Equipe** vira menu próprio com **remuneração** (comissão %/fixo, por serviço/profissional, salário diário/semanal/mensal, previsão→real) e **"quanto gastei com a equipe"** no Dashboard. **Permissões (DL-062):** visibilidade de módulo + papéis Dono/Profissional + toggles por pessoa. A abstração `PaymentGateway`/`NullPaymentGateway` segue preparada sem integração ativa. Full-stack. **Roadmap (DL-061):** o bloco **sobe para ANTES do Épico 6**.
+O salão registra manualmente o recebimento por agendamento e passa a ter **visão de gestão**. **Ampliado (DL-061) em duas levas:** **1ª leva** — **Financeiro** (menu próprio: valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; Recebimentos por período; **exportação CSV**; situação financeira em Clientes) e **Dashboard** (faturamento dia/semana/mês, atendimentos, clientes, fluxo/semana — leitura + exportação); **2ª leva** — **Equipe** vira menu próprio de **cadastro/controle** (modelos de **remuneração** + **previsão** calculada); o **pagamento efetivo à equipe (o "real") é registrado no FINANCEIRO** como **SAÍDA** (correção DL-061 2026-08-18: o Financeiro é a central de entradas E saídas). O Dashboard só **exibe** o "quanto gastei com a equipe". **Permissões (DL-062):** visibilidade de módulo + papéis Dono/Profissional + toggles por pessoa. A abstração `PaymentGateway`/`NullPaymentGateway` segue preparada sem integração ativa. Full-stack. **Roadmap (DL-061):** o bloco **sobe para ANTES do Épico 6**.
 **FRs cobertas:** FR-F1–F5 · **NFRs:** NFR-O4
 **UX-DRs:** UX-DR12
 
@@ -272,14 +272,16 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **2. E-mail transacional.** Destrava a **recuperação de senha** (hoje bloqueador; mitigada pela 1.9.01). **Serviço externo** (Brevo/Resend), **não** caixa de e-mail comum.
 
 **3. Financeiro + Dashboard + Equipe + Permissões** *(bloco novo, DUAS LEVAS — DL-061/DL-062; **sobe para antes do Épico 6**):*
+> **Correção DL-061 (2026-08-18): o Financeiro é a CENTRAL de ENTRADAS e SAÍDAS** — "quanto entrou, quanto saiu, quanto sobrou" num lugar só. Entradas na 1ª leva; **saídas (pagamento à equipe) na 2ª leva, mas registradas NO Financeiro**. Equipe é cadastro/previsão; Dashboard só exibe.
 - **3a — 1ª leva (fecha venda): Financeiro + Dashboard.**
-  - **Financeiro** (vira **menu próprio**): registrar pagamento no agendamento (**valor**; **forma de pagamento OPCIONAL**; **situação pago/pendente**); **Recebimentos** por período (total recebido/pendente); **exportação CSV + PDF**; **situação financeira da cliente** em Clientes.
-  - **Dashboard** (somente leitura + exportação): faturamento por **dia/semana/mês**, quantidade de atendimentos, total de clientes, média de fluxo/semana. *(Sem "relatório anual" no 1º momento.)*
+  - **Financeiro** (menu próprio) — **ENTRADAS:** registrar pagamento no agendamento (**valor pré-preenchido pelo preço do serviço**; **forma OPCIONAL**; **situação pago/pendente**); **Recebimentos** por período (total recebido/pendente); **exportação CSV** *(PDF fora — DL-061)*; **situação financeira da cliente** em Clientes.
+  - **Dashboard** (somente leitura + exportação **CSV**): faturamento por **dia/semana/mês**, quantidade de atendimentos, total de clientes, média de fluxo/semana. *(Sem "relatório anual" no 1º momento.)*
   - **Permissões (DL-062):** visibilidade de **módulo** (não só de ação); papéis **Dono/Profissional** (Básico aposentado); toggles por pessoa **"Pode ver Financeiro/Dashboard"** (só o Dono, OFF por padrão); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
-- **3b — 2ª leva (custo da equipe): Equipe.**
-  - **Equipe sai de Configurações e vira menu próprio** — também **fonte de dado financeiro**.
+- **3b — 2ª leva (SAÍDAS + cadastro da equipe): Equipe + pagamentos à equipe no Financeiro.**
+  - **Equipe sai de Configurações e vira menu próprio** — **CADASTRO e CONTROLE**: como cada profissional é remunerado + a **PREVISÃO calculada** do período. **Não é caixa.**
   - **Remuneração por profissional:** comissão (%) **ou** valor fixo (ambos existem); comissão por **serviço** ou por **profissional** (ambos reais); **salário fixo** diário/semanal/mensal; **fixo + comissão coexistem**.
-  - **Modelo previsão → real** (sistema calcula, estabelecimento registra o pago); **"quanto gastei com a equipe"** no Dashboard.
+  - **Modelo previsão → real:** a Equipe calcula a **previsão**; o **REGISTRO do pagamento efetivo à equipe (o "real") acontece no FINANCEIRO** — é **SAÍDA** de caixa. O Financeiro passa a mostrar entradas, saídas e resultado.
+  - **Dashboard** exibe o **"quanto gastei com a equipe"** (consolidado, leitura) — operado no Financeiro.
   - *(Fora desta leva, evolução: **metas / faixas de comissão**.)*
 
 **4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev) — **começar em paralelo já**, pois é o gargalo.
@@ -323,6 +325,11 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Épico 4 — Gestão de Clientes:**
 - ✅ **4.1** Clientes: cadastro, listagem e busca — mergeada (PR #31)
 - ✅ **4.2** Perfil da cliente (histórico + observações) — mergeada (PR #32) — **Épico 4 completo**
+
+**Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
+- ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
+- ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos do domínio financeiro** (clique no recebimento do Financeiro **e** no perfil da cliente, via `PaymentForm` — fonte única; **fora da Agenda**, que só ganha um **link para a cliente**; DL-066 revisa DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
+- ⏳ **5.4 (exportação CSV)** e **5.6 (Dashboard)** — próximas.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -874,8 +881,8 @@ So that eu personalize o atendimento (preferências, alergias, histórico de ser
 ## Épico 5: Financeiro *(renomeado de "Registro de Pagamentos" — DL-060; escopo AMPLIADO em 2 levas — DL-061/DL-062)*
 
 > **Ampliação (DL-061/DL-062, 2026-08-12):** este épico deixa de ser só "registro de pagamentos" e passa a abrigar o bloco **Financeiro + Dashboard + Equipe + Permissões**, em **duas levas** (detalhe nos DLs). A **1ª leva já está quebrada em stories** (5.1–5.8, na ordem de implementação — ver abaixo, 2026-08-13); a **2ª leva** (Equipe/remuneração) segue registrada só nos DLs. Resumo:
-> - **1ª leva:** **Financeiro** vira **menu próprio** — valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; **Recebimentos** por período (total recebido/pendente); **exportação CSV+PDF**; **situação financeira da cliente** em Clientes. **Dashboard** (leitura + exportação): faturamento **dia/semana/mês**, atendimentos, clientes, fluxo/semana *(sem "relatório anual" no 1º momento)*.
-> - **2ª leva:** **Equipe** **sai de Configurações e vira menu próprio** (fonte de custo) — **remuneração** por profissional (comissão %/valor fixo; por serviço/por profissional; salário diário/semanal/mensal; **fixo+comissão coexistem**), modelo **previsão→real**, e **"quanto gastei com a equipe"** no Dashboard. *(Fora, evolução: metas/faixas de comissão.)*
+> - **1ª leva:** **Financeiro** vira **menu próprio** — valor + **forma de pagamento OPCIONAL** + situação **pago/pendente**; **Recebimentos** por período (total recebido/pendente); **exportação CSV**; **situação financeira da cliente** em Clientes. **Dashboard** (leitura + exportação): faturamento **dia/semana/mês**, atendimentos, clientes, fluxo/semana *(sem "relatório anual" no 1º momento)*.
+> - **2ª leva (correção DL-061 2026-08-18):** **Equipe** **sai de Configurações e vira menu próprio de CADASTRO/CONTROLE** — **remuneração** por profissional (comissão %/valor fixo; por serviço/por profissional; salário diário/semanal/mensal; **fixo+comissão coexistem**) + a **PREVISÃO** calculada do período. **Não é caixa.** O **pagamento efetivo à equipe (o "real") é registrado no FINANCEIRO** como **SAÍDA** — o Financeiro é a central de **entradas E saídas** ("quanto entrou, saiu, sobrou"). O Dashboard só **exibe** o "quanto gastei com a equipe". *(Fora, evolução: metas/faixas de comissão.)*
 > - **Permissões (DL-062):** visibilidade de **módulo** (não só ação/FR-I2); papéis **Dono/Profissional** (**"Básico" aposentado**); **toggles por pessoa** na Equipe (só o Dono, OFF por padrão — "Pode ver Financeiro/Dashboard"); quem não tem acesso **não vê o menu**; bloqueio **também no backend**.
 > - **Posição no roadmap:** **ANTES do Épico 6** (DL-061). **Navegação:** desktop = Configurações na sidebar; mobile = Configurações pelo perfil; **tab bar mobile revista** para os novos módulos sem truncar.
 
@@ -935,6 +942,18 @@ So that módulos sensíveis não nasçam visíveis para toda a equipe.
 
 ### Story 5.2: Financeiro — registro de pagamento no agendamento (menu próprio)
 
+> **✅ Implementada (2026-08-18) — inclui a 5.3 (Recebimentos), absorvida a pedido
+> do Renato (menu que só explica "em breve" parece produto incompleto).** Tabela
+> `payments` (upsert, 1/agendamento); `PUT /appointments/:id/payment` protegido
+> por `@RequireModule('financeiro')`; `payment` **e `price`** no view da agenda
+> **só para quem tem Financeiro** (`@Actor.canViewFinanceiro` — corte de valor).
+> Menu **Financeiro** (item + ícone) + rota gateada. UI de registro no **detalhe
+> do agendamento**: valor **pré-preenchido pelo preço do serviço** + **máscara de
+> moeda BR**, forma opcional, situação. **Recebimentos** por período com total
+> recebido/pendente (`GET /appointments/payments`, tela Financeiro). e2e em
+> `payment.e2e-spec` + **`migration-rename-professional` (base populada, DL-064)**.
+> **Fora (próximas):** CSV (5.4), situação em Clientes (5.5), Dashboard (5.6).
+
 As a Dono/Profissional com acesso a Financeiro,
 I want registrar o pagamento recebido de um agendamento,
 So that o salão tenha o histórico de recebimentos sem integração externa.
@@ -956,6 +975,23 @@ So that o salão tenha o histórico de recebimentos sem integração externa.
 **Given** o eixo de módulo (DL-062)
 **When** alguém sem o módulo tenta registrar/ler pagamentos
 **Then** o backend nega com `403` e o menu não aparece para essa pessoa
+
+**Given** a separação de responsabilidades — Agenda é agenda, Financeiro é financeiro (DL-066, revisa DL-065)
+**When** preciso registrar/editar um pagamento
+**Then** faço isso em **dois lugares do domínio financeiro** — na **lista do Financeiro** (fechar o caixa) e no **perfil da cliente** (quando ela chega para pagar) — sempre o **mesmo** `PaymentForm` (fonte única; valor pré-preenchido, situação, forma), num dialog; a **Agenda NÃO registra pagamento** — o detalhe do agendamento só oferece um **link para o perfil da cliente** (fluxo agenda → cliente → financeiro)
+
+### ~~Story 5.3~~ → **ABSORVIDA na 5.2** (2026-08-18)
+
+> Trazida para a 5.2 a pedido do Renato: um menu Financeiro que só dizia "lista
+> chega em breve" parece produto incompleto numa demonstração. A lista de
+> Recebimentos (filtro por período + total recebido/pendente) nasceu junto do
+> menu. Implementada em `GET /appointments/payments` + tela Financeiro. AC abaixo
+> mantido como referência.
+> **Correção DL-061 (2026-08-18):** Recebimentos são as **ENTRADAS** do Financeiro.
+> O Financeiro é a **central de entradas E saídas** — as **SAÍDAS** (pagamentos à
+> equipe, o "real" do previsão→real) chegam na **2ª leva** e são registradas **no
+> mesmo Financeiro**, que passa a mostrar entrou/saiu/sobrou. Equipe fica só com
+> cadastro/previsão; Dashboard só exibe.
 
 ### Story 5.3: Financeiro — Recebimentos (lista com filtro por período + totais)
 
@@ -993,7 +1029,14 @@ So that eu leve os números para fora do sistema (abre no Excel).
 **When** implementada
 **Then** é construída de forma **reutilizável** — o **Dashboard (5.6)** reaproveita o mesmo mecanismo
 
-### Story 5.5: Situação financeira da cliente (no módulo Clientes)
+### Story 5.5: Situação financeira da cliente (no módulo Clientes) — ✅ ABSORVIDA na 5.2 (2026-08-19)
+
+> Trazida junto do Financeiro a pedido do Renato ("quem está me devendo?" sem
+> abrir cliente por cliente). Backend: `finance {owed,paid}` no `GET /clients`
+> (lista) e `GET /clients/:id` (perfil), **só para quem tem Financeiro** (corte de
+> valor, `@Actor.canViewFinanceiro`). Front: **indicador "Deve R$ X"** ao lado do
+> nome na LISTA (quando `owed > 0`) + **Em aberto / Já pago** no perfil. AC abaixo
+> mantido como referência.
 
 As a Dono/Profissional com acesso a Financeiro,
 I want ver a situação financeira da cliente no perfil dela,

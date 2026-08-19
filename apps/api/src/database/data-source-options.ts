@@ -8,6 +8,7 @@ import { ProfessionalSchedule } from "./entities/professional-schedule.entity";
 import { Client } from "./entities/client.entity";
 import { Appointment } from "./entities/appointment.entity";
 import { AppointmentChange } from "./entities/appointment-change.entity";
+import { Payment } from "./entities/payment.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
@@ -21,6 +22,7 @@ import { AddLinkToAppointmentSource1718900900000 } from "./migrations/1718900900
 import { AddTokenVersionToUsers1718901000000 } from "./migrations/1718901000000-AddTokenVersionToUsers";
 import { AddModuleFlagsAndRetireBasic1718901100000 } from "./migrations/1718901100000-AddModuleFlagsAndRetireBasic";
 import { RenameManagerToProfessional1718901200000 } from "./migrations/1718901200000-RenameManagerToProfessional";
+import { CreatePayments1718901300000 } from "./migrations/1718901300000-CreatePayments";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -46,6 +48,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       Client,
       Appointment,
       AppointmentChange,
+      Payment,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -61,6 +64,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       AddTokenVersionToUsers1718901000000,
       AddModuleFlagsAndRetireBasic1718901100000,
       RenameManagerToProfessional1718901200000,
+      CreatePayments1718901300000,
     ],
     synchronize: false,
     migrationsRun: false,

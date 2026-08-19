@@ -22,11 +22,14 @@ vi.mock("../auth/AuthContext", () => ({
 // Toast (UX-DR19) — sem Toaster montado no teste.
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Agenda passou a ler useLocation (FAB do celular, Épico 7). Sem sessão de
-// navegação no teste, devolvemos um location neutro (state null → não abre Novo).
+// Agenda lê useLocation (FAB do celular, Épico 7) e useNavigate (link p/ a
+// cliente, DL-066). Sem sessão de navegação no teste: location neutro (state
+// null → não abre Novo) e navigate espionável.
+const navigateMock = vi.fn();
 vi.mock("react-router-dom", async (orig) => ({
   ...(await orig<typeof import("react-router-dom")>()),
   useLocation: () => ({ state: null, pathname: "/", search: "", hash: "", key: "t" }),
+  useNavigate: () => navigateMock,
 }));
 
 /** Data civil (YYYY-MM-DD) deslocada em `days` a partir de hoje. */
@@ -42,6 +45,7 @@ const BUSINESS = { start: "08:00", end: "19:00" };
 
 const seg: ApiAppointment = {
   id: "10",
+  clientId: "500",
   clientName: "Maria das Dores",
   serviceId: "3",
   serviceName: "Coloração",
@@ -55,6 +59,7 @@ const seg: ApiAppointment = {
 };
 const semAtrib: ApiAppointment = {
   id: "11",
+  clientId: "501",
   clientName: "Joana Silva",
   serviceId: "3",
   serviceName: "Corte",
@@ -69,6 +74,7 @@ const semAtrib: ApiAppointment = {
 
 const pendente: ApiAppointment = {
   id: "20",
+  clientId: "502",
   clientName: "Bruna Alves",
   serviceId: "3",
   serviceName: "Corte",
@@ -90,6 +96,7 @@ function lastQuery(): string {
 describe("Agenda", () => {
   beforeEach(() => {
     apiMock.mockReset();
+    navigateMock.mockReset();
     localStorage.setItem("tamarcado.access", "tok");
     // A Agenda escolhe a vista por breakpoint (Épico 7). Estes testes exercitam
     // o DESKTOP (grade) → matchMedia = desktop. A vista mobile (AgendaList) tem
@@ -172,6 +179,25 @@ describe("Agenda", () => {
     expect(
       within(dialog).getByRole("button", { name: "Editar" }),
     ).toBeInTheDocument();
+  });
+
+  it("nome da cliente leva ao perfil e detalhe NÃO registra pagamento (DL-066)", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({ appointments: [seg], businessHours: BUSINESS }),
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    const dialog = await screen.findByRole("dialog");
+    // Pagamento saiu da Agenda: sem seção/botão de pagamento no detalhe.
+    expect(within(dialog).queryByText("Pagamento")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: /Registrar|pagamento/i }),
+    ).toBeNull();
+    // O NOME da cliente (no título) é o link → perfil (agenda → cliente → financeiro).
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Maria das Dores/ }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith("/clientes/500");
   });
 
   it("Editar abre o formulário pré-preenchido e salva via PATCH (Story 3.6)", async () => {

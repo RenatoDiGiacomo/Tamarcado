@@ -1,6 +1,8 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth, loginPath } from "./auth/AuthContext";
+import { canViewModule } from "./lib/permissions";
+import { Financeiro } from "./pages/Financeiro";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
@@ -32,6 +34,22 @@ function Protected({ children }: { children: ReactNode }) {
   ) : (
     <Navigate to={loginPath()} replace />
   );
+}
+
+/**
+ * Rota de MÓDULO (DL-062): só monta se o usuário tem o módulo; senão cai na
+ * Agenda — a rota não "existe" para quem não tem acesso. Na revogação, o polling
+ * de flags atualiza o `user` e esta rota passa a redirecionar sozinha, sem relogar.
+ */
+function RequireModule({
+  module,
+  children,
+}: {
+  module: "financeiro" | "dashboard";
+  children: ReactNode;
+}) {
+  const { user } = useAuth();
+  return canViewModule(user, module) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
@@ -69,6 +87,15 @@ export function App() {
         <Route path="/pendentes" element={<Pendentes />} />
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/clientes/:id" element={<ClientePerfil />} />
+        {/* Financeiro (Story 5.2) — só para quem tem o módulo (DL-062). */}
+        <Route
+          path="/financeiro"
+          element={
+            <RequireModule module="financeiro">
+              <Financeiro />
+            </RequireModule>
+          }
+        />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />

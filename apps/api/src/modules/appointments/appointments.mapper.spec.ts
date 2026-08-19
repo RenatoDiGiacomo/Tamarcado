@@ -10,6 +10,7 @@ const TZ = "America/Sao_Paulo"; // UTC-3, sem DST hoje
 function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
   return {
     id: "10",
+    client_id: "5",
     // 2026-07-20 09:00 em São Paulo = 12:00Z
     scheduled_at: new Date("2026-07-20T12:00:00Z"),
     duration_minutes: 60,
@@ -20,6 +21,10 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     client_name: "Maria",
     service_name: "Corte",
     professional_name: "Ana",
+    price_snapshot: null,
+    payment_status: null,
+    payment_amount: null,
+    payment_method: null,
     ...over,
   };
 }
@@ -59,6 +64,11 @@ describe("toAppointmentView", () => {
     expect(v.professionalId).toBe("7");
   });
 
+  it("expõe clientId como string (link agenda→cliente, DL-066)", () => {
+    const v = toAppointmentView(row({ client_id: 5 as unknown as string }), TZ);
+    expect(v.clientId).toBe("5");
+  });
+
   it("normaliza nomes ausentes de cliente/serviço para string vazia", () => {
     const v = toAppointmentView(
       row({ client_name: null, service_name: null }),
@@ -85,12 +95,42 @@ describe("toAppointmentView", () => {
   });
 });
 
+describe("toAppointmentView — pagamento (Story 5.2, corte de valor DL-062)", () => {
+  const paid = row({
+    payment_status: "pago",
+    payment_amount: "50.00",
+    payment_method: "pix",
+  });
+
+  it("SEM Financeiro (includePayment=false): `payment` NEM entra no payload", () => {
+    const v = toAppointmentView(paid, TZ, false);
+    expect("payment" in v).toBe(false);
+  });
+
+  it("COM Financeiro: expõe status/valor/forma", () => {
+    const v = toAppointmentView(paid, TZ, true);
+    expect(v.payment).toEqual({ status: "pago", amount: 50, method: "pix" });
+  });
+
+  it("COM Financeiro, sem pagamento registrado: `payment` = null", () => {
+    const v = toAppointmentView(row(), TZ, true);
+    expect(v.payment).toBeNull();
+  });
+
+  it("COM Financeiro: expõe o `price` (pré-preenchimento); SEM Financeiro, nem entra", () => {
+    const withPrice = row({ price_snapshot: "50.00" });
+    expect(toAppointmentView(withPrice, TZ, true).price).toBe(50);
+    expect("price" in toAppointmentView(withPrice, TZ, false)).toBe(false);
+  });
+});
+
 describe("roleScope (FR-D2/DL-022, revisado DL-062)", () => {
   const base: Actor = {
     userId: "7",
     companyId: "1",
     accessLevel: "professional",
     canManageAll: false,
+    canViewFinanceiro: false,
   };
 
   it("quem gerencia a equipe vê todos (sem filtro) — owner", () => {

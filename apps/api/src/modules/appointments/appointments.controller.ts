@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -12,7 +13,15 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { ModuleGuard } from "../auth/guards/module.guard";
+import { RequireModule } from "../../common/decorators/require-module.decorator";
 import { CurrentActor, type Actor } from "../auth/actor.decorator";
+import {
+  PaymentsService,
+  type PaymentView,
+  type ReceiptsView,
+} from "./payments.service";
+import { RegisterPaymentDto } from "./dto/register-payment.dto";
 import {
   AppointmentsService,
   type AgendaPeriod,
@@ -38,10 +47,13 @@ import { Roles } from "../../common/decorators/roles.decorator";
  */
 @ApiTags("appointments")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, ActiveUserGuard, ModuleGuard, RolesGuard)
 @Controller("appointments")
 export class AppointmentsController {
-  constructor(private readonly appointments: AppointmentsService) {}
+  constructor(
+    private readonly appointments: AppointmentsService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   /** Agendamentos do período (`?from&to`, datas civis) + horário comercial. */
   @Get()
@@ -71,6 +83,19 @@ export class AppointmentsController {
     @CurrentActor() actor: Actor,
   ): Promise<{ count: number }> {
     return this.appointments.pendingCount(actor);
+  }
+
+  /**
+   * Recebimentos do período (Story 5.3) — a lista do menu Financeiro, com total
+   * recebido e total pendente. **Exige o módulo Financeiro** (`ModuleGuard`).
+   * Antes de `@Get(":id")` (não há), mas por segurança fica entre os GETs fixos.
+   */
+  @Get("payments")
+  @RequireModule("financeiro")
+  async receipts(
+    @Query() q: ListAppointmentsQueryDto,
+  ): Promise<ReceiptsView> {
+    return this.payments.listReceipts(q.from, q.to);
   }
 
   /**
@@ -159,6 +184,22 @@ export class AppointmentsController {
     @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
     return this.appointments.rejectPending(id, dto.reason, actor);
+  }
+
+  /**
+   * Registra (upsert) o PAGAMENTO de um agendamento (Story 5.2). Acontece a
+   * partir do próprio agendamento; **exige o módulo Financeiro** (`ModuleGuard`)
+   * → quem não tem recebe **403** (e não vê o menu). `valor` obrigatório, `forma`
+   * opcional, `situação` pago/pendente. Não mexe no status do agendamento.
+   */
+  @Put(":id/payment")
+  @RequireModule("financeiro")
+  async registerPayment(
+    @Param("id") id: string,
+    @Body() dto: RegisterPaymentDto,
+    @CurrentActor() actor: Actor,
+  ): Promise<PaymentView> {
+    return this.payments.register(id, dto, actor);
   }
 
   @Patch(":id/status")

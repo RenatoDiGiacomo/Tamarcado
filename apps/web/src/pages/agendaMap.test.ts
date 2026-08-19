@@ -14,6 +14,7 @@ import {
 function item(over: Partial<ApiAppointment> = {}): ApiAppointment {
   return {
     id: "1",
+    clientId: "5",
     clientName: "Maria",
     serviceId: "3",
     serviceName: "Corte",

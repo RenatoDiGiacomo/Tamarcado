@@ -111,7 +111,7 @@ export class AppointmentsService {
     });
 
     return {
-      appointments: rows.map((r) => toAppointmentView(r, tz)),
+      appointments: rows.map((r) => toAppointmentView(r, tz, user.canViewFinanceiro)),
       businessHours: {
         start: hhmm(company?.business_hours_start ?? "08:00:00"),
         end: hhmm(company?.business_hours_end ?? "19:00:00"),
@@ -171,7 +171,7 @@ export class AppointmentsService {
       clientId,
       roleScope(user, false),
     );
-    return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
+    return { appointments: rows.map((r) => toAppointmentView(r, tz, user.canViewFinanceiro)) };
   }
 
   /**
@@ -221,7 +221,7 @@ export class AppointmentsService {
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    return toAppointmentView(row, tz);
+    return toAppointmentView(row, tz, user.canViewFinanceiro);
   }
 
   /**
@@ -302,7 +302,7 @@ export class AppointmentsService {
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    return { appointment: toAppointmentView(row, tz), overbooked };
+    return { appointment: toAppointmentView(row, tz, user.canViewFinanceiro), overbooked };
   }
 
   /**
@@ -475,7 +475,7 @@ export class AppointmentsService {
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    return { appointment: toAppointmentView(row, tz), overbooked };
+    return { appointment: toAppointmentView(row, tz, user.canViewFinanceiro), overbooked };
   }
 
   /**
@@ -545,7 +545,7 @@ export class AppointmentsService {
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    return toAppointmentView(row, tz);
+    return toAppointmentView(row, tz, user.canViewFinanceiro);
   }
 
   /**
@@ -559,7 +559,7 @@ export class AppointmentsService {
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
     const rows = await this.appointmentsRepo.findPending(roleScope(user, false));
-    return { appointments: rows.map((r) => toAppointmentView(r, tz)) };
+    return { appointments: rows.map((r) => toAppointmentView(r, tz, user.canViewFinanceiro)) };
   }
 
   /** Contagem de pendentes — MESMO recorte da listPending (o badge segue a regra). */
@@ -664,7 +664,7 @@ export class AppointmentsService {
       ),
     );
 
-    return this.viewOrThrow(id, companyId);
+    return this.viewOrThrow(id, companyId, user.canViewFinanceiro);
   }
 
   /**
@@ -717,13 +717,14 @@ export class AppointmentsService {
       }),
     );
 
-    return this.viewOrThrow(id, companyId);
+    return this.viewOrThrow(id, companyId, user.canViewFinanceiro);
   }
 
-  /** View do agendamento no fuso do tenant, ou 404. */
+  /** View do agendamento no fuso do tenant, ou 404. `includePayment` = corte de valor (DL-062). */
   private async viewOrThrow(
     id: string,
     companyId: string,
+    includePayment = false,
   ): Promise<AppointmentView> {
     const company = await this.companies.findOne({ where: { id: companyId } });
     const tz = company?.timezone ?? "America/Sao_Paulo";
@@ -731,7 +732,7 @@ export class AppointmentsService {
     if (!row) {
       throw new NotFoundException("Agendamento não encontrado.");
     }
-    return toAppointmentView(row, tz);
+    return toAppointmentView(row, tz, includePayment);
   }
 
   /**
