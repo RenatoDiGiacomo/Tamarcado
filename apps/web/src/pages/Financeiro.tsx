@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { Users } from "lucide-react";
 import { authedRequest } from "../lib/session";
 import { brl } from "../lib/currency";
 import { cn } from "@/lib/utils";
@@ -337,10 +337,10 @@ export function Financeiro() {
                                 e.stopPropagation(); // não abre o pagamento
                                 navigate(`/clientes/${r.clientId}`);
                               }}
-                              className="flex max-w-full items-center gap-1 text-sm font-medium text-foreground hover:text-primary hover:underline"
+                              className="flex max-w-full items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary hover:underline"
                             >
                               <span className="truncate">{r.clientName}</span>
-                              <ChevronRight className="size-3.5 shrink-0 opacity-50" />
+                              <Users className="size-3.5 shrink-0 opacity-60" />
                             </button>
                           ) : (
                             <div className="truncate text-sm font-medium text-foreground">
@@ -398,10 +398,10 @@ export function Financeiro() {
                   <button
                     type="button"
                     onClick={() => navigate(`/clientes/${editing.clientId}`)}
-                    className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary hover:underline"
+                    className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary hover:underline"
                   >
                     {editing.clientName}
-                    <ChevronRight className="size-3.5 opacity-50" />
+                    <Users className="size-3.5 opacity-60" />
                   </button>
                 ) : (
                   <span className="font-medium text-foreground">

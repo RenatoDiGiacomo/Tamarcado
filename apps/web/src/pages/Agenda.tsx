@@ -1,4 +1,4 @@
-import { CalendarDays, MessageCircle, ChevronRight } from "lucide-react";
+import { CalendarDays, MessageCircle, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
@@ -114,16 +114,17 @@ export function Agenda() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex flex-wrap items-center gap-2">
-                  {/* Nome clicável → perfil da cliente (DL-066): o gesto que todo
-                      mundo espera; o chevron discreto sinaliza que leva a algum lugar. */}
+                  {/* Nome clicável → perfil da cliente (DL-066): abrir o cadastro
+                      dela. Ícone de pessoa (o mesmo do menu Clientes), não seta —
+                      "abrir a pessoa", não "avançar". */}
                   {a.selected.clientId ? (
                     <button
                       type="button"
                       onClick={() => navigate(`/clientes/${a.selected!.clientId}`)}
-                      className="inline-flex items-center gap-1 rounded-md hover:text-primary hover:underline"
+                      className="inline-flex items-center gap-1.5 rounded-md hover:text-primary hover:underline"
                     >
                       {a.selected.clientName}
-                      <ChevronRight className="size-4 shrink-0 opacity-50" />
+                      <Users className="size-4 shrink-0 opacity-60" />
                     </button>
                   ) : (
                     <span>{a.selected.clientName}</span>
