@@ -100,8 +100,8 @@ describe("Disponibilidade (e2e)", () => {
     );
     companyId = company.id;
     const owner = await seedUser(companyId, "dono@av.dev", "owner", true);
-    const prof2 = await seedUser(companyId, "prof2@av.dev", "basic", true);
-    await seedUser(companyId, "recep@av.dev", "manager", false); // não atende
+    const prof2 = await seedUser(companyId, "prof2@av.dev", "professional", true);
+    await seedUser(companyId, "recep@av.dev", "professional", false); // não atende
     ownerId = owner.id;
     prof2Id = prof2.id;
 

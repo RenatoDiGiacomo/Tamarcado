@@ -110,9 +110,9 @@ describe("Atribuir/trocar profissional (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@assign.dev", "owner", true)).id;
-    profId = (await seedUser("prof@assign.dev", "basic", true)).id;
-    otherProfId = (await seedUser("outra@assign.dev", "basic", true)).id;
-    nonAttenderId = (await seedUser("recep@assign.dev", "basic", false)).id;
+    profId = (await seedUser("prof@assign.dev", "professional", true)).id;
+    otherProfId = (await seedUser("outra@assign.dev", "professional", true)).id;
+    nonAttenderId = (await seedUser("recep@assign.dev", "professional", false)).id;
 
     const corte = await ctx.dataSource.getRepository(SalonService).save(
       ctx.dataSource.getRepository(SalonService).create({

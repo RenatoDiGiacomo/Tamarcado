@@ -49,14 +49,14 @@ describe("Pendentes no painel (e2e)", () => {
       .send({ email, password: PASSWORD, companySlug: SLUG });
     return res.body.accessToken as string;
   }
-  async function seedPending(): Promise<string> {
+  async function seedPending(professionalId: string | null = null): Promise<string> {
     const repo = ctx.dataSource.getRepository(Appointment);
     const saved = await repo.save(
       repo.create({
         company_id: companyId,
         client_id: clientId,
         service_id: serviceId,
-        professional_id: null,
+        professional_id: professionalId,
         scheduled_at: new Date(Date.now() + 3 * 86400000),
         duration_minutes: 60,
         price_snapshot: "50.00",
@@ -86,7 +86,7 @@ describe("Pendentes no painel (e2e)", () => {
     );
     companyId = company.id;
     ownerId = (await seedUser("dono@pend.dev", "owner")).id;
-    profId = (await seedUser("prof@pend.dev", "basic")).id;
+    profId = (await seedUser("prof@pend.dev", "professional")).id;
     serviceId = (
       await ctx.dataSource.getRepository(SalonService).save(
         ctx.dataSource.getRepository(SalonService).create({
@@ -184,13 +184,63 @@ describe("Pendentes no painel (e2e)", () => {
     await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${owner}`).send({ reason: "x" }).expect(409);
   });
 
-  it("PERMISSÃO: basic não trata pendentes (list/count/confirm/reject → 403)", async () => {
-    const id = await seedPending();
-    const basic = await login("prof@pend.dev");
-    await api().get("/api/appointments/pending").set("Authorization", `Bearer ${basic}`).expect(403);
-    await api().get("/api/appointments/pending-count").set("Authorization", `Bearer ${basic}`).expect(403);
-    await api().patch(`/api/appointments/${id}/confirm`).set("Authorization", `Bearer ${basic}`).send({}).expect(403);
-    await api().patch(`/api/appointments/${id}/reject`).set("Authorization", `Bearer ${basic}`).send({ reason: "x" }).expect(403);
+  it("ESCOPO (DL-062, refino): Profissional vê e trata SÓ os pendentes DELE; o não atribuído → 403", async () => {
+    // prof@pend.dev é professional sem `can_manage_all_appointments`.
+    const unassigned = await seedPending(null); // não atribuído → NÃO é dele
+    const own = await seedPending(profId); // atribuído a ele → é dele
+    const prof = await login("prof@pend.dev");
+
+    // list/count ESCOPADOS (200): vê só o pendente dele (1); o não atribuído
+    // fica para quem gerencia a equipe.
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${prof}`);
+    expect(list.status).toBe(200);
+    expect(list.body.appointments).toHaveLength(1);
+    expect(String(list.body.appointments[0].professionalId)).toBe(profId);
+    const count = await api()
+      .get("/api/appointments/pending-count")
+      .set("Authorization", `Bearer ${prof}`);
+    expect(count.body).toEqual({ count: 1 });
+
+    // No NÃO ATRIBUÍDO (não é dele) → 403 no confirmar e no recusar.
+    await api().patch(`/api/appointments/${unassigned}/confirm`).set("Authorization", `Bearer ${prof}`).send({}).expect(403);
+    await api().patch(`/api/appointments/${unassigned}/reject`).set("Authorization", `Bearer ${prof}`).send({ reason: "x" }).expect(403);
+
+    // No DELE → pode RECUSAR com justificativa (dono-do-item).
+    await api()
+      .patch(`/api/appointments/${own}/reject`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({ reason: "Sem horário nesse dia" })
+      .expect(200);
+  });
+
+  it("CONFIRMAR o próprio pendente (Profissional, dono-do-item) → 200; reatribuir a outra → 403", async () => {
+    const own = await seedPending(profId);
+    const alheio = await seedPending(profId);
+    const prof = await login("prof@pend.dev");
+    // Confirma o DELE (sem reatribuir) → 200.
+    await api()
+      .patch(`/api/appointments/${own}/confirm`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({})
+      .expect(200);
+    // Tentar reatribuir o DELE a OUTRA pessoa → 403 (não reatribui).
+    await api()
+      .patch(`/api/appointments/${alheio}/confirm`)
+      .set("Authorization", `Bearer ${prof}`)
+      .send({ professionalId: ownerId })
+      .expect(403);
+  });
+
+  it("owner vê TODOS os pendentes (atribuídos e não atribuídos)", async () => {
+    await seedPending(null);
+    await seedPending(profId);
+    const owner = await login("dono@pend.dev");
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${owner}`);
+    expect(list.body.appointments).toHaveLength(2);
   });
 
   it("id inexistente → 404", async () => {

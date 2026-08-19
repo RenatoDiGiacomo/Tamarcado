@@ -4,6 +4,8 @@ import type { AppointmentStatus } from "../components/StatusChip";
 /** Item cru da API (`GET /appointments`). Status/source no formato do backend. */
 export interface ApiAppointment {
   id: string;
+  /** Id da cliente — link do detalhe da agenda para o perfil dela (DL-066). */
+  clientId: string;
   clientName: string;
   serviceId: string; // 3.5: busca quem executa o serviço p/ destacar no select
   serviceName: string;
@@ -14,6 +16,30 @@ export interface ApiAppointment {
   end: string; // HH:MM
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: "whatsapp" | "manual" | "app" | "link"; // 5B.2: link público
+  /**
+   * Preço do serviço no agendamento — SÓ para quem tem Financeiro (valor). Serve
+   * para pré-preencher o "Valor recebido" (Story 5.2). `null` = sob consulta.
+   */
+  price?: number | null;
+  /**
+   * Pagamento (Story 5.2) — SÓ presente para quem tem o módulo Financeiro
+   * (o backend omite o campo para os demais — corte de valor, DL-062). `null` =
+   * tem acesso, mas ainda sem pagamento registrado.
+   */
+  payment?: PaymentInfo | null;
+}
+
+export type PaymentMethod =
+  | "dinheiro"
+  | "pix"
+  | "debito"
+  | "credito"
+  | "outro";
+
+export interface PaymentInfo {
+  status: "pago" | "pendente";
+  amount: number;
+  method: PaymentMethod | null;
 }
 
 const STATUS_MAP: Record<ApiAppointment["status"], AppointmentStatus> = {

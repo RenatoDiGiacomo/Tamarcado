@@ -4,7 +4,29 @@ import { Repository, SelectQueryBuilder } from "typeorm";
 import { Appointment } from "../../database/entities/appointment.entity";
 import { TenantAwareRepository } from "../../common/repository/tenant-aware.repository";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
-import type { RawAppointmentRow } from "./appointments.mapper";
+import type {
+  ProfessionalScope,
+  RawAppointmentRow,
+} from "./appointments.mapper";
+
+/**
+ * Aplica o recorte por profissional a um QB (alias `a`): `= self` sempre; e
+ * `OR IS NULL` só quando `includeUnassigned`. `undefined` = sem recorte (quem
+ * gerencia a equipe).
+ */
+function applyProfessionalScope(
+  qb: SelectQueryBuilder<Appointment>,
+  scope?: ProfessionalScope,
+): void {
+  if (!scope) return;
+  if (scope.includeUnassigned) {
+    qb.andWhere("(a.professional_id = :pid OR a.professional_id IS NULL)", {
+      pid: scope.professionalId,
+    });
+  } else {
+    qb.andWhere("a.professional_id = :pid", { pid: scope.professionalId });
+  }
+}
 
 /**
  * Acesso aos agendamentos escopado pelo tenant atual (NFR-S1). A listagem da
@@ -29,19 +51,14 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
   async findForPeriod(params: {
     startUtc: Date;
     endUtc: Date;
-    professionalScope?: { professionalId: string };
+    professionalScope?: ProfessionalScope;
   }): Promise<RawAppointmentRow[]> {
     const qb = this.viewQuery()
       .andWhere("a.scheduled_at >= :startUtc", { startUtc: params.startUtc })
       .andWhere("a.scheduled_at < :endUtc", { endUtc: params.endUtc })
       .orderBy("a.scheduled_at", "ASC");
 
-    if (params.professionalScope) {
-      qb.andWhere(
-        "(a.professional_id = :pid OR a.professional_id IS NULL)",
-        { pid: params.professionalScope.professionalId },
-      );
-    }
+    applyProfessionalScope(qb, params.professionalScope);
 
     return qb.getRawMany<RawAppointmentRow>();
   }
@@ -61,39 +78,40 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
    */
   async findByClient(
     clientId: string,
-    professionalScope?: { professionalId: string },
+    professionalScope?: ProfessionalScope,
   ): Promise<RawAppointmentRow[]> {
     const qb = this.viewQuery()
       .andWhere("a.client_id = :clientId", { clientId })
       .orderBy("a.scheduled_at", "DESC");
-    if (professionalScope) {
-      qb.andWhere("(a.professional_id = :pid OR a.professional_id IS NULL)", {
-        pid: professionalScope.professionalId,
-      });
-    }
+    applyProfessionalScope(qb, professionalScope);
     return qb.getRawMany<RawAppointmentRow>();
   }
 
   /**
    * Pendentes do tenant (Story 5B.3) — `status = pending`, mais antigo primeiro
-   * (fila de chegada, para a recepção despachar). Sem recorte por papel: só
-   * owner/gerente acessam a tela Pendentes.
+   * (fila de chegada). Recorte por papel (refinamento DL-062, 2026-08-14): quem
+   * gerencia a equipe vê todos; o profissional vê **só os seus** (não atribuído
+   * NÃO entra — `includeUnassigned=false`).
    */
-  async findPending(): Promise<RawAppointmentRow[]> {
-    return this.viewQuery()
+  async findPending(
+    professionalScope?: ProfessionalScope,
+  ): Promise<RawAppointmentRow[]> {
+    const qb = this.viewQuery()
       .andWhere("a.status = :pending", { pending: "pending" })
-      .orderBy("a.scheduled_at", "ASC")
-      .getRawMany<RawAppointmentRow>();
+      .orderBy("a.scheduled_at", "ASC");
+    applyProfessionalScope(qb, professionalScope);
+    return qb.getRawMany<RawAppointmentRow>();
   }
 
-  /** Contagem de pendentes do tenant (Story 5B.3) — alimenta o badge/contador. */
-  async countPending(): Promise<number> {
-    return this.repo
+  /** Contagem de pendentes (Story 5B.3) — mesmo recorte da `findPending`. */
+  async countPending(professionalScope?: ProfessionalScope): Promise<number> {
+    const qb = this.repo
       .createQueryBuilder("a")
       .where("a.company_id = :companyId", { companyId: this.companyId })
       .andWhere("a.is_deleted = false")
-      .andWhere("a.status = :pending", { pending: "pending" })
-      .getCount();
+      .andWhere("a.status = :pending", { pending: "pending" });
+    applyProfessionalScope(qb, professionalScope);
+    return qb.getCount();
   }
 
   /**
@@ -119,7 +137,15 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
         "u",
         "u.id = a.professional_id AND u.company_id = a.company_id",
       )
+      // Pagamento (Story 5.2) — 0 ou 1 por agendamento (unique). Sempre no join;
+      // o mapper só EXPÕE o valor para quem tem Financeiro (`includePayment`).
+      .leftJoin(
+        "payments",
+        "p",
+        "p.appointment_id = a.id AND p.company_id = a.company_id",
+      )
       .select("a.id", "id")
+      .addSelect("a.client_id", "client_id")
       .addSelect("a.scheduled_at", "scheduled_at")
       .addSelect("a.duration_minutes", "duration_minutes")
       .addSelect("a.status", "status")
@@ -129,6 +155,10 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
       .addSelect("c.name", "client_name")
       .addSelect("s.name", "service_name")
       .addSelect("u.name", "professional_name")
+      .addSelect("a.price_snapshot", "price_snapshot")
+      .addSelect("p.status", "payment_status")
+      .addSelect("p.amount", "payment_amount")
+      .addSelect("p.method", "payment_method")
       .where("a.company_id = :companyId", { companyId: this.companyId })
       .andWhere("a.is_deleted = false");
   }

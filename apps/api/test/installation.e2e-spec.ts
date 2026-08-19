@@ -53,7 +53,7 @@ describe("Identidade visual da instalação (e2e)", () => {
       companies.create({ name: "Salão ID", slug: SLUG }),
     );
     await seedUser(company.id, "dono@id.dev", "owner");
-    await seedUser(company.id, "gestao@id.dev", "manager");
+    await seedUser(company.id, "gestao@id.dev", "professional");
   });
 
   afterAll(async () => {

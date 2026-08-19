@@ -7,10 +7,21 @@ import {
 import { ClientsRepository } from "./clients.repository";
 import { normalizePhoneBR } from "./phone.util";
 
+/**
+ * Situação financeira da cliente (Story 5.5) — soma dos pagamentos dos
+ * agendamentos dela. SÓ vai no payload para quem tem o módulo Financeiro (corte
+ * de valor, DL-062); ausente do objeto para os demais.
+ */
+export interface ClientFinance {
+  owed: number; // soma dos pagamentos `pendente` (o que a cliente deve)
+  paid: number; // soma dos pagamentos `pago`
+}
+
 export interface ClientView {
   id: string;
   name: string;
   phone_whatsapp: string | null;
+  finance?: ClientFinance;
 }
 
 /** Perfil da cliente (Story 4.2) — enriquece a view com observações e cadastro. */
@@ -52,6 +63,10 @@ export class ClientsService {
     search?: string;
     page?: number;
     pageSize?: number;
+    /** Recorte por profissional (DL-062): só as clientes que ele atendeu. */
+    attendedByProfessionalId?: string;
+    /** Story 5.5: anexa a situação financeira. Só para quem tem Financeiro (corte de valor). */
+    includeFinance?: boolean;
   }): Promise<ClientListView> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize =
@@ -62,19 +77,34 @@ export class ClientsService {
       search: params.search,
       page,
       pageSize,
+      attendedByProfessionalId: params.attendedByProfessionalId,
     });
-    return { clients: rows.map(toView), total, page, pageSize };
+    const clients = rows.map(toView);
+    if (params.includeFinance) {
+      const finance = await this.clients.financeByClientIds(
+        clients.map((c) => c.id),
+      );
+      for (const c of clients) {
+        c.finance = finance.get(c.id) ?? { owed: 0, paid: 0 };
+      }
+    }
+    return { clients, total, page, pageSize };
   }
 
   /** Obter o perfil por id (4.1 AC5 + 4.2) — deletada/fora do tenant → 404 (D5). */
-  async getById(id: string): Promise<ClientProfileView> {
+  async getById(id: string, includeFinance = false): Promise<ClientProfileView> {
     const client = await this.clients.findActiveById(id);
     if (!client) throw new NotFoundException("Cliente não encontrada.");
-    return {
+    const view: ClientProfileView = {
       ...toView(client),
       notes: client.notes,
       createdAt: client.created_at.toISOString(),
     };
+    if (includeFinance) {
+      const finance = await this.clients.financeByClientIds([client.id]);
+      view.finance = finance.get(client.id) ?? { owed: 0, paid: 0 };
+    }
+    return view;
   }
 
   /**

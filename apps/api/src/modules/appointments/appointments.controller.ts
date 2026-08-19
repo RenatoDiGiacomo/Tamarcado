@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -12,8 +13,15 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
-import { CurrentUser } from "../auth/current-user.decorator";
-import type { AuthUser } from "../auth/auth-user";
+import { ModuleGuard } from "../auth/guards/module.guard";
+import { RequireModule } from "../../common/decorators/require-module.decorator";
+import { CurrentActor, type Actor } from "../auth/actor.decorator";
+import {
+  PaymentsService,
+  type PaymentView,
+  type ReceiptsView,
+} from "./payments.service";
+import { RegisterPaymentDto } from "./dto/register-payment.dto";
 import {
   AppointmentsService,
   type AgendaPeriod,
@@ -39,32 +47,55 @@ import { Roles } from "../../common/decorators/roles.decorator";
  */
 @ApiTags("appointments")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, ActiveUserGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, ActiveUserGuard, ModuleGuard, RolesGuard)
 @Controller("appointments")
 export class AppointmentsController {
-  constructor(private readonly appointments: AppointmentsService) {}
+  constructor(
+    private readonly appointments: AppointmentsService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   /** Agendamentos do período (`?from&to`, datas civis) + horário comercial. */
   @Get()
   async list(
     @Query() q: ListAppointmentsQueryDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AgendaPeriod> {
-    return this.appointments.listByPeriod(q.from, q.to, user);
+    return this.appointments.listByPeriod(q.from, q.to, actor);
   }
 
-  /** Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. Só owner/gerente. */
+  /**
+   * Pendentes do tenant (Story 5B.3) — a fila da tela Pendentes. **Escopado**
+   * (refinamento DL-062, 2026-08-14): quem gerencia a equipe vê todos; o
+   * profissional vê **só os seus** (o service aplica o recorte por `@Actor`). Por
+   * isso NÃO há mais gate de acesso aqui — todo autenticado lista, filtrado.
+   */
   @Get("pending")
-  @Roles("owner", "manager")
-  async listPending(): Promise<{ appointments: AppointmentView[] }> {
-    return this.appointments.listPending();
+  async listPending(
+    @CurrentActor() actor: Actor,
+  ): Promise<{ appointments: AppointmentView[] }> {
+    return this.appointments.listPending(actor);
   }
 
-  /** Contagem de pendentes (Story 5B.3) — o contador/badge. Só owner/gerente. */
+  /** Contagem de pendentes (Story 5B.3) — o contador/badge, MESMO recorte. */
   @Get("pending-count")
-  @Roles("owner", "manager")
-  async pendingCount(): Promise<{ count: number }> {
-    return this.appointments.pendingCount();
+  async pendingCount(
+    @CurrentActor() actor: Actor,
+  ): Promise<{ count: number }> {
+    return this.appointments.pendingCount(actor);
+  }
+
+  /**
+   * Recebimentos do período (Story 5.3) — a lista do menu Financeiro, com total
+   * recebido e total pendente. **Exige o módulo Financeiro** (`ModuleGuard`).
+   * Antes de `@Get(":id")` (não há), mas por segurança fica entre os GETs fixos.
+   */
+  @Get("payments")
+  @RequireModule("financeiro")
+  async receipts(
+    @Query() q: ListAppointmentsQueryDto,
+  ): Promise<ReceiptsView> {
+    return this.payments.listReceipts(q.from, q.to);
   }
 
   /**
@@ -74,9 +105,9 @@ export class AppointmentsController {
   @Post()
   async create(
     @Body() dto: CreateAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<CreatedAppointment> {
-    return this.appointments.createManual(dto, user);
+    return this.appointments.createManual(dto, actor);
   }
 
   /**
@@ -88,9 +119,9 @@ export class AppointmentsController {
   async cancel(
     @Param("id") id: string,
     @Body() dto: CancelAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.cancel(id, dto, user);
+    return this.appointments.cancel(id, dto, actor);
   }
 
   /**
@@ -102,9 +133,9 @@ export class AppointmentsController {
   async assignProfessional(
     @Param("id") id: string,
     @Body() dto: AssignProfessionalDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AssignProfessionalResult> {
-    return this.appointments.assignProfessional(id, dto.professionalId, user);
+    return this.appointments.assignProfessional(id, dto.professionalId, actor);
   }
 
   /**
@@ -116,9 +147,9 @@ export class AppointmentsController {
   async edit(
     @Param("id") id: string,
     @Body() dto: EditAppointmentDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AssignProfessionalResult> {
-    return this.appointments.editAppointment(id, dto, user);
+    return this.appointments.editAppointment(id, dto, actor);
   }
 
   /**
@@ -129,38 +160,54 @@ export class AppointmentsController {
   /**
    * Confirma um PENDENTE (Story 5B.3/DL-046): `pending → confirmed`, atribuindo o
    * profissional OPCIONALMENTE (PR-1). Leva ao badge "confirmado" da 3.7. Só
-   * owner/gerente (PR-3). Auditado em `appointment_changes`. Também no modal.
+   * quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado. Também no modal.
    */
   @Patch(":id/confirm")
-  @Roles("owner", "manager")
+  @Roles("owner", "professional")
   async confirm(
     @Param("id") id: string,
     @Body() dto: ConfirmPendingDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.confirmPending(id, dto.professionalId, user);
+    return this.appointments.confirmPending(id, dto.professionalId, actor);
   }
 
   /**
    * Recusa um PENDENTE (Story 5B.3/FR-B4): `pending → cancelled` com motivo
-   * OBRIGATÓRIO (reusa o padrão da 3.4). Só owner/gerente. Auditado.
+   * OBRIGATÓRIO (reusa o padrão da 3.4). Quem gerencia a equipe, ou o Profissional no pendente DELE (DL-062). Auditado.
    */
   @Patch(":id/reject")
-  @Roles("owner", "manager")
+  @Roles("owner", "professional")
   async reject(
     @Param("id") id: string,
     @Body() dto: RejectPendingDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.rejectPending(id, dto.reason, user);
+    return this.appointments.rejectPending(id, dto.reason, actor);
+  }
+
+  /**
+   * Registra (upsert) o PAGAMENTO de um agendamento (Story 5.2). Acontece a
+   * partir do próprio agendamento; **exige o módulo Financeiro** (`ModuleGuard`)
+   * → quem não tem recebe **403** (e não vê o menu). `valor` obrigatório, `forma`
+   * opcional, `situação` pago/pendente. Não mexe no status do agendamento.
+   */
+  @Put(":id/payment")
+  @RequireModule("financeiro")
+  async registerPayment(
+    @Param("id") id: string,
+    @Body() dto: RegisterPaymentDto,
+    @CurrentActor() actor: Actor,
+  ): Promise<PaymentView> {
+    return this.payments.register(id, dto, actor);
   }
 
   @Patch(":id/status")
   async changeStatus(
     @Param("id") id: string,
     @Body() dto: ChangeStatusDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentActor() actor: Actor,
   ): Promise<AppointmentView> {
-    return this.appointments.changeStatus(id, dto.to, user);
+    return this.appointments.changeStatus(id, dto.to, actor);
   }
 }

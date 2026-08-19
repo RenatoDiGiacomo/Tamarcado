@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { canViewModule } from "../lib/permissions";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useInstallation } from "../lib/useInstallation";
 import { usePendentes } from "../lib/usePendentes";
@@ -17,11 +18,6 @@ import { hexToHslTriplet } from "../lib/theme";
 import { APP_VERSION } from "../lib/version";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
-
-// Itens da nav mantidos no código mas NÃO renderizados por ora. Pagamentos
-// volta depois (provavelmente como "Financeiro") — por isso o item segue em
-// NAV_ITEMS, só é filtrado da renderização. — ajuste 2.1.NN
-const HIDDEN_NAV_KEYS = new Set(["pagamentos"]);
 
 interface NavItem {
   key: string;
@@ -37,14 +33,22 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
   { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
-  { key: "pagamentos", label: "Pagamentos", to: "/pagamentos", icon: CreditCard, disabled: true },
 ];
+
+/** Financeiro (Story 5.2) — só aparece para quem tem o módulo (DL-062). */
+const financeiroItem: NavItem = {
+  key: "financeiro",
+  label: "Financeiro",
+  to: "/financeiro",
+  icon: CreditCard,
+};
 
 /** Título da tela para a AppBar mobile (Épico 7). */
 function screenTitle(pathname: string): string {
   if (pathname === "/") return "Agenda";
   if (pathname.startsWith("/pendentes")) return "Pendentes";
   if (pathname.startsWith("/clientes")) return "Clientes";
+  if (pathname.startsWith("/financeiro")) return "Financeiro";
   if (pathname.startsWith("/configuracoes")) return "Configurações";
   if (pathname.startsWith("/perfil")) return "Perfil";
   return "Tamarcado";
@@ -65,8 +69,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isOwner = user?.accessLevel === "owner";
-  const canSeePendentes =
-    user?.accessLevel === "owner" || user?.accessLevel === "manager";
+  // Pendentes é visível a todo autenticado; o backend ESCOPA (o profissional vê
+  // só os pendentes dele; quem gerencia a equipe vê todos). Refino DL-062
+  // (2026-08-14) — antes o item era escondido de quem não gerencia.
+  const canSeePendentes = user != null;
 
   // Aplica tema individual (users.theme) e a cor primária da instalação (AC3/AC4).
   useEffect(() => {
@@ -96,21 +102,35 @@ export function AppShell({ children }: { children?: ReactNode }) {
     to: "/configuracoes",
     icon: Settings,
   };
-  // Itens principais (sem Pagamentos oculto). Pendentes só owner/gerente.
+  // Financeiro (Story 5.2) só para quem tem o módulo — igual ao menu não existir
+  // para os demais (DL-062). O polling de flags do AuthContext faz aparecer/sumir
+  // sem relogar.
+  const canSeeFinanceiro = canViewModule(user, "financeiro");
+  // Agenda · Pendentes (escopado) · Clientes · Financeiro (se tem acesso).
   const mainItems: NavItem[] = [
     NAV_ITEMS[0],
     ...(canSeePendentes ? [pendItem] : []),
-    ...NAV_ITEMS.slice(1),
-  ].filter((item) => !HIDDEN_NAV_KEYS.has(item.key));
+    NAV_ITEMS[1],
+    ...(canSeeFinanceiro ? [financeiroItem] : []),
+  ];
   // Desktop: sidebar inclui Configurações (owner) ao fim.
   const items: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
 
-  const brand = installation?.logoUrl ? (
-    <img src={installation.logoUrl} alt={installation.name} className="h-7" />
-  ) : (
-    <strong className="text-sm font-semibold text-foreground">
-      {installation?.name ?? "Tamarcado"}
-    </strong>
+  // Cabeçalho (rule 6, 2026-08-14): mostra logo E nome juntos (antes era um OU
+  // outro). O logo, quando existe, vem maior; o nome fica ao lado na mesma linha.
+  const brand = (
+    <div className="flex items-center gap-2">
+      {installation?.logoUrl && (
+        <img
+          src={installation.logoUrl}
+          alt=""
+          className="h-10 w-auto shrink-0"
+        />
+      )}
+      <strong className="truncate text-sm font-semibold text-foreground">
+        {installation?.name ?? "Tamarcado"}
+      </strong>
+    </div>
   );
 
   if (isDesktop) {

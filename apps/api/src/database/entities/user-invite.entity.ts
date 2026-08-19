@@ -30,8 +30,9 @@ export class UserInvite {
   @Column({ type: "varchar", length: 100 })
   name!: string;
 
-  // Convite nunca cria 'owner' (FR-I3 / DL-029 item 4); validado no DTO.
-  @Column({ type: "enum", enum: ["owner", "manager", "basic"] })
+  // Convite nunca cria 'owner' (FR-I3 / DL-029 item 4); validado no DTO. O
+  // 'basic' foi aposentado (DL-062) — restam owner/professional no enum da coluna.
+  @Column({ type: "enum", enum: ["owner", "professional"] })
   access_level!: AccessLevel;
 
   @Column({ type: "boolean", default: false })

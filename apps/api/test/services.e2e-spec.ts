@@ -56,8 +56,8 @@ describe("Catálogo de serviços (e2e)", () => {
       companies.create({ name: "Salão Serviços", slug: SLUG }),
     );
     await seedUser(company.id, "dono@sv.dev", "owner", true);
-    const prof = await seedUser(company.id, "prof@sv.dev", "basic", true);
-    const recep = await seedUser(company.id, "recep@sv.dev", "manager", false);
+    const prof = await seedUser(company.id, "prof@sv.dev", "professional", true);
+    const recep = await seedUser(company.id, "recep@sv.dev", "professional", false);
     attenderId = prof.id;
     nonAttenderId = recep.id;
   });
@@ -140,12 +140,14 @@ describe("Catálogo de serviços (e2e)", () => {
     expect(cleared.body.price).toBeNull();
   });
 
-  it("AC3: gestão/básico conseguem listar serviços (leitura liberada)", async () => {
+  it("AC3: profissional consegue listar serviços (leitura liberada; recortada aos que executa — DL-062)", async () => {
     const recep = await login("recep@sv.dev");
     const res = await request(ctx.app.getHttpServer())
       .get("/api/services?activeOnly=true")
       .set("Authorization", `Bearer ${recep}`);
     expect(res.status).toBe(200);
+    // Recorte da rule 5: sem vínculo profissional↔serviço, a lista vem vazia.
+    // (A prova completa "vê só os que executa" está em permissions.e2e-spec.)
     expect(Array.isArray(res.body.services)).toBe(true);
   });
 

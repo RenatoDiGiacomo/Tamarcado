@@ -32,7 +32,7 @@ export default tseslint.config(
   },
   {
     // Código de front-end (React) roda no browser.
-    files: ["apps/web/**/*.{ts,tsx}", "apps/mobile/**/*.{ts,tsx}"],
+    files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: {
       globals: {
         ...globals.browser,

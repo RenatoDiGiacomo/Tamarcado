@@ -43,6 +43,12 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
     search?: string;
     page: number;
     pageSize: number;
+    /**
+     * Refinamento DL-062 (2026-08-14): quando presente, restringe às clientes
+     * que ESTE profissional atendeu (tem ≥1 agendamento não deletado com ela).
+     * `undefined` = sem recorte (quem gerencia a equipe vê a carteira inteira).
+     */
+    attendedByProfessionalId?: string;
   }): Promise<{ rows: Client[]; total: number }> {
     const qb = this.repo
       .createQueryBuilder("c")
@@ -57,6 +63,15 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
       );
     }
 
+    if (params.attendedByProfessionalId) {
+      qb.andWhere(
+        "EXISTS (SELECT 1 FROM appointments ap WHERE ap.client_id = c.id " +
+          "AND ap.company_id = c.company_id AND ap.is_deleted = false " +
+          "AND ap.professional_id = :attendedBy)",
+        { attendedBy: params.attendedByProfessionalId },
+      );
+    }
+
     const [rows, total] = await qb
       .orderBy("c.name", "ASC")
       .skip((params.page - 1) * params.pageSize)
@@ -66,6 +81,38 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
   }
 
   /** Cliente NÃO deletada do tenant (Story 4.1) — soft delete some daqui (D5). */
+  /**
+   * Situação financeira por cliente (Story 5.5): soma dos pagamentos `pendente`
+   * (`owed`) e `pago` (`paid`) dos agendamentos de cada cliente, tenant-scoped.
+   * Uma query agregada para o conjunto de ids (a lista pagina, então é barato).
+   */
+  async financeByClientIds(
+    ids: string[],
+  ): Promise<Map<string, { owed: number; paid: number }>> {
+    const map = new Map<string, { owed: number; paid: number }>();
+    if (ids.length === 0) return map;
+    const placeholders = ids.map(() => "?").join(",");
+    const rows: Array<{ client_id: string; owed: string; paid: string }> =
+      await this.repo.query(
+        `SELECT ap.client_id AS client_id,
+           COALESCE(SUM(CASE WHEN pay.status = 'pendente' THEN pay.amount ELSE 0 END), 0) AS owed,
+           COALESCE(SUM(CASE WHEN pay.status = 'pago' THEN pay.amount ELSE 0 END), 0) AS paid
+         FROM payments pay
+         JOIN appointments ap
+           ON ap.id = pay.appointment_id AND ap.company_id = pay.company_id
+         WHERE pay.company_id = ? AND ap.client_id IN (${placeholders})
+         GROUP BY ap.client_id`,
+        [this.companyId, ...ids],
+      );
+    for (const r of rows) {
+      map.set(String(r.client_id), {
+        owed: Number(r.owed),
+        paid: Number(r.paid),
+      });
+    }
+    return map;
+  }
+
   async findActiveById(id: string): Promise<Client | null> {
     return this.repo
       .createQueryBuilder("c")

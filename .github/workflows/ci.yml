@@ -10,8 +10,39 @@ on:
     branches: [main, dev]
 
 jobs:
-  validate:
+  # Checks rápidos SEM banco: build, lint, typecheck, testes de front (vitest) e
+  # unit da API. O e2e (que precisa de MySQL) roda no job `e2e`, em paralelo.
+  # `pnpm run test` = turbo test; o `test` da API é unit-only (o e2e é explícito).
+  checks:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+      # Via Turbo (respeita `^build`): os pacotes @tamarcado/* são buildados antes
+      # de typecheck/test — que dependem do dist/ deles. `pnpm -r` puro ignora isso.
+      - run: pnpm run build
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test
+
+  # e2e da API em paralelo, shardado (jest --shard). Cada shard é um job próprio
+  # com seu PRÓPRIO MySQL — sem colisão de schema entre shards, então mantém
+  # `--runInBand` dentro do shard (cada arquivo reseta o schema no beforeAll).
+  # 3 shards derrubam o e2e de ~4,5 min (serial) para ~1,5 min (wall-clock).
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
 
     services:
       mysql:
@@ -21,13 +52,14 @@ jobs:
           MYSQL_DATABASE: tamarcado_dev
         ports:
           - 3306:3306
+        # datadir em tmpfs (RAM): o e2e dropa/recria o schema por arquivo, então
+        # I/O de disco do MySQL é puro overhead. Banco efêmero de teste → seguro.
         options: >-
           --health-cmd="mysqladmin ping -uroot -proot"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
-      # Redis REMOVIDO (DL-056): a aplicação não usa mais Redis (estado de
-      # conversa e jobs vão para o MySQL). Nada nos testes depende dele.
+          --mount type=tmpfs,destination=/var/lib/mysql
 
     env:
       DATABASE_HOST: 127.0.0.1
@@ -39,8 +71,6 @@ jobs:
       JWT_ACCESS_TTL: "900"
       JWT_REFRESH_SECRET: ci-test-refresh-secret
       JWT_REFRESH_TTL: "604800"
-      # AUTH_ALLOW_SINGLE_TENANT REMOVIDA (DL-052): o login por e-mail resolve o
-      # tenant no backend; a flag foi aposentada e o código não a lê mais.
 
     steps:
       - uses: actions/checkout@v4
@@ -53,10 +83,11 @@ jobs:
           cache: "pnpm"
 
       - run: pnpm install --frozen-lockfile
-      # Via Turbo (scripts do package.json raiz): respeita `^build`, então os
-      # pacotes compartilhados (@tamarcado/*) são buildados antes de typecheck/
-      # test — que dependem do dist/ deles. `pnpm -r` puro ignora essa ordem.
-      - run: pnpm run build
-      - run: pnpm run lint
-      - run: pnpm run typecheck
-      - run: pnpm run test
+      # Buildar SÓ os pacotes compartilhados (~ms): o jest-e2e mapeia @tamarcado/*
+      # para o src em RUNTIME, mas o ts-jest CHECA TIPOS e precisa dos .d.ts do
+      # dist/ (TS2307 sem eles). Não builda api/web — o job segue enxuto.
+      - run: pnpm exec turbo run build --filter=@tamarcado/shared-types --filter=@tamarcado/shared-utils
+      # `exec` (não `run … --`): passar --shard via `pnpm run` injeta um `--`
+      # extra e o jest trata "--shard=1/3" como filtro de caminho ("No tests
+      # found"). Com `exec`, a flag chega ao jest como opção.
+      - run: pnpm --filter api exec jest --config ./test/jest-e2e.json --runInBand --shard=${{ matrix.shard }}

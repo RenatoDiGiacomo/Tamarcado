@@ -63,6 +63,31 @@ describe("Clientes", () => {
     expect(screen.getByText("2 clientes")).toBeInTheDocument();
   });
 
+  it("indicador de valor em aberto ao lado do nome (5.5): só quando `owed` > 0", async () => {
+    apiMock.mockImplementation((path: string, opts?: Opts) => {
+      if (String(path).startsWith("/clients?") && opts?.method === undefined) {
+        return Promise.resolve(
+          jsonRes({
+            clients: [
+              { id: "1", name: "Ana Lima", phone_whatsapp: null, finance: { owed: 80, paid: 20 } },
+              { id: "2", name: "Bruno", phone_whatsapp: null, finance: { owed: 0, paid: 50 } },
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 20,
+          }),
+        );
+      }
+      return Promise.resolve(jsonRes({}));
+    });
+    render(<Clientes />);
+    await screen.findByText("Ana Lima");
+    // Ana deve 80 → indicador; Bruno quitado → sem indicador.
+    expect(screen.getByLabelText(/Em aberto/)).toBeInTheDocument();
+    expect(screen.getByText(/Deve/)).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/Em aberto/)).toHaveLength(1);
+  });
+
   it("busca envia o termo (debounce) e volta para a página 1", async () => {
     render(<Clientes />);
     await screen.findByText("Ana Lima");
@@ -90,11 +115,15 @@ describe("Clientes", () => {
       );
       expect((post?.[1] as Opts).body?.name).toBe("Carla Nova");
     });
-    // Recarrega a lista (≥2 GETs).
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/clients?") && (o as Opts | undefined)?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2);
+    // Recarrega a lista após o cadastro (2º GET). O reload é disparado por
+    // setState DEPOIS do POST resolver, então esperamos por ele — asseverar
+    // síncrono aqui é uma corrida (flaky: o waitFor acima só espera o POST).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/clients?") && (o as Opts | undefined)?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("clicar numa linha navega para o perfil da cliente (Story 4.2)", async () => {

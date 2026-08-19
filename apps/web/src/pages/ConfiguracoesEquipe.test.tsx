@@ -15,10 +15,15 @@ interface Opts {
   body?: Record<string, unknown>;
 }
 
+const flags = {
+  canViewFinanceiro: false,
+  canViewDashboard: false,
+  canManageAllAppointments: false,
+};
 const members = [
-  { id: "o1", name: "Dona", email: "dona@x", accessLevel: "owner", attendsClients: true, isActive: true },
-  { id: "m1", name: "Bia", email: "bia@x", accessLevel: "manager", attendsClients: false, isActive: true },
-  { id: "b1", name: "Cida", email: "cida@x", accessLevel: "basic", attendsClients: true, isActive: true },
+  { id: "o1", name: "Dona", email: "dona@x", accessLevel: "owner", attendsClients: true, isActive: true, ...flags },
+  { id: "m1", name: "Bia", email: "bia@x", accessLevel: "professional", attendsClients: false, isActive: true, ...flags },
+  { id: "b1", name: "Cida", email: "cida@x", accessLevel: "professional", attendsClients: true, isActive: true, ...flags },
 ];
 
 function routeApi(path: string, opts: Opts = {}): Response {
@@ -52,17 +57,34 @@ describe("ConfiguracoesEquipe", () => {
     expect(screen.getByLabelText("Papel de Bia")).toBeInTheDocument();
   });
 
-  it("auto-save do papel (PATCH access_level)", async () => {
+  it("interruptores de permissão (DL-062): Profissional tem os 3; Dono não tem; ligar → PATCH do flag", async () => {
     render(<ConfiguracoesEquipe />);
     await screen.findByText("Bia");
-    fireEvent.change(screen.getByLabelText("Papel de Bia"), { target: { value: "basic" } });
+    // Profissional (Bia) tem os três interruptores; o Dono (Dona) não.
+    expect(screen.getByLabelText("Pode ver Financeiro — Bia")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pode ver Dashboard — Bia")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Pode gerenciar agendamentos de toda a equipe — Bia"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pode ver Financeiro — Dona")).toBeNull();
+
+    // Ligar "Pode ver Financeiro" → PATCH { can_view_financeiro: true }.
+    fireEvent.click(screen.getByLabelText("Pode ver Financeiro — Bia"));
     await waitFor(() =>
       expect(
         apiMock.mock.calls.find(([p, o]) => p === "/users/m1" && o?.method === "PATCH"),
       ).toBeTruthy(),
     );
     const patch = apiMock.mock.calls.find(([p, o]) => p === "/users/m1" && o?.method === "PATCH");
-    expect(patch?.[1].body).toEqual({ access_level: "basic" });
+    expect(patch?.[1].body).toEqual({ can_view_financeiro: true });
+  });
+
+  it("select de papel NÃO oferece 'Básico' (aposentado — DL-062)", async () => {
+    render(<ConfiguracoesEquipe />);
+    await screen.findByText("Bia");
+    const select = screen.getByLabelText("Papel de Bia") as HTMLSelectElement;
+    expect(select.querySelector('option[value="basic"]')).toBeNull();
+    expect(select.querySelector('option[value="professional"]')).not.toBeNull();
   });
 
   it("auto-save do atende (PATCH attends_clients)", async () => {
@@ -115,7 +137,9 @@ describe("ConfiguracoesEquipe", () => {
     });
     render(<ConfiguracoesEquipe />);
     await screen.findByText("Bia");
-    fireEvent.change(screen.getByLabelText("Papel de Bia"), { target: { value: "basic" } });
+    // Aciona um PATCH de papel (único valor possível agora é 'professional') para
+    // exercitar a exibição da mensagem real da API.
+    fireEvent.change(screen.getByLabelText("Papel de Bia"), { target: { value: "professional" } });
     expect(
       await screen.findByText(/Transfira a titularidade antes/i),
     ).toBeInTheDocument();
@@ -133,6 +157,6 @@ describe("ConfiguracoesEquipe", () => {
       await screen.findByDisplayValue("http://x/aceitar-convite?token=abc"),
     ).toBeInTheDocument();
     const post = apiMock.mock.calls.find(([p, o]) => p === "/users/invite" && o?.method === "POST");
-    expect(post?.[1].body).toMatchObject({ name: "Novo", email: "novo@x.com", access_level: "basic" });
+    expect(post?.[1].body).toMatchObject({ name: "Novo", email: "novo@x.com", access_level: "professional" });
   });
 });

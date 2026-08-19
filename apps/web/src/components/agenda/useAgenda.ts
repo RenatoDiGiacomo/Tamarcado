@@ -8,6 +8,7 @@ import {
   useAppointmentsVersion,
 } from "../../lib/appointmentsSignal";
 import { useAuth } from "../../auth/AuthContext";
+import { canManageAllAppointments } from "../../lib/permissions";
 import { usePendentes } from "../../lib/usePendentes";
 import {
   periodRange,
@@ -111,9 +112,10 @@ export function useAgenda() {
   const isActiveStatus =
     selected?.status === "pending" || selected?.status === "confirmed";
   const canCancel = isActiveStatus;
+  const managesAll = canManageAllAppointments(user);
   const canEdit =
     isActiveStatus &&
-    (user?.accessLevel !== "basic" ||
+    (managesAll ||
       selected?.professionalId === user?.id ||
       selected?.professionalId === null);
   const hasStarted = selected
@@ -122,10 +124,8 @@ export function useAgenda() {
   const canMark =
     selected?.status === "confirmed" &&
     hasStarted &&
-    (user?.accessLevel !== "basic" || selected?.professionalId === user?.id);
-  const canConfirm =
-    selected?.status === "pending" &&
-    (user?.accessLevel === "owner" || user?.accessLevel === "manager");
+    (managesAll || selected?.professionalId === user?.id);
+  const canConfirm = selected?.status === "pending" && managesAll;
 
   const closeDetail = useCallback(() => {
     setSelectedId(null);

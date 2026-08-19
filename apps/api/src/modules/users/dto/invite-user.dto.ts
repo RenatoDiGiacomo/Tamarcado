@@ -21,8 +21,8 @@ export class InviteUserDto {
   @MaxLength(200)
   email!: string;
 
-  @IsIn(["manager", "basic"])
-  access_level!: "manager" | "basic";
+  @IsIn(["professional"])
+  access_level!: "professional";
 
   @IsBoolean()
   attends_clients!: boolean;

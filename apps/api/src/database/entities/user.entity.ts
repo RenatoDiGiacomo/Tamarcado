@@ -7,14 +7,20 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 
-export type AccessLevel = "owner" | "manager" | "basic";
+export type AccessLevel = "owner" | "professional";
 export type UserTheme = "light" | "dark";
 
 /**
- * Usuário interno (dono, gestão, básico). Schema em architecture.md §3.2.
+ * Usuário interno (Dono, Gestão). Schema em architecture.md §3.2.
+ * Papéis: `owner` (Dono) e `professional` (Profissional). O antigo `basic` foi
+ * **aposentado** (DL-062) — o que o restringia virou a AUSÊNCIA dos flags abaixo.
  * Dois eixos independentes (DL-022): `access_level` + `attends_clients`.
  * `theme` é preferência individual (DL-021).
  * Email é único POR TENANT (DL-026): `(company_id, email)`.
+ *
+ * Permissões por MÓDULO/AÇÃO (DL-062), todas OFF por padrão, concedidas só pelo
+ * Dono; o `owner` ignora os flags (sempre pode). Lidas da LINHA FRESCA a cada
+ * request (ActiveUserGuard) → revogação imediata.
  */
 @Entity({ name: "users" })
 @Index("uq_users_tenant_email", ["company_id", "email"], { unique: true })
@@ -40,11 +46,25 @@ export class User {
   @Column({ type: "varchar", length: 255 })
   password_hash!: string;
 
-  @Column({ type: "enum", enum: ["owner", "manager", "basic"] })
+  @Column({ type: "enum", enum: ["owner", "professional"] })
   access_level!: AccessLevel;
 
   @Column({ type: "boolean", default: false })
   attends_clients!: boolean;
+
+  // Visibilidade de MÓDULO (DL-062): o menu existe/não existe para a pessoa;
+  // o backend nega o endpoint com 403. OFF por padrão; owner ignora.
+  @Column({ type: "boolean", default: false })
+  can_view_financeiro!: boolean;
+
+  @Column({ type: "boolean", default: false })
+  can_view_dashboard!: boolean;
+
+  // Escopo de AÇÃO da Agenda (DL-062 adição 2026-08-13): NÃO é módulo (não
+  // esconde menu). OFF = opera só os próprios agendamentos; ON = os de toda a
+  // equipe. owner sempre opera tudo. Substitui o antigo "basic = só os próprios".
+  @Column({ type: "boolean", default: false })
+  can_manage_all_appointments!: boolean;
 
   // Intervalo entre atendimentos (minutos), por profissional (FR-G3, DL-032).
   @Column({ type: "int", default: 0 })

@@ -22,11 +22,14 @@ vi.mock("../auth/AuthContext", () => ({
 // Toast (UX-DR19) — sem Toaster montado no teste.
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Agenda passou a ler useLocation (FAB do celular, Épico 7). Sem sessão de
-// navegação no teste, devolvemos um location neutro (state null → não abre Novo).
+// Agenda lê useLocation (FAB do celular, Épico 7) e useNavigate (link p/ a
+// cliente, DL-066). Sem sessão de navegação no teste: location neutro (state
+// null → não abre Novo) e navigate espionável.
+const navigateMock = vi.fn();
 vi.mock("react-router-dom", async (orig) => ({
   ...(await orig<typeof import("react-router-dom")>()),
   useLocation: () => ({ state: null, pathname: "/", search: "", hash: "", key: "t" }),
+  useNavigate: () => navigateMock,
 }));
 
 /** Data civil (YYYY-MM-DD) deslocada em `days` a partir de hoje. */
@@ -42,6 +45,7 @@ const BUSINESS = { start: "08:00", end: "19:00" };
 
 const seg: ApiAppointment = {
   id: "10",
+  clientId: "500",
   clientName: "Maria das Dores",
   serviceId: "3",
   serviceName: "Coloração",
@@ -55,6 +59,7 @@ const seg: ApiAppointment = {
 };
 const semAtrib: ApiAppointment = {
   id: "11",
+  clientId: "501",
   clientName: "Joana Silva",
   serviceId: "3",
   serviceName: "Corte",
@@ -69,6 +74,7 @@ const semAtrib: ApiAppointment = {
 
 const pendente: ApiAppointment = {
   id: "20",
+  clientId: "502",
   clientName: "Bruna Alves",
   serviceId: "3",
   serviceName: "Corte",
@@ -90,6 +96,7 @@ function lastQuery(): string {
 describe("Agenda", () => {
   beforeEach(() => {
     apiMock.mockReset();
+    navigateMock.mockReset();
     localStorage.setItem("tamarcado.access", "tok");
     // A Agenda escolhe a vista por breakpoint (Épico 7). Estes testes exercitam
     // o DESKTOP (grade) → matchMedia = desktop. A vista mobile (AgendaList) tem
@@ -174,6 +181,25 @@ describe("Agenda", () => {
     ).toBeInTheDocument();
   });
 
+  it("nome da cliente leva ao perfil e detalhe NÃO registra pagamento (DL-066)", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({ appointments: [seg], businessHours: BUSINESS }),
+    );
+    render(<Agenda />);
+    fireEvent.click(await screen.findByText("Maria das Dores"));
+    const dialog = await screen.findByRole("dialog");
+    // Pagamento saiu da Agenda: sem seção/botão de pagamento no detalhe.
+    expect(within(dialog).queryByText("Pagamento")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: /Registrar|pagamento/i }),
+    ).toBeNull();
+    // O NOME da cliente (no título) é o link → perfil (agenda → cliente → financeiro).
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Maria das Dores/ }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith("/clientes/500");
+  });
+
   it("Editar abre o formulário pré-preenchido e salva via PATCH (Story 3.6)", async () => {
     apiMock.mockImplementation(
       (path: string, opts?: { method?: string }) => {
@@ -246,10 +272,14 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/10/status");
       expect(patch?.[1].body).toEqual({ to: "completed" });
     });
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após marcar
+    // Espera o reload (2º GET), disparado por setState após o PATCH — asseverar
+    // síncrono aqui corre com o reload (flaky).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após marcar
+    });
   });
 
   it("marca Não compareceu → PATCH status {to:no_show}", async () => {
@@ -306,13 +336,17 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/20/confirm");
       expect(patch?.[1].body).toEqual({});
     });
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após confirmar
+    // Espera o reload (2º GET), disparado por setState após o PATCH — asseverar
+    // síncrono aqui corre com o reload (flaky).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2); // recarrega após confirmar
+    });
   });
 
-  it("Confirmar não aparece para basic (permissão owner/gerente)", async () => {
+  it("Confirmar não aparece em agendamento já confirmado", async () => {
     // Nota: o useAuth do teste é owner; aqui só garantimos que confirmado NÃO
     // oferece Confirmar (o botão é exclusivo do status pendente).
     apiMock.mockResolvedValue(
@@ -378,11 +412,14 @@ describe("Agenda", () => {
       expect(patch?.[0]).toBe("/appointments/10/cancel");
       expect(patch?.[1].body).toEqual({ reason: "Cliente remarcou" });
     });
-    // Recarrega o período após cancelar (≥2 GETs de /appointments).
-    const gets = apiMock.mock.calls.filter(
-      ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
-    );
-    expect(gets.length).toBeGreaterThanOrEqual(2);
+    // Recarrega o período após cancelar (2º GET de /appointments). Disparado
+    // por setState após o PATCH — esperamos por ele (asseverar síncrono é corrida).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(
+        ([p, o]) => String(p).startsWith("/appointments?") && o?.method === undefined,
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("motivo é opcional: confirma sem preencher → body sem reason", async () => {

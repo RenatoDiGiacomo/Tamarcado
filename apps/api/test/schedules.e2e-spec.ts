@@ -55,8 +55,8 @@ describe("Horários de atendimento e intervalo (e2e)", () => {
       companies.create({ name: "Salão Horários", slug: SLUG }),
     );
     await seedUser(company.id, "dono@sc.dev", "owner", true);
-    const prof = await seedUser(company.id, "prof@sc.dev", "basic", true);
-    const recep = await seedUser(company.id, "recep@sc.dev", "manager", false);
+    const prof = await seedUser(company.id, "prof@sc.dev", "professional", true);
+    const recep = await seedUser(company.id, "recep@sc.dev", "professional", false);
     attenderId = prof.id;
     nonAttenderId = recep.id;
   });

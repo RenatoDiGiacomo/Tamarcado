@@ -1,4 +1,5 @@
-import { CalendarDays, MessageCircle } from "lucide-react";
+import { CalendarDays, MessageCircle, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -28,6 +29,7 @@ const DESKTOP_QUERY = "(min-width: 768px)";
  */
 export function Agenda() {
   const a = useAgenda();
+  const navigate = useNavigate();
   // Duas VISTAS da mesma lógica (painel-mobile §5.1): desktop = grade,
   // mobile = lista. Mesmo breakpoint da casca (AppShell).
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
@@ -112,7 +114,21 @@ export function Agenda() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex flex-wrap items-center gap-2">
-                  <span>{a.selected.clientName}</span>
+                  {/* Nome clicável → perfil da cliente (DL-066): abrir o cadastro
+                      dela. Ícone de pessoa (o mesmo do menu Clientes), não seta —
+                      "abrir a pessoa", não "avançar". */}
+                  {a.selected.clientId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/clientes/${a.selected!.clientId}`)}
+                      className="inline-flex items-center gap-1.5 rounded-md hover:text-primary hover:underline"
+                    >
+                      {a.selected.clientName}
+                      <Users className="size-4 shrink-0 opacity-60" />
+                    </button>
+                  ) : (
+                    <span>{a.selected.clientName}</span>
+                  )}
                   {a.selected.source === "whatsapp" && (
                     <MessageCircle
                       className="size-4 shrink-0 text-muted-foreground"
