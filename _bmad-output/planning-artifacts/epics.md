@@ -328,7 +328,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
 - ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
-- ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
+- ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos que coexistem** (agenda **e** clique no recebimento do Financeiro, via `PaymentForm` — fonte única; DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
 - ⏳ **5.4 (exportação CSV)** e **5.6 (Dashboard)** — próximas.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
@@ -975,6 +975,10 @@ So that o salão tenha o histórico de recebimentos sem integração externa.
 **Given** o eixo de módulo (DL-062)
 **When** alguém sem o módulo tenta registrar/ler pagamentos
 **Then** o backend nega com `403` e o menu não aparece para essa pessoa
+
+**Given** os dois papéis reais — quem recebe na saída da cliente e quem fecha o caixa (DL-065)
+**When** clico num recebimento na lista do **Financeiro**
+**Then** abre o **mesmo formulário** de pagamento do agendamento (`PaymentForm`, fonte única — valor pré-preenchido, situação, forma), num dialog, e ao salvar os recebimentos do período recarregam — **sem** precisar ir à Agenda
 
 ### ~~Story 5.3~~ → **ABSORVIDA na 5.2** (2026-08-18)
 

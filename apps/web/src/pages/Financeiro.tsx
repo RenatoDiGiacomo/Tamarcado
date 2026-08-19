@@ -10,6 +10,13 @@ import {
   type ErrorKind,
 } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { PaymentForm } from "@/components/agenda/PaymentForm";
 
 type PaymentMethod = "dinheiro" | "pix" | "debito" | "credito" | "outro";
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -83,6 +90,9 @@ export function Financeiro() {
   const [data, setData] = useState<ReceiptsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
+  // Recebimento sendo editado (Story 5.2 / DL-065): fechar o caixa aqui, sem ir
+  // à Agenda. Abre o MESMO PaymentForm do agendamento num dialog.
+  const [editing, setEditing] = useState<Receipt | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -293,39 +303,43 @@ export function Financeiro() {
                 </h3>
                 <ul className="flex flex-col gap-2">
                   {items.map((r) => (
-                    <li
-                      key={r.appointmentId}
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-xl border border-l-4 border-border bg-card p-3",
-                        r.status === "pago"
-                          ? "border-l-status-confirmed"
-                          : "border-l-status-pending",
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {r.clientName}
+                    <li key={r.appointmentId}>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(r)}
+                        aria-label={`Editar pagamento de ${r.clientName} — ${r.serviceName}`}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 rounded-xl border border-l-4 border-border bg-card p-3 text-left transition-colors hover:bg-accent",
+                          r.status === "pago"
+                            ? "border-l-status-confirmed"
+                            : "border-l-status-pending",
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {r.clientName}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {r.serviceName}
+                            {r.method ? ` · ${METHOD_LABEL[r.method]}` : ""}
+                          </div>
                         </div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {r.serviceName}
-                          {r.method ? ` · ${METHOD_LABEL[r.method]}` : ""}
+                        <div className="flex shrink-0 flex-col items-end">
+                          <span className="text-sm font-semibold tabular-nums text-foreground">
+                            {brl(r.amount)}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[11px] font-medium",
+                              r.status === "pago"
+                                ? "text-status-confirmed"
+                                : "text-status-pending",
+                            )}
+                          >
+                            {r.status === "pago" ? "Pago" : "Pendente"}
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end">
-                        <span className="text-sm font-semibold tabular-nums text-foreground">
-                          {brl(r.amount)}
-                        </span>
-                        <span
-                          className={cn(
-                            "text-[11px] font-medium",
-                            r.status === "pago"
-                              ? "text-status-confirmed"
-                              : "text-status-pending",
-                          )}
-                        >
-                          {r.status === "pago" ? "Pago" : "Pendente"}
-                        </span>
-                      </div>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -339,6 +353,37 @@ export function Financeiro() {
           />
         )}
       </div>
+
+      {/* Editar/receber o pagamento a partir do Financeiro (DL-065): o MESMO
+          PaymentForm do agendamento, num dialog. Fecha o caixa sem ir à Agenda. */}
+      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-md">
+          {editing && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Pagamento</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                {editing.clientName} · {editing.serviceName} ·{" "}
+                {brDate(editing.date)}
+              </p>
+              <PaymentForm
+                appointmentId={editing.appointmentId}
+                initialPayment={{
+                  amount: editing.amount,
+                  method: editing.method,
+                  status: editing.status,
+                }}
+                onCancel={() => setEditing(null)}
+                onSaved={() => {
+                  setEditing(null);
+                  void load(); // recarrega os recebimentos do período
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }

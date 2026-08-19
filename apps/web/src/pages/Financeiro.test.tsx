@@ -90,6 +90,65 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     expect(m?.[1]).toBe(m?.[2]); // Dia → from = to
   });
 
+  it("clicar num item abre o PaymentForm; salvar faz PUT e recarrega (DL-065)", async () => {
+    apiMock.mockImplementation((url: string, opts?: { method?: string }) => {
+      if (opts?.method === "PUT") return Promise.resolve(jsonRes({}));
+      return Promise.resolve(
+        jsonRes({
+          receipts: [
+            {
+              appointmentId: "9",
+              clientId: "c1",
+              clientName: "Ana Lima",
+              serviceName: "Corte",
+              date: "2026-09-10",
+              amount: 50,
+              method: null,
+              status: "pendente",
+            },
+          ],
+          totalReceived: 0,
+          totalPending: 50,
+        }),
+      );
+    });
+    render(<Financeiro />);
+    // Abre o registro clicando no recebimento pendente da lista.
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Editar pagamento de Ana Lima/,
+      }),
+    );
+    // O mesmo formulário do agendamento — valor pré-preenchido, situação, forma.
+    const valor = (await screen.findByLabelText(
+      "Valor recebido",
+    )) as HTMLInputElement;
+    expect(valor.value).toMatch(/R\$\s*50,00/);
+    fireEvent.change(screen.getByLabelText("Situação do pagamento"), {
+      target: { value: "pago" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => {
+      const put = apiMock.mock.calls.find(
+        ([, o]) => (o as { method?: string } | undefined)?.method === "PUT",
+      );
+      expect(put?.[0]).toBe("/appointments/9/payment");
+      expect((put?.[1] as { body: Record<string, unknown> }).body).toEqual({
+        amount: 50,
+        method: undefined,
+        status: "pago",
+      });
+    });
+    // Recarrega os recebimentos após salvar (GET além do inicial).
+    await waitFor(() => {
+      const gets = apiMock.mock.calls.filter(([u]) =>
+        String(u).includes("/appointments/payments?from="),
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   it("estado vazio quando não há recebimentos no período", async () => {
     apiMock.mockResolvedValue(
       jsonRes({ receipts: [], totalReceived: 0, totalPending: 0 }),
