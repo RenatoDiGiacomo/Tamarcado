@@ -181,7 +181,7 @@ describe("Agenda", () => {
     ).toBeInTheDocument();
   });
 
-  it("detalhe leva ao perfil da cliente e NÃO registra pagamento (DL-066)", async () => {
+  it("nome da cliente leva ao perfil e detalhe NÃO registra pagamento (DL-066)", async () => {
     apiMock.mockResolvedValue(
       jsonRes({ appointments: [seg], businessHours: BUSINESS }),
     );
@@ -193,9 +193,9 @@ describe("Agenda", () => {
     expect(
       within(dialog).queryByRole("button", { name: /Registrar|pagamento/i }),
     ).toBeNull();
-    // Link para a cliente → navega ao perfil (agenda → cliente → financeiro).
+    // O NOME da cliente (no título) é o link → perfil (agenda → cliente → financeiro).
     fireEvent.click(
-      within(dialog).getByRole("button", { name: /Ver perfil da cliente/ }),
+      within(dialog).getByRole("button", { name: /Maria das Dores/ }),
     );
     expect(navigateMock).toHaveBeenCalledWith("/clientes/500");
   });

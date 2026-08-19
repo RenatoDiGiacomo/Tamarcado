@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { authedRequest } from "../lib/session";
 import { brl } from "../lib/currency";
 import { cn } from "@/lib/utils";
@@ -81,6 +83,7 @@ const brDate = (d: string) => d.split("-").reverse().join("/");
  * situação, forma e cliente. O REGISTRO do pagamento acontece no agendamento.
  */
 export function Financeiro() {
+  const navigate = useNavigate();
   const [preset, setPreset] = useState<Preset>("mes");
   const [from, setFrom] = useState(rangeFor("mes").from);
   const [to, setTo] = useState(rangeFor("mes").to);
@@ -304,21 +307,46 @@ export function Financeiro() {
                 <ul className="flex flex-col gap-2">
                   {items.map((r) => (
                     <li key={r.appointmentId}>
-                      <button
-                        type="button"
+                      {/* Card = editar pagamento (fechar caixa). O NOME, dentro
+                          dele, é um link à parte → perfil da cliente (histórico +
+                          o que mais está em aberto). Por isso o container é
+                          div[role=button] (não dá para aninhar botão em botão). */}
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setEditing(r)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setEditing(r);
+                          }
+                        }}
                         aria-label={`Editar pagamento de ${r.clientName} — ${r.serviceName}`}
                         className={cn(
-                          "flex w-full items-center justify-between gap-3 rounded-xl border border-l-4 border-border bg-card p-3 text-left transition-colors hover:bg-accent",
+                          "flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-l-4 border-border bg-card p-3 text-left transition-colors hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring",
                           r.status === "pago"
                             ? "border-l-status-confirmed"
                             : "border-l-status-pending",
                         )}
                       >
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-foreground">
-                            {r.clientName}
-                          </div>
+                          {r.clientId ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation(); // não abre o pagamento
+                                navigate(`/clientes/${r.clientId}`);
+                              }}
+                              className="flex max-w-full items-center gap-1 text-sm font-medium text-foreground hover:text-primary hover:underline"
+                            >
+                              <span className="truncate">{r.clientName}</span>
+                              <ChevronRight className="size-3.5 shrink-0 opacity-50" />
+                            </button>
+                          ) : (
+                            <div className="truncate text-sm font-medium text-foreground">
+                              {r.clientName}
+                            </div>
+                          )}
                           <div className="truncate text-xs text-muted-foreground">
                             {r.serviceName}
                             {r.method ? ` · ${METHOD_LABEL[r.method]}` : ""}
@@ -339,7 +367,7 @@ export function Financeiro() {
                             {r.status === "pago" ? "Pago" : "Pendente"}
                           </span>
                         </div>
-                      </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -364,8 +392,23 @@ export function Financeiro() {
                 <DialogTitle>Pagamento</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                {editing.clientName} · {editing.serviceName} ·{" "}
-                {brDate(editing.date)}
+                {/* Nome → perfil da cliente: ao receber, dá para ir direto ver o
+                    histórico e o que mais está em aberto (DL-066). */}
+                {editing.clientId ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/clientes/${editing.clientId}`)}
+                    className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary hover:underline"
+                  >
+                    {editing.clientName}
+                    <ChevronRight className="size-3.5 opacity-50" />
+                  </button>
+                ) : (
+                  <span className="font-medium text-foreground">
+                    {editing.clientName}
+                  </span>
+                )}{" "}
+                · {editing.serviceName} · {brDate(editing.date)}
               </p>
               <PaymentForm
                 appointmentId={editing.appointmentId}

@@ -1,4 +1,4 @@
-import { CalendarDays, MessageCircle, User } from "lucide-react";
+import { CalendarDays, MessageCircle, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
@@ -114,7 +114,20 @@ export function Agenda() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex flex-wrap items-center gap-2">
-                  <span>{a.selected.clientName}</span>
+                  {/* Nome clicável → perfil da cliente (DL-066): o gesto que todo
+                      mundo espera; o chevron discreto sinaliza que leva a algum lugar. */}
+                  {a.selected.clientId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/clientes/${a.selected!.clientId}`)}
+                      className="inline-flex items-center gap-1 rounded-md hover:text-primary hover:underline"
+                    >
+                      {a.selected.clientName}
+                      <ChevronRight className="size-4 shrink-0 opacity-50" />
+                    </button>
+                  ) : (
+                    <span>{a.selected.clientName}</span>
+                  )}
                   {a.selected.source === "whatsapp" && (
                     <MessageCircle
                       className="size-4 shrink-0 text-muted-foreground"
@@ -136,18 +149,6 @@ export function Agenda() {
                   muted={!a.selected.professionalName}
                 />
               </dl>
-              {/* Link para a cliente (DL-066): agenda → cliente → financeiro. O
-                  registro de pagamento vive no perfil da cliente e no Financeiro,
-                  não aqui. Agenda é agenda. */}
-              {a.selected.clientId && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/clientes/${a.selected!.clientId}`)}
-                  className="flex items-center gap-2 self-start rounded-md text-sm font-medium text-primary hover:underline"
-                >
-                  <User className="size-4" /> Ver perfil da cliente
-                </button>
-              )}
               {(a.canConfirm || a.canMark || a.canEdit || a.canCancel) && (
                 <div className="flex flex-col gap-3 pt-1">
                   {a.canConfirm && (

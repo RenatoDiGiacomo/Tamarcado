@@ -6,6 +6,8 @@ const apiMock = vi.fn();
 vi.mock("../lib/session", () => ({
   authedRequest: (...args: unknown[]) => apiMock(...args),
 }));
+const navigateMock = vi.fn();
+vi.mock("react-router-dom", () => ({ useNavigate: () => navigateMock }));
 
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
@@ -14,6 +16,7 @@ function jsonRes(body: unknown, ok = true): Response {
 describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
   beforeEach(() => {
     apiMock.mockReset();
+    navigateMock.mockReset();
     localStorage.setItem("tamarcado.access", "tok");
   });
 
@@ -147,6 +150,24 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
       );
       expect(gets.length).toBeGreaterThanOrEqual(2);
     });
+  });
+
+  it("clicar no NOME do card leva ao perfil da cliente, sem abrir o pagamento (DL-066)", async () => {
+    apiMock.mockResolvedValue(
+      jsonRes({
+        receipts: [
+          { appointmentId: "1", clientId: "c1", clientName: "Ana Lima", serviceName: "Corte", date: "2026-09-10", amount: 50, method: "pix", status: "pago" },
+        ],
+        totalReceived: 50,
+        totalPending: 0,
+      }),
+    );
+    render(<Financeiro />);
+    // Nome (exato) = link ao perfil; o card (aria-label "Editar pagamento…") é outro alvo.
+    fireEvent.click(await screen.findByRole("button", { name: "Ana Lima" }));
+    expect(navigateMock).toHaveBeenCalledWith("/clientes/c1");
+    // stopPropagation: NÃO abriu o formulário de pagamento.
+    expect(screen.queryByLabelText("Valor recebido")).toBeNull();
   });
 
   it("estado vazio quando não há recebimentos no período", async () => {
