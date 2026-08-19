@@ -14,6 +14,7 @@ import {
 } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -48,30 +49,24 @@ interface ReceiptsData {
   totalPending: number;
 }
 
-type Preset = "dia" | "semana" | "mes" | "custom";
-
 function ymd(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Intervalo para os atalhos: hoje / semana corrente (seg–dom) / mês corrente. */
-function rangeFor(preset: Exclude<Preset, "custom">): { from: string; to: string } {
+/** Intervalo padrão inicial: mês corrente (o período é ajustado pelo De/Até). */
+function currentMonthRange(): { from: string; to: string } {
   const now = new Date();
-  if (preset === "dia") {
-    const s = ymd(now);
-    return { from: s, to: s };
-  }
-  if (preset === "semana") {
-    const mon = new Date(now);
-    mon.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // volta até segunda
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    return { from: ymd(mon), to: ymd(sun) };
-  }
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return { from: ymd(first), to: ymd(last) };
+}
+
+/** Cliente da busca (autocomplete por nome/telefone), como no Novo agendamento. */
+interface ClientLite {
+  id: string;
+  name: string;
+  phone_whatsapp: string | null;
 }
 
 const controlCls =
@@ -80,20 +75,23 @@ const brDate = (d: string) => d.split("-").reverse().join("/");
 
 /**
  * Financeiro — Recebimentos (Stories 5.2/5.3/5.4/5.5). Menu próprio, só para quem
- * tem o módulo (DL-062; gate no backend e na rota). Central de ENTRADAS:
- * recebimentos do período com total recebido/pendente. Filtros: atalhos de período
- * + De/Até (linha própria), e situação/forma/cliente abaixo dos totais, com o botão
- * Exportar CSV à direita (5.4 — confirma num modal; PDF ficou fora, DL-061). O
- * registro do pagamento acontece no Financeiro e no perfil da cliente (DL-066).
+ * tem o módulo (DL-062; gate no backend e na rota). Central de ENTRADAS: totais
+ * recebido/pendente no topo, período por De/Até e filtros de situação/forma, com
+ * a CLIENTE por busca (nome/telefone, como no Novo agendamento). Exportar CSV
+ * confirma num modal (5.4; PDF ficou fora, DL-061). O registro do pagamento
+ * acontece no Financeiro e no perfil da cliente (DL-066).
  */
 export function Financeiro() {
   const navigate = useNavigate();
-  const [preset, setPreset] = useState<Preset>("mes");
-  const [from, setFrom] = useState(rangeFor("mes").from);
-  const [to, setTo] = useState(rangeFor("mes").to);
+  const [from, setFrom] = useState(currentMonthRange().from);
+  const [to, setTo] = useState(currentMonthRange().to);
   const [statusF, setStatusF] = useState<"all" | "pago" | "pendente">("all");
   const [methodF, setMethodF] = useState<"all" | PaymentMethod>("all");
-  const [clientF, setClientF] = useState<string>("all");
+  // Filtro de cliente por BUSCA (autocomplete nome/telefone), como no Novo
+  // agendamento. `selectedClient` fixa o filtro; a lista recorta por `clientId`.
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientResults, setClientResults] = useState<ClientLite[]>([]);
+  const [selectedClient, setSelectedClient] = useState<ClientLite | null>(null);
   const [data, setData] = useState<ReceiptsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
@@ -128,32 +126,38 @@ export function Financeiro() {
     void load();
   }, [load]);
 
-  function applyPreset(p: Exclude<Preset, "custom">): void {
-    const r = rangeFor(p);
-    setPreset(p);
-    setFrom(r.from);
-    setTo(r.to);
-  }
+  // Autocomplete da cliente (debounce leve) — busca por nome/telefone no backend,
+  // igual ao Novo agendamento. Some quando já há cliente selecionada.
+  useEffect(() => {
+    const term = clientQuery.trim();
+    if (term.length < 2 || selectedClient) {
+      setClientResults([]);
+      return;
+    }
+    const h = setTimeout(() => {
+      void authedRequest(`/clients?search=${encodeURIComponent(term)}`).then(
+        async (res) => {
+          if (res.ok) {
+            setClientResults(
+              ((await res.json()) as { clients: ClientLite[] }).clients,
+            );
+          }
+        },
+      );
+    }, 250);
+    return () => clearTimeout(h);
+  }, [clientQuery, selectedClient]);
 
-  // Filtros de situação/forma/cliente aplicados no cliente (o período já é a
-  // consulta). Clientes disponíveis = os presentes no período.
-  const clientOptions = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of data?.receipts ?? []) if (r.clientId) m.set(r.clientId, r.clientName);
-    return [...m.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [data]);
-
+  // Situação/forma/cliente aplicados no cliente (o período já é a consulta).
   const filtered = useMemo(
     () =>
       (data?.receipts ?? []).filter(
         (r) =>
           (statusF === "all" || r.status === statusF) &&
           (methodF === "all" || r.method === methodF) &&
-          (clientF === "all" || r.clientId === clientF),
+          (selectedClient === null || r.clientId === selectedClient.id),
       ),
-    [data, statusF, methodF, clientF],
+    [data, statusF, methodF, selectedClient],
   );
 
   // Agrupa por data (mais recente primeiro) para separar visualmente a lista.
@@ -166,12 +170,6 @@ export function Financeiro() {
     }
     return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [filtered]);
-
-  const presets: { key: Exclude<Preset, "custom">; label: string }[] = [
-    { key: "dia", label: "Dia" },
-    { key: "semana", label: "Semana" },
-    { key: "mes", label: "Mês" },
-  ];
 
   // Exporta o que está NA TELA (filtros aplicados) para CSV (Story 5.4).
   function exportCsv(): void {
@@ -194,60 +192,7 @@ export function Financeiro() {
   return (
     <PageLayout title="Financeiro">
       <div className="flex flex-col gap-4">
-        {/* Atalhos Dia/Semana/Mês — ficam onde estão (Story 5.4) */}
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="inline-flex overflow-hidden rounded-md border border-input">
-            {presets.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => applyPreset(p.key)}
-                className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-colors",
-                  preset === p.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent",
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Período personalizado De/Até — abaixo dos atalhos (Story 5.4) */}
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">De</span>
-            <input
-              type="date"
-              aria-label="De"
-              className={controlCls}
-              value={from}
-              max={to}
-              onChange={(e) => {
-                setPreset("custom");
-                setFrom(e.target.value);
-              }}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Até</span>
-            <input
-              type="date"
-              aria-label="Até"
-              className={controlCls}
-              value={to}
-              min={from}
-              onChange={(e) => {
-                setPreset("custom");
-                setTo(e.target.value);
-              }}
-            />
-          </label>
-        </div>
-
-        {/* Totais — coloridos pelos tokens de status (verde=recebido, âmbar=pendente) */}
+        {/* Totais no topo — tokens de status (verde=recebido, âmbar=pendente) */}
         <div className="grid grid-cols-2 gap-3 sm:max-w-md">
           <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -267,8 +212,34 @@ export function Financeiro() {
           </div>
         </div>
 
-        {/* Filtros (situação/forma/cliente, à esquerda) + Exportar CSV (à direita),
-            abaixo dos totais (Story 5.4). O botão abre um modal de confirmação. */}
+        {/* Período por De/Até (Dia/Semana/Mês removidos — o filtro de data resolve) */}
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">De</span>
+            <input
+              type="date"
+              aria-label="De"
+              className={controlCls}
+              value={from}
+              max={to}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Até</span>
+            <input
+              type="date"
+              aria-label="Até"
+              className={controlCls}
+              value={to}
+              min={from}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {/* Situação + Forma (esquerda) + Exportar CSV (direita). O botão abre um
+            modal de confirmação (Story 5.4). */}
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Situação</span>
@@ -299,22 +270,6 @@ export function Financeiro() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Cliente</span>
-            <select
-              aria-label="Cliente"
-              className={cn(controlCls, "max-w-52")}
-              value={clientF}
-              onChange={(e) => setClientF(e.target.value)}
-            >
-              <option value="all">Todas</option>
-              {clientOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <Button
             type="button"
             variant="secondary"
@@ -324,6 +279,68 @@ export function Financeiro() {
           >
             <Download className="size-4" /> Exportar CSV
           </Button>
+        </div>
+
+        {/* Cliente por BUSCA (nome/telefone), abaixo de situação/forma — mesmo
+            padrão do Novo agendamento (autocomplete). */}
+        <div className="flex flex-col gap-1.5 sm:max-w-sm">
+          <span className="text-sm text-muted-foreground">Cliente</span>
+          {selectedClient ? (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
+              <span className="truncate">
+                {selectedClient.name}
+                {selectedClient.phone_whatsapp ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {selectedClient.phone_whatsapp}
+                  </span>
+                ) : null}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setSelectedClient(null);
+                  setClientQuery("");
+                }}
+              >
+                limpar
+              </button>
+            </div>
+          ) : (
+            <>
+              <Input
+                aria-label="Cliente"
+                placeholder="Buscar por nome ou telefone"
+                value={clientQuery}
+                onChange={(e) => setClientQuery(e.target.value)}
+              />
+              {clientResults.length > 0 && (
+                <ul className="rounded-md border border-border">
+                  {clientResults.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                        onClick={() => {
+                          setSelectedClient(c);
+                          setClientResults([]);
+                        }}
+                      >
+                        {c.name}
+                        {c.phone_whatsapp ? (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {c.phone_whatsapp}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </div>
 
         {/* Lista agrupada por data */}
@@ -478,7 +495,7 @@ export function Financeiro() {
               ? "1 recebimento"
               : `${filtered.length} recebimentos`}{" "}
             de {brDate(from)} a {brDate(to)}
-            {statusF !== "all" || methodF !== "all" || clientF !== "all"
+            {statusF !== "all" || methodF !== "all" || selectedClient !== null
               ? " (com os filtros aplicados)"
               : ""}{" "}
             serão baixados em CSV.

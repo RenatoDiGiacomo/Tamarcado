@@ -83,22 +83,42 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     // filtra por Pagos → some o pendente (Barba/Bruno), fica o pago (Corte/Ana).
     fireEvent.change(screen.getByLabelText("Situação"), { target: { value: "pago" } });
     expect(screen.getByText(/Corte/)).toBeInTheDocument();
-    // O serviço "Barba" (do pendente) some da LISTA (Bruno segue no dropdown de cliente).
+    // O serviço "Barba" (do pendente) some da LISTA.
     expect(screen.queryByText(/Barba/)).toBeNull();
   });
 
-  it("atalho de período (Dia) refaz a busca com from=to (hoje)", async () => {
-    apiMock.mockResolvedValue(
-      jsonRes({ receipts: [], totalReceived: 0, totalPending: 0 }),
-    );
+  it("filtra por cliente via BUSCA (nome/telefone), como no Novo agendamento", async () => {
+    apiMock.mockImplementation((url: string) => {
+      if (String(url).includes("/clients?search=")) {
+        return Promise.resolve(
+          jsonRes({
+            clients: [
+              { id: "c1", name: "Ana Lima", phone_whatsapp: "+5511999990000" },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(
+        jsonRes({
+          receipts: [
+            { appointmentId: "1", clientId: "c1", clientName: "Ana Lima", serviceName: "Corte", date: "2026-09-10", amount: 50, method: "pix", status: "pago" },
+            { appointmentId: "2", clientId: "c2", clientName: "Bruno", serviceName: "Barba", date: "2026-09-11", amount: 30, method: null, status: "pendente" },
+          ],
+          totalReceived: 50,
+          totalPending: 30,
+        }),
+      );
+    });
     render(<Financeiro />);
-    await waitFor(() => expect(apiMock).toHaveBeenCalled());
-    apiMock.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "Dia" }));
-    await waitFor(() => expect(apiMock).toHaveBeenCalled());
-    const url = String(apiMock.mock.calls[0][0]);
-    const m = url.match(/from=([\d-]+)&to=([\d-]+)/);
-    expect(m?.[1]).toBe(m?.[2]); // Dia → from = to
+    await screen.findByText(/Corte/);
+    // Digita na busca → autocomplete (backend por nome/telefone, debounce).
+    fireEvent.change(screen.getByLabelText("Cliente"), { target: { value: "Ana" } });
+    // A opção mostra nome · telefone; o telefone é único do resultado (o card não o tem).
+    const opt = await screen.findByRole("button", { name: /5511999990000/ });
+    fireEvent.click(opt);
+    // Recorta a lista para a Ana; o pendente do Bruno (Barba) some.
+    await waitFor(() => expect(screen.queryByText(/Barba/)).toBeNull());
+    expect(screen.getByText(/Corte/)).toBeInTheDocument();
   });
 
   it("clicar num item abre o PaymentForm; salvar faz PUT e recarrega (DL-065)", async () => {
