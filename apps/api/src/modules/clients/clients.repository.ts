@@ -81,6 +81,38 @@ export class ClientsRepository extends TenantAwareRepository<Client> {
   }
 
   /** Cliente NÃO deletada do tenant (Story 4.1) — soft delete some daqui (D5). */
+  /**
+   * Situação financeira por cliente (Story 5.5): soma dos pagamentos `pendente`
+   * (`owed`) e `pago` (`paid`) dos agendamentos de cada cliente, tenant-scoped.
+   * Uma query agregada para o conjunto de ids (a lista pagina, então é barato).
+   */
+  async financeByClientIds(
+    ids: string[],
+  ): Promise<Map<string, { owed: number; paid: number }>> {
+    const map = new Map<string, { owed: number; paid: number }>();
+    if (ids.length === 0) return map;
+    const placeholders = ids.map(() => "?").join(",");
+    const rows: Array<{ client_id: string; owed: string; paid: string }> =
+      await this.repo.query(
+        `SELECT ap.client_id AS client_id,
+           COALESCE(SUM(CASE WHEN pay.status = 'pendente' THEN pay.amount ELSE 0 END), 0) AS owed,
+           COALESCE(SUM(CASE WHEN pay.status = 'pago' THEN pay.amount ELSE 0 END), 0) AS paid
+         FROM payments pay
+         JOIN appointments ap
+           ON ap.id = pay.appointment_id AND ap.company_id = pay.company_id
+         WHERE pay.company_id = ? AND ap.client_id IN (${placeholders})
+         GROUP BY ap.client_id`,
+        [this.companyId, ...ids],
+      );
+    for (const r of rows) {
+      map.set(String(r.client_id), {
+        owed: Number(r.owed),
+        paid: Number(r.paid),
+      });
+    }
+    return map;
+  }
+
   async findActiveById(id: string): Promise<Client | null> {
     return this.repo
       .createQueryBuilder("c")

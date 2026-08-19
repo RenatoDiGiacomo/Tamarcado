@@ -61,6 +61,7 @@ export class ClientsController {
         page: q.page,
         pageSize: q.pageSize,
         attendedByProfessionalId: actor.canManageAll ? undefined : actor.userId,
+        includeFinance: actor.canViewFinanceiro, // Story 5.5 (corte de valor)
       });
     }
     return { clients: await this.clients.search(q.search) };
@@ -68,8 +69,11 @@ export class ClientsController {
 
   /** Perfil por id (4.1 + 4.2: notes/createdAt) — deletada/fora do tenant → 404. */
   @Get(":id")
-  async getOne(@Param("id") id: string): Promise<ClientProfileView> {
-    return this.clients.getById(id);
+  async getOne(
+    @Param("id") id: string,
+    @CurrentActor() actor: Actor,
+  ): Promise<ClientProfileView> {
+    return this.clients.getById(id, actor.canViewFinanceiro);
   }
 
   /**

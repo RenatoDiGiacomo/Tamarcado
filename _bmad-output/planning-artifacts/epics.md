@@ -328,8 +328,8 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 
 **Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
 - ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
-- ✅ **5.2 (+ 5.3 absorvida)** Financeiro — registro de pagamento no agendamento **e a lista de Recebimentos** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos por período com total recebido/pendente** (`GET /appointments/payments`). `pendente` não mexe no status do agendamento. e2e cobrindo gate/valor/upsert/recebimentos + **teste de migration contra base populada (DL-064)**.
-- ⏳ **5.4–5.6** (exportação **CSV**, situação financeira em Clientes, Dashboard) — próximas.
+- ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro a partir do agendamento; **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
+- ⏳ **5.4 (exportação CSV)** e **5.6 (Dashboard)** — próximas.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -1025,7 +1025,14 @@ So that eu leve os números para fora do sistema (abre no Excel).
 **When** implementada
 **Then** é construída de forma **reutilizável** — o **Dashboard (5.6)** reaproveita o mesmo mecanismo
 
-### Story 5.5: Situação financeira da cliente (no módulo Clientes)
+### Story 5.5: Situação financeira da cliente (no módulo Clientes) — ✅ ABSORVIDA na 5.2 (2026-08-19)
+
+> Trazida junto do Financeiro a pedido do Renato ("quem está me devendo?" sem
+> abrir cliente por cliente). Backend: `finance {owed,paid}` no `GET /clients`
+> (lista) e `GET /clients/:id` (perfil), **só para quem tem Financeiro** (corte de
+> valor, `@Actor.canViewFinanceiro`). Front: **indicador "Deve R$ X"** ao lado do
+> nome na LISTA (quando `owed > 0`) + **Em aberto / Já pago** no perfil. AC abaixo
+> mantido como referência.
 
 As a Dono/Profissional com acesso a Financeiro,
 I want ver a situação financeira da cliente no perfil dela,

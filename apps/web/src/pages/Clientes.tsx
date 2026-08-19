@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { authedRequest } from "../lib/session";
+import { brl } from "../lib/currency";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState, errorKindFrom, type ErrorKind } from "../components/ErrorState";
@@ -23,6 +24,8 @@ interface ClientView {
   id: string;
   name: string;
   phone_whatsapp: string | null;
+  /** Situação financeira (Story 5.5) — só vem para quem tem Financeiro (corte de valor). */
+  finance?: { owed: number; paid: number };
 }
 interface ClientListResponse {
   clients: ClientView[];
@@ -198,12 +201,26 @@ export function Clientes() {
                   onClick={() => navigate(`/clientes/${c.id}`)}
                   className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
                 >
-                  <span className="font-medium text-foreground">{c.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium text-foreground">
+                      {c.name}
+                    </span>
+                    {/* Situação financeira (5.5): indicador de "em aberto" ao lado
+                        do nome — responde "quem me deve?" sem abrir a cliente. */}
+                    {c.finance && c.finance.owed > 0 && (
+                      <span
+                        aria-label={`Em aberto: ${brl(c.finance.owed)}`}
+                        className="shrink-0 rounded-full bg-status-pending/15 px-2 py-0.5 text-[11px] font-semibold text-status-pending"
+                      >
+                        Deve {brl(c.finance.owed)}
+                      </span>
+                    )}
+                  </span>
                   <span
                     className={
                       c.phone_whatsapp
-                        ? "text-muted-foreground"
-                        : "italic text-muted-foreground"
+                        ? "shrink-0 text-muted-foreground"
+                        : "shrink-0 italic text-muted-foreground"
                     }
                   >
                     {c.phone_whatsapp ?? "sem WhatsApp"}

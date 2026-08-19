@@ -26,6 +26,7 @@ export interface PaymentView {
 /** Um recebimento na lista do Financeiro (Story 5.3): pagamento + dados do atendimento. */
 export interface Receipt {
   appointmentId: string;
+  clientId: string | null;
   clientName: string;
   serviceName: string;
   date: string; // YYYY-MM-DD (fuso do tenant)
@@ -97,6 +98,7 @@ export class PaymentsService {
       .addSelect("p.method", "method")
       .addSelect("p.status", "status")
       .addSelect("a.scheduled_at", "scheduled_at")
+      .addSelect("a.client_id", "client_id")
       .addSelect("c.name", "client_name")
       .addSelect("s.name", "service_name")
       .where("p.company_id = :companyId", { companyId })
@@ -110,12 +112,14 @@ export class PaymentsService {
         method: PaymentMethod | null;
         status: PaymentStatus;
         scheduled_at: Date;
+        client_id: string | null;
         client_name: string | null;
         service_name: string | null;
       }>();
 
     const receipts: Receipt[] = rows.map((r) => ({
       appointmentId: String(r.appointment_id),
+      clientId: r.client_id != null ? String(r.client_id) : null,
       clientName: r.client_name ?? "",
       serviceName: r.service_name ?? "",
       date: utcToZonedParts(r.scheduled_at, tz).dateStr,

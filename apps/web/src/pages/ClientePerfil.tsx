@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarPlus, Pencil, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { authedRequest } from "../lib/session";
+import { brl } from "../lib/currency";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { StatusChip } from "../components/StatusChip";
@@ -25,6 +26,8 @@ interface ClientProfile {
   phone_whatsapp: string | null;
   notes: string | null;
   createdAt: string;
+  /** Situação financeira (Story 5.5) — só para quem tem Financeiro (corte de valor). */
+  finance?: { owed: number; paid: number };
 }
 interface HistoryItem {
   id: string;
@@ -225,6 +228,29 @@ export function ClientePerfil() {
               <dt className="text-muted-foreground">Cliente desde:</dt>
               <dd className="text-foreground">{ddmmyyyy(profile.createdAt)}</dd>
             </div>
+            {/* Situação financeira (5.5) — só vem para quem tem Financeiro. */}
+            {profile.finance && (
+              <>
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">Em aberto:</dt>
+                  <dd
+                    className={
+                      profile.finance.owed > 0
+                        ? "font-semibold text-status-pending"
+                        : "text-foreground"
+                    }
+                  >
+                    {brl(profile.finance.owed)}
+                  </dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">Já pago:</dt>
+                  <dd className="text-status-confirmed">
+                    {brl(profile.finance.paid)}
+                  </dd>
+                </div>
+              </>
+            )}
           </dl>
           <Button variant="secondary" onClick={openEdit}>
             <Pencil className="size-4" /> Editar

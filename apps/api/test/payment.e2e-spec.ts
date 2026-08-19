@@ -185,4 +185,37 @@ describe("Financeiro — pagamento no agendamento (e2e, Story 5.2)", () => {
       .set("Authorization", `Bearer ${nofin}`)
       .expect(403);
   });
+
+  it("SITUAÇÃO FINANCEIRA em Clientes (5.5): `finance` para quem tem Financeiro; ausente sem (corte de valor)", async () => {
+    // (o teste anterior deixou o pagamento como pago 100 → owed 0, paid 100)
+    const owner = await login("dono@pay.dev");
+    const list = await api()
+      .get("/api/clients?page=1&pageSize=20")
+      .set("Authorization", `Bearer ${owner}`);
+    const client = list.body.clients.find(
+      (c: { name: string }) => c.name === "Cliente Pay",
+    );
+    expect(client.finance).toEqual({ owed: 0, paid: 100 });
+
+    // Perfil da cliente também traz a situação.
+    const profile = await api()
+      .get(`/api/clients/${client.id}`)
+      .set("Authorization", `Bearer ${owner}`);
+    expect(profile.body.finance).toEqual({ owed: 0, paid: 100 });
+
+    // SEM Financeiro: o campo `finance` NÃO trafega (nem na lista, nem no perfil).
+    const nofin = await login("nofin@pay.dev");
+    const noList = await api()
+      .get("/api/clients?page=1&pageSize=20")
+      .set("Authorization", `Bearer ${nofin}`);
+    const c2 = noList.body.clients.find(
+      (c: { name: string }) => c.name === "Cliente Pay",
+    );
+    expect(c2).toBeTruthy();
+    expect("finance" in c2).toBe(false);
+    const noProfile = await api()
+      .get(`/api/clients/${client.id}`)
+      .set("Authorization", `Bearer ${nofin}`);
+    expect("finance" in noProfile.body).toBe(false);
+  });
 });
