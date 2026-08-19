@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users } from "lucide-react";
+import { Users, Download } from "lucide-react";
 import { authedRequest } from "../lib/session";
 import { brl } from "../lib/currency";
+import { toCsv, csvAmount, downloadCsv } from "../lib/csv";
 import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { EmptyState } from "@/components/EmptyState";
@@ -12,6 +13,7 @@ import {
   type ErrorKind,
 } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -77,10 +79,12 @@ const controlCls =
 const brDate = (d: string) => d.split("-").reverse().join("/");
 
 /**
- * Financeiro — Recebimentos (Stories 5.2/5.3/5.5). Menu próprio, só para quem tem
- * o módulo (DL-062; gate no backend e na rota). Central de ENTRADAS: recebimentos
- * do período com total recebido/pendente. Filtros: atalhos de período + De/Até,
- * situação, forma e cliente. O REGISTRO do pagamento acontece no agendamento.
+ * Financeiro — Recebimentos (Stories 5.2/5.3/5.4/5.5). Menu próprio, só para quem
+ * tem o módulo (DL-062; gate no backend e na rota). Central de ENTRADAS:
+ * recebimentos do período com total recebido/pendente. Filtros: atalhos de período
+ * + De/Até (linha própria), e situação/forma/cliente abaixo dos totais, com o botão
+ * Exportar CSV à direita (5.4 — confirma num modal; PDF ficou fora, DL-061). O
+ * registro do pagamento acontece no Financeiro e no perfil da cliente (DL-066).
  */
 export function Financeiro() {
   const navigate = useNavigate();
@@ -96,6 +100,8 @@ export function Financeiro() {
   // Recebimento sendo editado (Story 5.2 / DL-065): fechar o caixa aqui, sem ir
   // à Agenda. Abre o MESMO PaymentForm do agendamento num dialog.
   const [editing, setEditing] = useState<Receipt | null>(null);
+  // Exportação CSV (Story 5.4): confirma num modal antes de baixar.
+  const [exportOpen, setExportOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -167,10 +173,28 @@ export function Financeiro() {
     { key: "mes", label: "Mês" },
   ];
 
+  // Exporta o que está NA TELA (filtros aplicados) para CSV (Story 5.4).
+  function exportCsv(): void {
+    const rows = filtered.map((r) => [
+      brDate(r.date),
+      r.clientName,
+      r.serviceName,
+      r.method ? METHOD_LABEL[r.method] : "",
+      r.status === "pago" ? "Pago" : "Pendente",
+      csvAmount(r.amount),
+    ]);
+    const csv = toCsv(
+      ["Data", "Cliente", "Serviço", "Forma", "Situação", "Valor"],
+      rows,
+    );
+    downloadCsv(`recebimentos_${from}_a_${to}.csv`, csv);
+    setExportOpen(false);
+  }
+
   return (
     <PageLayout title="Financeiro">
       <div className="flex flex-col gap-4">
-        {/* Atalhos + período personalizado */}
+        {/* Atalhos Dia/Semana/Mês — ficam onde estão (Story 5.4) */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="inline-flex overflow-hidden rounded-md border border-input">
             {presets.map((p) => (
@@ -189,6 +213,10 @@ export function Financeiro() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Período personalizado De/Até — abaixo dos atalhos (Story 5.4) */}
+        <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">De</span>
             <input
@@ -219,7 +247,28 @@ export function Financeiro() {
           </label>
         </div>
 
-        {/* Filtros: situação, forma, cliente */}
+        {/* Totais — coloridos pelos tokens de status (verde=recebido, âmbar=pendente) */}
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+          <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Recebido
+            </div>
+            <div className="mt-1 text-lg font-semibold text-status-confirmed">
+              {brl(data?.totalReceived ?? 0)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-l-4 border-border border-l-status-pending bg-card p-4">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pendente
+            </div>
+            <div className="mt-1 text-lg font-semibold text-status-pending">
+              {brl(data?.totalPending ?? 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Filtros (situação/forma/cliente, à esquerda) + Exportar CSV (à direita),
+            abaixo dos totais (Story 5.4). O botão abre um modal de confirmação. */}
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Situação</span>
@@ -266,26 +315,15 @@ export function Financeiro() {
               ))}
             </select>
           </label>
-        </div>
-
-        {/* Totais — coloridos pelos tokens de status (verde=recebido, âmbar=pendente) */}
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-          <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Recebido
-            </div>
-            <div className="mt-1 text-lg font-semibold text-status-confirmed">
-              {brl(data?.totalReceived ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border border-l-4 border-border border-l-status-pending bg-card p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Pendente
-            </div>
-            <div className="mt-1 text-lg font-semibold text-status-pending">
-              {brl(data?.totalPending ?? 0)}
-            </div>
-          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="ml-auto"
+            onClick={() => setExportOpen(true)}
+            disabled={filtered.length === 0}
+          >
+            <Download className="size-4" /> Exportar CSV
+          </Button>
         </div>
 
         {/* Lista agrupada por data */}
@@ -425,6 +463,34 @@ export function Financeiro() {
               />
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exportação (Story 5.4): não baixa direto — modal central
+          com Exportar/Cancelar. Exporta os recebimentos com os filtros aplicados. */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Exportar recebimentos</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length === 1
+              ? "1 recebimento"
+              : `${filtered.length} recebimentos`}{" "}
+            de {brDate(from)} a {brDate(to)}
+            {statusF !== "all" || methodF !== "all" || clientF !== "all"
+              ? " (com os filtros aplicados)"
+              : ""}{" "}
+            serão baixados em CSV.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setExportOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={exportCsv}>
+              <Download className="size-4" /> Exportar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </PageLayout>

@@ -329,7 +329,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
 - ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
 - ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos do domínio financeiro** (clique no recebimento do Financeiro **e** no perfil da cliente, via `PaymentForm` — fonte única; **fora da Agenda**, que só ganha um **link para a cliente**; DL-066 revisa DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
-- ⏳ **5.4 (exportação CSV)** e **5.6 (Dashboard)** — próximas.
+- ✅ **5.4 (exportação CSV)** — botão Exportar CSV no Financeiro (filtros abaixo dos totais, De/Até em linha própria; modal de confirmação; util reutilizável `lib/csv.ts`). ⏳ **5.6 (Dashboard)** — próxima.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -1011,6 +1011,15 @@ So that eu saiba quanto entrou e quanto ainda está pendente.
 
 ### Story 5.4: Financeiro — exportação em CSV
 
+> **✅ Implementada (2026-08-19).** Botão **Exportar CSV** (ícone) no Financeiro,
+> **à direita** da linha de filtros (situação/forma/cliente), que ficou **abaixo
+> dos totais**; o **De/Até** passou para a linha abaixo dos atalhos Dia/Semana/Mês.
+> Não baixa direto: **modal central de confirmação** (Exportar/Cancelar). Exporta os
+> recebimentos **com os filtros aplicados** (o que está na tela), colunas
+> Data/Cliente/Serviço/Forma/Situação/Valor. Util **reutilizável** em `lib/csv.ts`
+> (`toCsv`/`csvAmount`/`downloadCsv`, separador `;` + decimal vírgula + BOM p/ Excel)
+> — o **Dashboard (5.6)** reaproveita. **PDF fica FORA** (corte de escopo DL-061).
+>
 > **Corte de escopo (Renato, 2026-08-14): SOMENTE CSV.** O CSV abre no Excel e
 > resolve o caso real (contabilidade, comprovação). **PDF fica como evolução** —
 > não bloqueia a 1ª leva.
