@@ -85,4 +85,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # SEM build: o jest-e2e mapeia @tamarcado/* direto para o src (ts-jest
       # transpila na hora); nada aqui depende do dist/.
-      - run: pnpm --filter api run test:e2e -- --shard=${{ matrix.shard }}
+      # `exec` (não `run … --`): passar --shard via `pnpm run` injeta um `--`
+      # extra e o jest trata "--shard=1/3" como filtro de caminho ("No tests
+      # found"). Com `exec`, a flag chega ao jest como opção.
+      - run: pnpm --filter api exec jest --config ./test/jest-e2e.json --runInBand --shard=${{ matrix.shard }}
