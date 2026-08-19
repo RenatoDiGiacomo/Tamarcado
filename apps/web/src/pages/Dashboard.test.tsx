@@ -20,9 +20,24 @@ function jsonRes(body: unknown, ok = true): Response {
 const METRICS = {
   received: 800,
   pending: 200,
-  appointmentsCompleted: 12,
+  salesCount: 16,
+  averageTicket: 50,
+  appointmentsCompleted: 11,
   totalClients: 34,
   avgClientsPerWeek: 5.5,
+  revenueSeries: [
+    { label: "01/09", value: 100 },
+    { label: "02/09", value: 300 },
+    { label: "03/09", value: 400 },
+  ],
+  statusBreakdown: [
+    { status: "completed", count: 11 },
+    { status: "pending", count: 3 },
+  ],
+  topClients: [
+    { clientId: "c1", name: "Ana Lima", count: 9 },
+    { clientId: "c2", name: "Bruno", count: 5 },
+  ],
 };
 
 describe("Dashboard (Story 5.6)", () => {
@@ -32,36 +47,38 @@ describe("Dashboard (Story 5.6)", () => {
     localStorage.setItem("tamarcado.access", "tok");
   });
 
-  it("busca as métricas do período e mostra os KPIs", async () => {
+  it("busca as métricas do período e mostra KPIs + gráficos", async () => {
     apiMock.mockResolvedValue(jsonRes(METRICS));
     render(<Dashboard />);
     await waitFor(() => expect(apiMock).toHaveBeenCalled());
     expect(String(apiMock.mock.calls[0][0])).toContain("/dashboard?from=");
-    expect(await screen.findByText("Faturamento")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s*800,00/)).toBeInTheDocument(); // faturamento
-    expect(screen.getByText("12")).toBeInTheDocument(); // atendimentos
+    // KPIs
+    expect(await screen.findByText("Valor bruto")).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*800,00/)).toBeInTheDocument(); // valor bruto
+    expect(screen.getByText("16")).toBeInTheDocument(); // vendas
+    expect(screen.getByText("Ticket médio")).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*50,00/)).toBeInTheDocument(); // ticket
     expect(screen.getByText("34")).toBeInTheDocument(); // clientes
-    expect(screen.getByText("5.5")).toBeInTheDocument(); // média/semana
+    // Gráficos: top cliente (barras) + legenda da pizza (status).
+    expect(screen.getByText("Ana Lima")).toBeInTheDocument();
+    expect(screen.getByText("Concluído")).toBeInTheDocument();
   });
 
-  it("troca de período (Dia) refaz a busca com from=to (hoje)", async () => {
-    apiMock.mockResolvedValue(
-      jsonRes({ received: 0, pending: 0, appointmentsCompleted: 0, totalClients: 0, avgClientsPerWeek: 0 }),
-    );
+  it("filtro Ano refaz a busca com o ano corrente (jan–dez)", async () => {
+    apiMock.mockResolvedValue(jsonRes(METRICS));
     render(<Dashboard />);
     await waitFor(() => expect(apiMock).toHaveBeenCalled());
     apiMock.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "Dia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ano" }));
     await waitFor(() => expect(apiMock).toHaveBeenCalled());
     const url = String(apiMock.mock.calls[0][0]);
-    const m = url.match(/from=([\d-]+)&to=([\d-]+)/);
-    expect(m?.[1]).toBe(m?.[2]);
+    expect(url).toMatch(/from=\d{4}-01-01&to=\d{4}-12-31/);
   });
 
   it("Exportar CSV: não baixa direto — abre modal e só então gera o CSV", async () => {
     apiMock.mockResolvedValue(jsonRes(METRICS));
     render(<Dashboard />);
-    await screen.findByText("Faturamento");
+    await screen.findByText("Valor bruto");
     fireEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
     expect(await screen.findByText("Exportar dashboard")).toBeInTheDocument();
     expect(vi.mocked(downloadCsv)).not.toHaveBeenCalled();
@@ -69,8 +86,10 @@ describe("Dashboard (Story 5.6)", () => {
     expect(vi.mocked(downloadCsv)).toHaveBeenCalledTimes(1);
     const [filename, content] = vi.mocked(downloadCsv).mock.calls[0];
     expect(filename).toMatch(/^dashboard_.*\.csv$/);
-    expect(content).toContain("Faturamento (recebido);800,00");
-    expect(content).toContain("Atendimentos concluídos;12");
+    expect(content).toContain("Valor bruto (recebido);800,00");
+    expect(content).toContain("Vendas;16");
+    expect(content).toContain("Atendimentos concluídos;11");
+    expect(content).toContain("Top cliente 1;Ana Lima (9)");
   });
 
   it("estado de erro quando a API falha", async () => {

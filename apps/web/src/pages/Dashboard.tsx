@@ -18,23 +18,51 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LineChart } from "@/components/charts/LineChart";
+import { PieChart } from "@/components/charts/PieChart";
+import { HBarChart } from "@/components/charts/HBarChart";
+
+type ApptStatus =
+  | "pending"
+  | "confirmed"
+  | "cancelled"
+  | "completed"
+  | "no_show";
 
 interface DashboardMetrics {
   received: number;
   pending: number;
+  salesCount: number;
+  averageTicket: number;
   appointmentsCompleted: number;
   totalClients: number;
   avgClientsPerWeek: number;
+  revenueSeries: { label: string; value: number }[];
+  statusBreakdown: { status: ApptStatus; count: number }[];
+  topClients: { clientId: string; name: string; count: number }[];
 }
 
-type Preset = "dia" | "semana" | "mes";
+type Preset = "dia" | "semana" | "mes" | "ano";
+
+/** Status → rótulo + classes de cor LITERAIS (Tailwind JIT) da paleta de status. */
+const STATUS_META: Record<
+  ApptStatus,
+  { label: string; fillClass: string; dotClass: string }
+> = {
+  completed: { label: "Concluído", fillClass: "fill-status-done", dotClass: "bg-status-done" },
+  confirmed: { label: "Confirmado", fillClass: "fill-status-confirmed", dotClass: "bg-status-confirmed" },
+  pending: { label: "Pendente", fillClass: "fill-status-pending", dotClass: "bg-status-pending" },
+  cancelled: { label: "Cancelado", fillClass: "fill-status-cancelled", dotClass: "bg-status-cancelled" },
+  no_show: { label: "Não compareceu", fillClass: "fill-status-noshow", dotClass: "bg-status-noshow" },
+};
+const STATUS_ORDER: ApptStatus[] = ["completed", "confirmed", "pending", "cancelled", "no_show"];
 
 function ymd(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Faturamento por período (AC 5.6): hoje / semana corrente (seg–dom) / mês. */
+/** Período dos atalhos: hoje / semana (seg–dom) / mês / ano corrente. */
 function rangeFor(preset: Preset): { from: string; to: string } {
   const now = new Date();
   if (preset === "dia") {
@@ -48,6 +76,9 @@ function rangeFor(preset: Preset): { from: string; to: string } {
     sun.setDate(mon.getDate() + 6);
     return { from: ymd(mon), to: ymd(sun) };
   }
+  if (preset === "ano") {
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
+  }
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return { from: ymd(first), to: ymd(last) };
@@ -56,10 +87,11 @@ function rangeFor(preset: Preset): { from: string; to: string } {
 const brDate = (d: string) => d.split("-").reverse().join("/");
 
 /**
- * Dashboard (Story 5.6) — SOMENTE LEITURA. Menu próprio, só para quem tem o
- * módulo (DL-062; gate no backend e na rota). Números do período: faturamento
- * (pago) + a receber (pendente), atendimentos concluídos, total de clientes e
- * média de clientes/semana. Exportar CSV reaproveita o `lib/csv.ts` da 5.4.
+ * Dashboard (Story 5.6) — SOMENTE LEITURA. Menu próprio e página inicial (só para
+ * quem tem o módulo; DL-062). KPIs (valor bruto, vendas, ticket médio, atendimentos,
+ * clientes) + gráficos: LINHA (faturamento no tempo), PIZZA (atendimentos por
+ * status), BARRAS (top clientes por frequência). Período dia/semana/mês/ano.
+ * Exportar CSV reaproveita o `lib/csv.ts` (5.4). Mobile: tudo empilha.
  */
 export function Dashboard() {
   const [preset, setPreset] = useState<Preset>("mes");
@@ -101,18 +133,23 @@ export function Dashboard() {
 
   function exportCsv(): void {
     if (!data) return;
-    const csv = toCsv(
-      ["Métrica", "Valor"],
-      [
-        ["Período", `${brDate(range.from)} a ${brDate(range.to)}`],
-        ["Faturamento (recebido)", csvAmount(data.received)],
-        ["A receber (pendente)", csvAmount(data.pending)],
-        ["Atendimentos concluídos", String(data.appointmentsCompleted)],
-        ["Total de clientes", String(data.totalClients)],
-        ["Média de clientes/semana", String(data.avgClientsPerWeek)],
-      ],
+    const rows: (string | number)[][] = [
+      ["Período", `${brDate(range.from)} a ${brDate(range.to)}`],
+      ["Valor bruto (recebido)", csvAmount(data.received)],
+      ["A receber (pendente)", csvAmount(data.pending)],
+      ["Vendas", String(data.salesCount)],
+      ["Ticket médio", csvAmount(data.averageTicket)],
+      ["Atendimentos concluídos", String(data.appointmentsCompleted)],
+      ["Total de clientes", String(data.totalClients)],
+      ["Média de clientes/semana", String(data.avgClientsPerWeek)],
+    ];
+    for (const [i, c] of data.topClients.entries()) {
+      rows.push([`Top cliente ${i + 1}`, `${c.name} (${c.count})`]);
+    }
+    downloadCsv(
+      `dashboard_${range.from}_a_${range.to}.csv`,
+      toCsv(["Métrica", "Valor"], rows),
     );
-    downloadCsv(`dashboard_${range.from}_a_${range.to}.csv`, csv);
     setExportOpen(false);
   }
 
@@ -120,12 +157,27 @@ export function Dashboard() {
     { key: "dia", label: "Dia" },
     { key: "semana", label: "Semana" },
     { key: "mes", label: "Mês" },
+    { key: "ano", label: "Ano" },
   ];
+
+  const pieSegments = data
+    ? STATUS_ORDER.map((s) => ({
+        status: s,
+        count: data.statusBreakdown.find((x) => x.status === s)?.count ?? 0,
+      }))
+        .filter((x) => x.count > 0)
+        .map((x) => ({
+          label: STATUS_META[x.status].label,
+          value: x.count,
+          fillClass: STATUS_META[x.status].fillClass,
+          dotClass: STATUS_META[x.status].dotClass,
+        }))
+    : [];
 
   return (
     <PageLayout title="Dashboard">
       <div className="flex flex-col gap-4">
-        {/* Período (dia/semana/mês) + Exportar CSV */}
+        {/* Período (dia/semana/mês/ano) + Exportar CSV */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex overflow-hidden rounded-md border border-input">
             {presets.map((p) => (
@@ -159,31 +211,56 @@ export function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+            <Skeleton className="h-56 w-full" />
           </div>
         ) : errorKind ? (
           <ErrorState kind={errorKind} resource="o dashboard" onRetry={() => void load()} />
         ) : data ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi
-              label="Faturamento"
-              value={brl(data.received)}
-              tone="confirmed"
-              hint={`A receber: ${brl(data.pending)}`}
-            />
-            <Kpi
-              label="Atendimentos concluídos"
-              value={String(data.appointmentsCompleted)}
-            />
-            <Kpi label="Clientes cadastradas" value={String(data.totalClients)} />
-            <Kpi
-              label="Clientes/semana (média)"
-              value={String(data.avgClientsPerWeek)}
-            />
-          </div>
+          <>
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Kpi
+                label="Valor bruto"
+                value={brl(data.received)}
+                tone="confirmed"
+                hint={`A receber: ${brl(data.pending)}`}
+              />
+              <Kpi label="Vendas" value={String(data.salesCount)} />
+              <Kpi label="Ticket médio" value={brl(data.averageTicket)} />
+              <Kpi
+                label="Atendimentos concluídos"
+                value={String(data.appointmentsCompleted)}
+              />
+              <Kpi label="Clientes cadastradas" value={String(data.totalClients)} />
+              <Kpi
+                label="Clientes/semana (média)"
+                value={String(data.avgClientsPerWeek)}
+              />
+            </div>
+
+            {/* Linha: faturamento no tempo */}
+            <ChartCard title="Faturamento no período">
+              <LineChart data={data.revenueSeries} formatValue={brl} />
+            </ChartCard>
+
+            {/* Pizza + Barras */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <ChartCard title="Atendimentos por status">
+                <PieChart segments={pieSegments} />
+              </ChartCard>
+              <ChartCard title="Clientes com maior frequência (top 5)">
+                <HBarChart
+                  items={data.topClients.map((c) => ({ label: c.name, value: c.count }))}
+                />
+              </ChartCard>
+            </div>
+          </>
         ) : null}
       </div>
 
@@ -235,7 +312,7 @@ function Kpi({
       </div>
       <div
         className={cn(
-          "mt-1 text-2xl font-semibold tabular-nums",
+          "mt-1 text-xl font-semibold tabular-nums",
           tone === "confirmed" ? "text-status-confirmed" : "text-foreground",
         )}
       >
@@ -245,5 +322,21 @@ function Kpi({
         <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
       ) : null}
     </div>
+  );
+}
+
+/** Cartão de gráfico — título + conteúdo. */
+function ChartCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {children}
+    </section>
   );
 }

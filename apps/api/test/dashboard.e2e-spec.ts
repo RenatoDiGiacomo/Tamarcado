@@ -127,13 +127,32 @@ describe("Dashboard — números do negócio (e2e, Story 5.6)", () => {
     const owner = await login("dono@dash.dev");
     const res = await get(owner);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({
-      received: 80, // 50 + 30 (pagos)
+    expect(res.body).toMatchObject({
+      received: 80, // 50 + 30 (pagos) = valor bruto
       pending: 20, // pendente
+      salesCount: 2, // dois pagamentos `pago`
+      averageTicket: 26.67, // 80 ÷ 3 concluídos
       appointmentsCompleted: 3, // a1, a2 e o 4º (c1 sem pagamento)
       totalClients: 3, // Ana, Bruna, Carla
       avgClientsPerWeek: 0.7, // 3 clientes distintas / (30 dias ÷ 7)
     });
+    // Pizza: atendimentos por status (3 concluídos + 1 confirmado).
+    const status = res.body.statusBreakdown as { status: string; count: number }[];
+    expect(status).toEqual(
+      expect.arrayContaining([
+        { status: "completed", count: 3 },
+        { status: "confirmed", count: 1 },
+      ]),
+    );
+    // Barras: top clientes por frequência — Ana (2) à frente de Bruna/Carla (1).
+    const top = res.body.topClients as { name: string; count: number }[];
+    expect(top[0]).toEqual({ clientId: expect.any(String), name: "Ana", count: 2 });
+    expect(top).toHaveLength(3);
+    // Linha: faturamento diário (setembro = 30 pontos); o pico está em 10/09.
+    const series = res.body.revenueSeries as { label: string; value: number }[];
+    expect(series).toHaveLength(30);
+    expect(series.find((p) => p.label === "10/09")?.value).toBe(80);
+    expect(series.reduce((acc, p) => acc + p.value, 0)).toBe(80);
   });
 
   it("Profissional COM can_view_dashboard também vê (200)", async () => {
