@@ -171,6 +171,43 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: /Financeiro/ })).toBeNull();
   });
 
+  it("Dashboard (5.6): PRIMEIRO no menu, com Agenda logo abaixo, para quem tem o módulo", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        name: "Prof",
+        accessLevel: "professional",
+        theme: "light",
+        canViewDashboard: true,
+      },
+      logout: vi.fn(),
+    });
+    mockMatchMedia(true);
+    renderShell();
+    const dash = screen.getByRole("link", { name: /Dashboard/ });
+    expect(dash).toHaveAttribute("href", "/dashboard");
+    const agenda = screen.getByRole("link", { name: /Agenda/ });
+    expect(agenda).toHaveAttribute("href", "/agenda");
+    // Dashboard vem ANTES da Agenda no DOM (é o primeiro do menu).
+    expect(
+      dash.compareDocumentPosition(agenda) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("Dashboard (5.6): AUSENTE para quem não tem o módulo (DL-062)", () => {
+    useAuthMock.mockReturnValue({
+      user: {
+        name: "Prof",
+        accessLevel: "professional",
+        theme: "light",
+        canViewDashboard: false,
+      },
+      logout: vi.fn(),
+    });
+    mockMatchMedia(true);
+    renderShell();
+    expect(screen.queryByRole("link", { name: /Dashboard/ })).toBeNull();
+  });
+
   it("mobile (<768px): tab bar de 4 abas + FAB direto para Novo agendamento (Épico 7)", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useAuth, loginPath } from "./auth/AuthContext";
 import { canViewModule } from "./lib/permissions";
 import { Financeiro } from "./pages/Financeiro";
+import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
@@ -52,6 +53,20 @@ function RequireModule({
   return canViewModule(user, module) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
+/**
+ * Página inicial ao abrir o sistema (Story 5.6): o **Dashboard** é a primeira
+ * tela para quem tem o módulo; os demais caem na **Agenda**. `"/"` só decide e
+ * redireciona — as telas vivem em `/dashboard` e `/agenda`.
+ */
+function Landing() {
+  const { user } = useAuth();
+  return canViewModule(user, "dashboard") ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <Navigate to="/agenda" replace />
+  );
+}
+
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
 function Layout() {
   return (
@@ -81,7 +96,18 @@ export function App() {
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Agenda />} />
+        {/* `"/"` decide a landing (Dashboard p/ quem tem; senão Agenda). */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/agenda" element={<Agenda />} />
+        {/* Dashboard (Story 5.6) — só para quem tem o módulo (DL-062). */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireModule module="dashboard">
+              <Dashboard />
+            </RequireModule>
+          }
+        />
         {/* Pendentes é acessível a todo autenticado; o backend ESCOPA (o
             profissional vê só os seus). Refino DL-062 (2026-08-14). */}
         <Route path="/pendentes" element={<Pendentes />} />
