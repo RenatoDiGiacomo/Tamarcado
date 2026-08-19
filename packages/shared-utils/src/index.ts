@@ -1,5 +1,5 @@
 // Utilitários puros, sem dependência de framework.
-// Compartilhados entre apps/api, apps/web e apps/mobile.
+// Compartilhados entre apps/api e apps/web.
 
 /**
  * Retorna true se o valor for null, undefined ou string composta só por

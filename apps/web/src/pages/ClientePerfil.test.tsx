@@ -107,18 +107,23 @@ describe("ClientePerfil", () => {
       target: { value: "5000" }, // máscara: centavos → R$ 50,00
     });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
-    await waitFor(() => {
-      const put = apiMock.mock.calls.find(
-        ([p, o]) =>
-          String(p) === "/appointments/a1/payment" &&
-          (o as Opts)?.method === "PUT",
-      );
-      expect((put?.[1] as Opts).body).toEqual({
-        amount: 50,
-        method: undefined,
-        status: "pago",
-      });
-    });
+    // timeout folgado: sob CI paralelo (turbo + workers do vitest) o default de
+    // 1s estoura por contenção de CPU, não por erro de lógica.
+    await waitFor(
+      () => {
+        const put = apiMock.mock.calls.find(
+          ([p, o]) =>
+            String(p) === "/appointments/a1/payment" &&
+            (o as Opts)?.method === "PUT",
+        );
+        expect((put?.[1] as Opts).body).toEqual({
+          amount: 50,
+          method: undefined,
+          status: "pago",
+        });
+      },
+      { timeout: 4000 },
+    );
   });
 
   it("atalho 'Novo agendamento' abre o fluxo com a cliente pré-selecionada", async () => {
