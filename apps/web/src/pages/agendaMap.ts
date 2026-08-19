@@ -4,6 +4,8 @@ import type { AppointmentStatus } from "../components/StatusChip";
 /** Item cru da API (`GET /appointments`). Status/source no formato do backend. */
 export interface ApiAppointment {
   id: string;
+  /** Id da cliente — link do detalhe da agenda para o perfil dela (DL-066). */
+  clientId: string;
   clientName: string;
   serviceId: string; // 3.5: busca quem executa o serviço p/ destacar no select
   serviceName: string;

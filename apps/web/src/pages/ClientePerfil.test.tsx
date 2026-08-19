@@ -96,6 +96,31 @@ describe("ClientePerfil", () => {
     });
   });
 
+  it("registra pagamento de um atendimento no perfil (DL-066) → PUT /appointments/:id/payment", async () => {
+    render(<ClientePerfil />);
+    await screen.findByText("Corte");
+    // Owner tem Financeiro → cada atendimento oferece registrar pagamento.
+    const botoes = screen.getAllByRole("button", { name: "Registrar pagamento" });
+    fireEvent.click(botoes[0]); // primeiro atendimento (a1)
+    // Abre o MESMO PaymentForm (valor/situação/forma).
+    fireEvent.change(await screen.findByLabelText("Valor recebido"), {
+      target: { value: "5000" }, // máscara: centavos → R$ 50,00
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => {
+      const put = apiMock.mock.calls.find(
+        ([p, o]) =>
+          String(p) === "/appointments/a1/payment" &&
+          (o as Opts)?.method === "PUT",
+      );
+      expect((put?.[1] as Opts).body).toEqual({
+        amount: 50,
+        method: undefined,
+        status: "pago",
+      });
+    });
+  });
+
   it("atalho 'Novo agendamento' abre o fluxo com a cliente pré-selecionada", async () => {
     render(<ClientePerfil />);
     await screen.findByText("Ana Lima");

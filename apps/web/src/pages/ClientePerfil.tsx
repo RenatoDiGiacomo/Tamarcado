@@ -4,9 +4,13 @@ import { ArrowLeft, CalendarPlus, Pencil, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { authedRequest } from "../lib/session";
 import { brl } from "../lib/currency";
+import { cn } from "@/lib/utils";
+import { useAuth } from "../auth/AuthContext";
+import { canViewModule } from "../lib/permissions";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { StatusChip } from "../components/StatusChip";
+import { PaymentForm } from "../components/agenda/PaymentForm";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -17,7 +21,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { NovoAgendamento } from "./NovoAgendamento";
-import { mapStatus } from "./agendaMap";
+import { mapStatus, type PaymentInfo } from "./agendaMap";
 
 
 interface ClientProfile {
@@ -37,6 +41,9 @@ interface HistoryItem {
   start: string;
   end: string;
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+  /** Pagamento e preço — SÓ para quem tem Financeiro (corte de valor, DL-062). */
+  payment?: PaymentInfo | null;
+  price?: number | null;
 }
 
 /** `YYYY-MM-DD` (ou ISO) → `DD/MM/YYYY`, estável (sem locale). */
@@ -62,6 +69,11 @@ async function apiError(res: Response, fallback: string): Promise<string> {
  */
 export function ClientePerfil() {
   const { id = "" } = useParams();
+  const { user } = useAuth();
+  // Registro de pagamento no perfil (DL-066): quando a cliente chega para pagar.
+  // Só para quem tem Financeiro — o pagamento é dado financeiro (corte de valor).
+  const canViewFinanceiro = canViewModule(user, "financeiro");
+  const [paying, setPaying] = useState<HistoryItem | null>(null);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -296,22 +308,48 @@ export function ClientePerfil() {
           ) : (
             <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
               {history.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">
-                      {a.serviceName}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {ddmmyyyy(a.date)} · {a.start}–{a.end} ·{" "}
-                      {a.professionalName ?? (
-                        <em className="italic">Não atribuído</em>
-                      )}
-                    </span>
+                <li key={a.id} className="flex flex-col gap-2 px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">
+                        {a.serviceName}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {ddmmyyyy(a.date)} · {a.start}–{a.end} ·{" "}
+                        {a.professionalName ?? (
+                          <em className="italic">Não atribuído</em>
+                        )}
+                      </span>
+                    </div>
+                    <StatusChip status={mapStatus(a.status)} />
                   </div>
-                  <StatusChip status={mapStatus(a.status)} />
+                  {/* Pagamento (DL-066): registrar/editar aqui, quando a cliente
+                      paga. Só para quem tem Financeiro — reusa o PaymentForm. */}
+                  {canViewFinanceiro && (
+                    <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          a.payment
+                            ? a.payment.status === "pago"
+                              ? "text-status-confirmed"
+                              : "text-status-pending"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {a.payment
+                          ? `${a.payment.status === "pago" ? "Pago" : "Pendente"} · ${brl(a.payment.amount)}`
+                          : "Sem pagamento"}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setPaying(a)}
+                      >
+                        {a.payment ? "Editar pagamento" : "Registrar pagamento"}
+                      </Button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -361,6 +399,33 @@ export function ClientePerfil() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Registrar/editar pagamento de um atendimento (DL-066) — o MESMO
+          PaymentForm do Financeiro, num dialog. */}
+      <Dialog open={paying !== null} onOpenChange={(o) => !o && setPaying(null)}>
+        <DialogContent className="max-w-md">
+          {paying && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Pagamento</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                {paying.serviceName} · {ddmmyyyy(paying.date)}
+              </p>
+              <PaymentForm
+                appointmentId={paying.id}
+                initialPayment={paying.payment ?? null}
+                fallbackPrice={paying.price ?? null}
+                onCancel={() => setPaying(null)}
+                onSaved={() => {
+                  setPaying(null);
+                  setRefreshKey((k) => k + 1); // o histórico reflete o pagamento
+                }}
+              />
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

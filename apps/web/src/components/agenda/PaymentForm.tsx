@@ -25,11 +25,12 @@ export interface PaymentFormInitial {
 
 /**
  * Formulário de registro de pagamento (Story 5.2) — a FONTE ÚNICA da UI de
- * pagamento. É reusado nos dois caminhos (DL-065): no detalhe do agendamento
- * (via {@link PaymentSection}, para quem recebe na saída da cliente) e na lista
- * do Financeiro (dialog, para quem fecha o caixa). Valor pré-preenchido, forma
- * OPCIONAL, situação pago/pendente. Upsert via `PUT /appointments/:id/payment`;
- * o `onSaved` do pai decide o efeito colateral (recarregar agenda vs. lista).
+ * pagamento. O pagamento é um dado FINANCEIRO, então vive no domínio do
+ * Financeiro (DL-066, revisa DL-065): é reusado na **lista do Financeiro**
+ * (fechamento de caixa) e no **perfil da cliente** (quando ela chega para pagar)
+ * — nunca na Agenda. Valor pré-preenchido, forma OPCIONAL, situação pago/pendente.
+ * Upsert via `PUT /appointments/:id/payment`; o `onSaved` do pai decide o efeito
+ * colateral (recarregar a lista de recebimentos vs. o histórico da cliente).
  */
 export function PaymentForm({
   appointmentId,

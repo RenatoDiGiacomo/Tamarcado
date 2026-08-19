@@ -12,6 +12,7 @@ import { minutesToTime, utcToZonedParts } from "../availability/tz.util";
 /** Linha crua vinda do join appointments×clients×salon_services×users×payments. */
 export interface RawAppointmentRow {
   id: string;
+  client_id: string;
   scheduled_at: Date;
   duration_minutes: number;
   status: AppointmentStatus;
@@ -42,6 +43,8 @@ export interface PaymentSummary {
  */
 export interface AppointmentView {
   id: string;
+  /** Id da cliente — permite ir da agenda ao perfil dela (DL-066). Não é valor. */
+  clientId: string;
   clientName: string;
   serviceId: string; // 3.5: o modal busca quem executa este serviço (GET /services/:id/professionals)
   serviceName: string;
@@ -81,6 +84,7 @@ export function toAppointmentView(
   const { dateStr, minutesOfDay } = utcToZonedParts(row.scheduled_at, timeZone);
   const view: AppointmentView = {
     id: String(row.id),
+    clientId: String(row.client_id),
     clientName: row.client_name ?? "",
     serviceId: String(row.service_id),
     serviceName: row.service_name ?? "",

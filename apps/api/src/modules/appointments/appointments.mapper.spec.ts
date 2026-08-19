@@ -10,6 +10,7 @@ const TZ = "America/Sao_Paulo"; // UTC-3, sem DST hoje
 function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
   return {
     id: "10",
+    client_id: "5",
     // 2026-07-20 09:00 em São Paulo = 12:00Z
     scheduled_at: new Date("2026-07-20T12:00:00Z"),
     duration_minutes: 60,
@@ -61,6 +62,11 @@ describe("toAppointmentView", () => {
     const v = toAppointmentView(row(), TZ);
     expect(v.serviceId).toBe("3");
     expect(v.professionalId).toBe("7");
+  });
+
+  it("expõe clientId como string (link agenda→cliente, DL-066)", () => {
+    const v = toAppointmentView(row({ client_id: 5 as unknown as string }), TZ);
+    expect(v.clientId).toBe("5");
   });
 
   it("normaliza nomes ausentes de cliente/serviço para string vazia", () => {

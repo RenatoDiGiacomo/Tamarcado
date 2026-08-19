@@ -1,9 +1,9 @@
-import { CalendarDays, MessageCircle } from "lucide-react";
+import { CalendarDays, MessageCircle, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { StatusChip } from "../components/StatusChip";
-import { PaymentSection } from "../components/agenda/PaymentSection";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import {
@@ -29,6 +29,7 @@ const DESKTOP_QUERY = "(min-width: 768px)";
  */
 export function Agenda() {
   const a = useAgenda();
+  const navigate = useNavigate();
   // Duas VISTAS da mesma lógica (painel-mobile §5.1): desktop = grade,
   // mobile = lista. Mesmo breakpoint da casca (AppShell).
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
@@ -135,10 +136,17 @@ export function Agenda() {
                   muted={!a.selected.professionalName}
                 />
               </dl>
-              {/* Pagamento (Story 5.2) — só para quem tem o módulo Financeiro
-                  (DL-062); o registro acontece a partir do agendamento. */}
-              {a.canViewFinanceiro && (
-                <PaymentSection appointment={a.selected} />
+              {/* Link para a cliente (DL-066): agenda → cliente → financeiro. O
+                  registro de pagamento vive no perfil da cliente e no Financeiro,
+                  não aqui. Agenda é agenda. */}
+              {a.selected.clientId && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/clientes/${a.selected!.clientId}`)}
+                  className="flex items-center gap-2 self-start rounded-md text-sm font-medium text-primary hover:underline"
+                >
+                  <User className="size-4" /> Ver perfil da cliente
+                </button>
               )}
               {(a.canConfirm || a.canMark || a.canEdit || a.canCancel) && (
                 <div className="flex flex-col gap-3 pt-1">
