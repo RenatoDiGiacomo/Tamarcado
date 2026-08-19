@@ -1,4 +1,4 @@
-// Types e DTOs compartilhados entre apps/api, apps/web e apps/mobile.
+// Types e DTOs compartilhados entre apps/api e apps/web.
 // Semente do walking skeleton — expandido nas stories seguintes.
 
 /**
