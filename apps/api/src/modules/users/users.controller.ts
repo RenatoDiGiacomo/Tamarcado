@@ -36,6 +36,7 @@ interface UserProfile {
   // Equipe a partir daqui; o owner sempre pode (os flags não o restringem).
   canViewFinanceiro: boolean;
   canViewDashboard: boolean;
+  canViewEquipe: boolean;
   canManageAllAppointments: boolean;
 }
 
@@ -51,6 +52,7 @@ function toProfile(user: User): UserProfile {
     theme: user.theme,
     canViewFinanceiro: user.can_view_financeiro,
     canViewDashboard: user.can_view_dashboard,
+    canViewEquipe: user.can_view_equipe,
     canManageAllAppointments: user.can_manage_all_appointments,
   };
 }

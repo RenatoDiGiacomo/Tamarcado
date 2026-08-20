@@ -44,6 +44,7 @@ export interface TeamMemberView {
   isActive: boolean;
   canViewFinanceiro: boolean;
   canViewDashboard: boolean;
+  canViewEquipe: boolean;
   canManageAllAppointments: boolean;
   remuneration: Remuneration;
   serviceCommissions: MemberServiceCommission[];
@@ -148,6 +149,7 @@ export class TeamService {
         isActive: u.is_active,
         canViewFinanceiro: u.can_view_financeiro,
         canViewDashboard: u.can_view_dashboard,
+        canViewEquipe: u.can_view_equipe,
         canManageAllAppointments: u.can_manage_all_appointments,
         remuneration: {
           salaryAmount: amount,

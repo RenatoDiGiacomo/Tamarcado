@@ -68,8 +68,12 @@ describe("Equipe — remuneração e previsão (e2e, Story 5.9)", () => {
     await ctx.dataSource
       .getRepository(User)
       .update({ company_id: companyId, email: "dono@eq.dev" }, { access_level: "owner" });
-    const prof = await seedUser("p1@eq.dev");
+    const prof = await seedUser("p1@eq.dev"); // SEM o módulo Equipe
     p1 = prof.id;
+    const viewer = await seedUser("ver@eq.dev"); // COM can_view_equipe (só vê)
+    await ctx.dataSource
+      .getRepository(User)
+      .update({ id: viewer.id }, { can_view_equipe: true });
 
     const service = await ctx.dataSource.getRepository(SalonService).save(
       ctx.dataSource.getRepository(SalonService).create({
@@ -112,10 +116,16 @@ describe("Equipe — remuneração e previsão (e2e, Story 5.9)", () => {
     await teardownE2E(ctx);
   });
 
-  it("owner-only: profissional recebe 403 na lista e na edição", async () => {
+  it("sem o módulo Equipe → 403 na lista e na edição", async () => {
     const prof = await login("p1@eq.dev");
     await listTeam(prof).expect(403);
     await patch(prof, p1, { commissionScope: "none" }).expect(403);
+  });
+
+  it("com can_view_equipe: VÊ a lista (200), mas EDITAR remuneração é owner-only (403)", async () => {
+    const viewer = await login("ver@eq.dev");
+    await listTeam(viewer).expect(200);
+    await patch(viewer, p1, { commissionScope: "none" }).expect(403);
   });
 
   it("comissão POR PROFISSIONAL (30%) + salário mensal rateado", async () => {

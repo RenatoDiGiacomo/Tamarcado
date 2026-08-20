@@ -24,6 +24,7 @@ import { AddModuleFlagsAndRetireBasic1718901100000 } from "./migrations/17189011
 import { RenameManagerToProfessional1718901200000 } from "./migrations/1718901200000-RenameManagerToProfessional";
 import { CreatePayments1718901300000 } from "./migrations/1718901300000-CreatePayments";
 import { AddTeamRemuneration1718901400000 } from "./migrations/1718901400000-AddTeamRemuneration";
+import { AddCanViewEquipe1718901500000 } from "./migrations/1718901500000-AddCanViewEquipe";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -67,6 +68,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       RenameManagerToProfessional1718901200000,
       CreatePayments1718901300000,
       AddTeamRemuneration1718901400000,
+      AddCanViewEquipe1718901500000,
     ],
     synchronize: false,
     migrationsRun: false,

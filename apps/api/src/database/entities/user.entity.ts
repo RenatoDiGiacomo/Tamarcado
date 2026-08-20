@@ -64,6 +64,10 @@ export class User {
   @Column({ type: "boolean", default: false })
   can_view_dashboard!: boolean;
 
+  /** Visibilidade do módulo EQUIPE (Story 5.9): ver a lista/remuneração da equipe. */
+  @Column({ type: "boolean", default: false })
+  can_view_equipe!: boolean;
+
   // Escopo de AÇÃO da Agenda (DL-062 adição 2026-08-13): NÃO é módulo (não
   // esconde menu). OFF = opera só os próprios agendamentos; ON = os de toda a
   // equipe. owner sempre opera tudo. Substitui o antigo "basic = só os próprios".

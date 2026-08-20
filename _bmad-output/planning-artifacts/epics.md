@@ -331,7 +331,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos do domínio financeiro** (clique no recebimento do Financeiro **e** no perfil da cliente, via `PaymentForm` — fonte única; **fora da Agenda**, que só ganha um **link para a cliente**; DL-066 revisa DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
 - ✅ **5.4 (exportação CSV)** — botão Exportar CSV no Financeiro (totais no topo; Dia/Semana/Mês removidos; Cliente por busca nome/telefone; modal de confirmação; util reutilizável `lib/csv.ts`).
 - ✅ **5.6 (Dashboard)** — menu próprio **1º na navegação + página inicial** (Agenda logo abaixo); `GET /dashboard` gateado por `can_view_dashboard`; KPIs read-only (faturamento/recebido+pendente, atendimentos concluídos, total de clientes, média clientes/semana) por período dia/semana/mês; Exportar CSV reusa `lib/csv.ts`. Fecha a 1ª leva do Financeiro.
-- ✅ **5.9 (Equipe/remuneração — 2ª leva, 1ª story)** — **Equipe vira menu próprio** (saiu de Configurações), **owner-only**. Cadastro de remuneração por profissional: **comissão** (percentual OU valor fixo; **por profissional** OU **por serviço**) + **salário fixo** (diário/semanal/mensal), fixo e comissão coexistem. **Previsão** calculada do período (comissão por atendimento **concluído** + salário **rateado pelos dias**). `GET /team` + `PATCH /team/:id/remuneration` (migration: colunas em `users` + comissão em `professional_services`). **Fora:** registro do pagamento à equipe (5.10, no Financeiro) e metas/faixas.
+- ✅ **5.9 (Equipe/remuneração — 2ª leva, 1ª story)** — **Equipe vira menu próprio** (saiu de Configurações). **Módulo `can_view_equipe`** (DL-062): VER é owner OU quem tem o interruptor "Pode ver Equipe"; **EDITAR** (convite/papel/permissões/remuneração/ativar) é **owner-only**. Cadastro de remuneração por profissional: **comissão** (percentual OU valor fixo; **por profissional** OU **por serviço**) + **salário fixo** (diário/semanal/mensal), coexistem. **Previsão** do período (comissão por atendimento **concluído** + salário **rateado pelos dias**). UI: **lista com dropdown** (accordion, escala p/ equipe grande) + **filtro por nome** + Convidar na linha do período. `GET /team` (módulo) + `PATCH /team/:id/remuneration` (owner). **Fora:** pagamento à equipe (5.10, no Financeiro) e metas/faixas.
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -1137,8 +1137,12 @@ So that uma futura integração (ex: Asaas) não exija mudança no core do produ
 ### Story 5.9: Equipe — cadastro de remuneração + previsão (2ª leva, menu próprio)
 
 > **✅ Implementada (2026-08-20).** Primeira story da **2ª leva** (DL-061).
-> **Equipe deixa de ser aba de Configurações e vira menu próprio, owner-only**
-> (a rota e a página redirecionam quem não for Dono; o item some do menu). Além
+> **Equipe deixa de ser aba de Configurações e vira menu próprio.** Virou **módulo
+> `can_view_equipe`** (DL-062): **VER** a equipe/remuneração é do **owner OU de
+> quem tem o interruptor "Pode ver Equipe"**; **EDITAR** (convite, papel,
+> permissões, remuneração, ativar/desativar) segue **owner-only**. UI em **lista
+> com dropdown** (accordion — escala para equipe grande) + **filtro por nome** +
+> Convidar na mesma linha do período. Além
 > da gestão que já existia (convite, atende, permissões, ativar/desativar), passa
 > a ser o **cadastro/controle de remuneração**:
 > - **Comissão** percentual OU valor fixo; **por profissional** (uma taxa) OU

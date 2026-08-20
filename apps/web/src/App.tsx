@@ -46,7 +46,7 @@ function RequireModule({
   module,
   children,
 }: {
-  module: "financeiro" | "dashboard";
+  module: "financeiro" | "dashboard" | "equipe";
   children: ReactNode;
 }) {
   const { user } = useAuth();
@@ -122,9 +122,17 @@ export function App() {
             </RequireModule>
           }
         />
-        {/* Equipe (Story 5.9) — menu próprio, saiu de Configurações. Owner-only
-            (a própria página redireciona quem não for Dono). */}
-        <Route path="/equipe" element={<Equipe />} />
+        {/* Equipe (Story 5.9) — menu próprio, saiu de Configurações. Gateado pelo
+            módulo `equipe` (owner OU can_view_equipe). Editar remuneração/gestão
+            é owner-only (dentro da página). */}
+        <Route
+          path="/equipe"
+          element={
+            <RequireModule module="equipe">
+              <Equipe />
+            </RequireModule>
+          }
+        />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />

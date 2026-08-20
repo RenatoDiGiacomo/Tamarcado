@@ -114,26 +114,30 @@ export function AppShell({ children }: { children?: ReactNode }) {
     to: "/configuracoes",
     icon: Settings,
   };
-  // Equipe (Story 5.9) — menu próprio, owner-only (saiu de Configurações).
+  // Equipe (Story 5.9) — menu próprio; módulo `equipe` (owner OU can_view_equipe),
+  // igual a Financeiro/Dashboard. Entra em `mainItems`, não no bloco owner.
   const equipeItem: NavItem = {
     key: "equipe",
     label: "Equipe",
     to: "/equipe",
     icon: UserCog,
   };
-  const ownerItems: NavItem[] = isOwner ? [equipeItem, configItem] : [];
+  const ownerItems: NavItem[] = isOwner ? [configItem] : [];
   // Financeiro (Story 5.2) só para quem tem o módulo — igual ao menu não existir
   // para os demais (DL-062). O polling de flags do AuthContext faz aparecer/sumir
   // sem relogar.
   const canSeeFinanceiro = canViewModule(user, "financeiro");
   const canSeeDashboard = canViewModule(user, "dashboard");
-  // Dashboard (se tem) · Agenda · Pendentes (escopado) · Clientes · Financeiro (se tem).
+  const canSeeEquipe = canViewModule(user, "equipe");
+  // Dashboard (se tem) · Agenda · Pendentes (escopado) · Clientes · Financeiro
+  // (se tem) · Equipe (se tem).
   const mainItems: NavItem[] = [
     ...(canSeeDashboard ? [dashboardItem] : []),
     NAV_ITEMS[0],
     ...(canSeePendentes ? [pendItem] : []),
     NAV_ITEMS[1],
     ...(canSeeFinanceiro ? [financeiroItem] : []),
+    ...(canSeeEquipe ? [equipeItem] : []),
   ];
   // Desktop: sidebar inclui Equipe + Configurações (owner) ao fim.
   const items: NavItem[] = [...mainItems, ...ownerItems];

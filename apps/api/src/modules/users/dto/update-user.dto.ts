@@ -34,5 +34,9 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsBoolean()
+  can_view_equipe?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   can_manage_all_appointments?: boolean;
 }
