@@ -331,7 +331,8 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos do domínio financeiro** (clique no recebimento do Financeiro **e** no perfil da cliente, via `PaymentForm` — fonte única; **fora da Agenda**, que só ganha um **link para a cliente**; DL-066 revisa DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
 - ✅ **5.4 (exportação CSV)** — botão Exportar CSV no Financeiro (totais no topo; Dia/Semana/Mês removidos; Cliente por busca nome/telefone; modal de confirmação; util reutilizável `lib/csv.ts`).
 - ✅ **5.6 (Dashboard)** — menu próprio **1º na navegação + página inicial** (Agenda logo abaixo); `GET /dashboard` gateado por `can_view_dashboard`; KPIs read-only (faturamento/recebido+pendente, atendimentos concluídos, total de clientes, média clientes/semana) por período dia/semana/mês; Exportar CSV reusa `lib/csv.ts`. Fecha a 1ª leva do Financeiro.
-- ✅ **5.9 (Equipe/remuneração — 2ª leva, 1ª story)** — **Equipe vira menu próprio** (saiu de Configurações). **Módulo `can_view_equipe`** (DL-062): VER é owner OU quem tem o interruptor "Pode ver Equipe"; **EDITAR** (convite/papel/permissões/remuneração/ativar) é **owner-only**. Cadastro de remuneração por profissional: **comissão** (percentual OU valor fixo; **por profissional** OU **por serviço**) + **salário fixo** (diário/semanal/mensal), coexistem. **Previsão** do período (comissão por atendimento **concluído** + salário **rateado pelos dias**). UI: **lista com dropdown** (accordion, escala p/ equipe grande) + **filtro por nome** + Convidar na linha do período. `GET /team` (módulo) + `PATCH /team/:id/remuneration` (owner). **Fora:** pagamento à equipe (5.10, no Financeiro) e metas/faixas.
+- ✅ **5.9 (Equipe/remuneração — 2ª leva, 1ª story)** — **Equipe vira menu próprio** (saiu de Configurações). **Módulo `can_view_equipe`** (DL-062): VER é owner OU quem tem o interruptor "Pode ver Equipe"; **EDITAR** (convite/papel/permissões/remuneração/ativar) é **owner-only**. Cadastro de remuneração por profissional: **comissão** (percentual OU valor fixo; **por profissional** OU **por serviço**) + **salário fixo** (diário/semanal/mensal), coexistem. **Previsão** do período (comissão por atendimento **concluído** + salário **rateado pelos dias**). UI: **lista com dropdown** (accordion, escala p/ equipe grande) + **filtro por nome** + Convidar na linha do período. `GET /team` (módulo) + `PATCH /team/:id/remuneration` (owner). **Fora:** metas/faixas.
+- ✅ **5.10 (pagamento à equipe — SAÍDA — fecha o Épico 5)** — o Dono registra no **Financeiro** o pagamento à equipe (previsão→**real**): tabela `team_payments`, `POST /team/payments` (owner) + `GET /team/payments` (módulo financeiro). O **Financeiro** vira central de **entradas E saídas**: totais Recebido/Pendente/**Saídas**/**Resultado** (recebido − saídas) + lista de saídas + "Pagar à equipe" (pré-preenche a previsão). O **Dashboard** ganha KPIs **Saídas** e **Resultado**. **Fecha a 2ª leva e o Épico 5.**
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -1162,6 +1163,24 @@ So that uma futura integração (ex: Asaas) não exija mudança no core do produ
 As a Dono,
 I want cadastrar como cada profissional é remunerado e ver a previsão do período,
 So that eu saiba quanto vou pagar à equipe antes de registrar a saída no Financeiro.
+
+### Story 5.10: Pagamento à equipe (SAÍDA) no Financeiro — fecha o previsão→real (e o Épico 5)
+
+> **✅ Implementada (2026-08-20).** Última story da 2ª leva. O **Dono** registra
+> **no Financeiro** o pagamento efetivo à equipe (a SAÍDA que fecha o previsão→
+> real): tabela `team_payments` (profissional, valor, data do pagamento, período
+> a que se refere, observação). **Backend:** `POST /team/payments` (**owner-only**)
+> e `GET /team/payments?from&to` (**módulo financeiro**). O **Financeiro** passa a
+> ser a central de **entradas E saídas** (DL-061): totais **Recebido / Pendente /
+> Saídas / Resultado** (recebido − saídas), uma **lista de saídas** e o botão
+> **"Pagar à equipe"** (owner) que **pré-preenche a previsão** do profissional
+> (`GET /team`). O **Dashboard** ganha os KPIs **Saídas** e **Resultado**. e2e
+> `team.e2e-spec` (registrar/listar/gate) + `dashboard.e2e-spec` (expenses/result).
+> **Fecha a 2ª leva e o Épico 5.** *(Evolução: editar/estornar uma saída.)*
+
+As a Dono,
+I want registrar no Financeiro o quanto paguei à equipe no período,
+So that o Financeiro mostre o resultado (entrou − saiu) e feche o previsão→real.
 
 ---
 

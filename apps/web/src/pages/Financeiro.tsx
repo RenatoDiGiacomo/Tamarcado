@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Download } from "lucide-react";
+import { Users, Download, Wallet } from "lucide-react";
 import { authedRequest } from "../lib/session";
+import { useAuth } from "../auth/AuthContext";
+import { RegistrarSaidaDialog } from "@/components/financeiro/RegistrarSaidaDialog";
 import { brl } from "../lib/currency";
 import { toCsv, csvAmount, downloadCsv } from "../lib/csv";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,21 @@ interface ReceiptsData {
   totalPending: number;
 }
 
+/** SAÍDA — pagamento à equipe (Story 5.10). */
+interface TeamPayment {
+  id: string;
+  professionalName: string;
+  amount: number;
+  paidOn: string;
+  periodFrom: string;
+  periodTo: string;
+  note: string | null;
+}
+interface ExpensesData {
+  payments: TeamPayment[];
+  total: number;
+}
+
 function ymd(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -83,6 +100,8 @@ const brDate = (d: string) => d.split("-").reverse().join("/");
  */
 export function Financeiro() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOwner = user?.accessLevel === "owner";
   const [from, setFrom] = useState(currentMonthRange().from);
   const [to, setTo] = useState(currentMonthRange().to);
   const [statusF, setStatusF] = useState<"all" | "pago" | "pendente">("all");
@@ -100,20 +119,25 @@ export function Financeiro() {
   const [editing, setEditing] = useState<Receipt | null>(null);
   // Exportação CSV (Story 5.4): confirma num modal antes de baixar.
   const [exportOpen, setExportOpen] = useState(false);
+  // Saídas — pagamentos à equipe (Story 5.10).
+  const [expenses, setExpenses] = useState<ExpensesData | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorKind(null);
     try {
-      const res = await authedRequest(
-        `/appointments/payments?from=${from}&to=${to}`,
-      );
-      if (!res.ok) {
+      const [rRes, eRes] = await Promise.all([
+        authedRequest(`/appointments/payments?from=${from}&to=${to}`),
+        authedRequest(`/team/payments?from=${from}&to=${to}`),
+      ]);
+      if (!rRes.ok) {
         setErrorKind("server");
         setData(null);
         return;
       }
-      setData((await res.json()) as ReceiptsData);
+      setData((await rRes.json()) as ReceiptsData);
+      setExpenses(eRes.ok ? ((await eRes.json()) as ExpensesData) : { payments: [], total: 0 });
     } catch (e) {
       setErrorKind(errorKindFrom(e));
       setData(null);
@@ -192,25 +216,36 @@ export function Financeiro() {
   return (
     <PageLayout title="Financeiro">
       <div className="flex flex-col gap-4">
-        {/* Totais no topo — tokens de status (verde=recebido, âmbar=pendente) */}
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-          <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Recebido
+        {/* Totais no topo — entrou (recebido), a receber (pendente), saiu
+            (equipe) e o RESULTADO (recebido − saídas). Central de entradas E
+            saídas (DL-061). */}
+        {(() => {
+          const received = data?.totalReceived ?? 0;
+          const out = expenses?.total ?? 0;
+          const result = received - out;
+          return (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:max-w-3xl">
+              <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recebido</div>
+                <div className="mt-1 text-lg font-semibold text-status-confirmed">{brl(received)}</div>
+              </div>
+              <div className="rounded-lg border border-l-4 border-border border-l-status-pending bg-card p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pendente</div>
+                <div className="mt-1 text-lg font-semibold text-status-pending">{brl(data?.totalPending ?? 0)}</div>
+              </div>
+              <div className="rounded-lg border border-l-4 border-border border-l-status-cancelled bg-card p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Saídas (equipe)</div>
+                <div className="mt-1 text-lg font-semibold text-status-cancelled">{brl(out)}</div>
+              </div>
+              <div className="rounded-lg border border-l-4 border-border border-l-primary bg-card p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resultado</div>
+                <div className={cn("mt-1 text-lg font-semibold", result < 0 ? "text-status-cancelled" : "text-foreground")}>
+                  {brl(result)}
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-lg font-semibold text-status-confirmed">
-              {brl(data?.totalReceived ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border border-l-4 border-border border-l-status-pending bg-card p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Pendente
-            </div>
-            <div className="mt-1 text-lg font-semibold text-status-pending">
-              {brl(data?.totalPending ?? 0)}
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Período por De/Até (Dia/Semana/Mês removidos — o filtro de data resolve) */}
         <div className="flex flex-wrap items-end gap-3">
@@ -435,6 +470,47 @@ export function Financeiro() {
             description="Registre pagamentos abrindo um agendamento na Agenda."
           />
         )}
+
+        {/* SAÍDAS — pagamentos à equipe (Story 5.10). O registro é do Dono. */}
+        <section className="flex flex-col gap-3 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-foreground">
+              Saídas — pagamentos à equipe
+            </h2>
+            {isOwner && (
+              <Button type="button" variant="secondary" onClick={() => setPayOpen(true)}>
+                <Wallet className="size-4" /> Pagar à equipe
+              </Button>
+            )}
+          </div>
+          {!expenses?.payments?.length ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma saída no período.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {expenses.payments.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-l-4 border-border border-l-status-cancelled bg-card p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {p.professionalName}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      Pago em {brDate(p.paidOn)} · ref. {brDate(p.periodFrom)}–{brDate(p.periodTo)}
+                      {p.note ? ` · ${p.note}` : ""}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-status-cancelled">
+                    − {brl(p.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       {/* Editar/receber o pagamento a partir do Financeiro (DL-065): o MESMO
@@ -510,6 +586,19 @@ export function Financeiro() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Registrar SAÍDA — pagamento à equipe (Story 5.10, owner). */}
+      {payOpen && (
+        <RegistrarSaidaDialog
+          from={from}
+          to={to}
+          onClose={() => setPayOpen(false)}
+          onSaved={() => {
+            setPayOpen(false);
+            void load();
+          }}
+        />
+      )}
     </PageLayout>
   );
 }

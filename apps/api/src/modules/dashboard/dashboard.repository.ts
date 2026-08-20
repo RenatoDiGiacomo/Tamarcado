@@ -6,6 +6,7 @@ import {
   type AppointmentStatus,
 } from "../../database/entities/appointment.entity";
 import { Client } from "../../database/entities/client.entity";
+import { TeamPayment } from "../../database/entities/team-payment.entity";
 import type { PaymentStatus } from "../../database/entities/payment.entity";
 import { TenantAwareRepository } from "../../common/repository/tenant-aware.repository";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
@@ -168,5 +169,17 @@ export class DashboardRepository extends TenantAwareRepository<Appointment> {
     return this.repo.manager
       .getRepository(Client)
       .count({ where: { company_id: this.companyId, is_deleted: false } });
+  }
+
+  /** SAÍDAS (pagamentos à equipe) por `paid_on` no período — Story 5.10. */
+  async expenses(from: string, to: string): Promise<number> {
+    const row = await this.repo.manager
+      .getRepository(TeamPayment)
+      .createQueryBuilder("tp")
+      .select("SUM(tp.amount)", "total")
+      .where("tp.company_id = :companyId", { companyId: this.companyId })
+      .andWhere("tp.paid_on >= :from AND tp.paid_on <= :to", { from, to })
+      .getRawOne<{ total: string | null }>();
+    return Number(row?.total ?? 0);
   }
 }

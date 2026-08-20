@@ -9,6 +9,8 @@ vi.mock("../lib/session", () => ({
 }));
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", () => ({ useNavigate: () => navigateMock }));
+const useAuthMock = vi.fn(() => ({ user: { id: "o1", accessLevel: "owner" } }));
+vi.mock("../auth/AuthContext", () => ({ useAuth: () => useAuthMock() }));
 // Espiona só o download (efeito no DOM); toCsv/csvAmount seguem REAIS, então o
 // teste valida o conteúdo do CSV de verdade.
 vi.mock("../lib/csv", async (orig) => ({
@@ -237,5 +239,35 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
         screen.getByText(/Nenhum recebimento no período/i),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("SAÍDAS (5.10): lista, Resultado = recebido − saídas, e registra pagamento", async () => {
+    apiMock.mockImplementation((url: string, opts?: { method?: string }) => {
+      const u = String(url);
+      if (u.includes("/team/payments") && opts?.method === "POST") return Promise.resolve(jsonRes({ ok: true }));
+      if (u.includes("/team/payments")) return Promise.resolve(jsonRes({ payments: [{ id: "x", professionalName: "Bia", amount: 50, paidOn: "2026-09-08", periodFrom: "2026-09-01", periodTo: "2026-09-30", note: null }], total: 50 }));
+      if (u.startsWith("/team?")) return Promise.resolve(jsonRes({ members: [{ id: "m1", name: "Bia", forecast: { total: 60 } }] }));
+      if (u.includes("/appointments/payments")) return Promise.resolve(jsonRes({ receipts: [], totalReceived: 100, totalPending: 0 }));
+      return Promise.resolve(jsonRes({}));
+    });
+    render(<Financeiro />);
+    // Saída listada + Resultado (100 − 50 = 50).
+    expect(await screen.findByText("Bia")).toBeInTheDocument();
+    expect(screen.getByText(/−\s*R\$\s*50,00/)).toBeInTheDocument();
+    expect(screen.getByText("Resultado")).toBeInTheDocument();
+    // Abre o registro de saída.
+    fireEvent.click(screen.getByRole("button", { name: /Pagar à equipe/ }));
+    expect(await screen.findByText("Pagar à equipe (saída)")).toBeInTheDocument();
+    // Escolhe o profissional → valor pré-preenche com a previsão (R$ 60,00).
+    fireEvent.change(await screen.findByLabelText("Profissional"), { target: { value: "m1" } });
+    await waitFor(() => expect((screen.getByLabelText("Valor pago") as HTMLInputElement).value).toMatch(/60,00/));
+    fireEvent.click(screen.getByRole("button", { name: /Registrar saída/ }));
+    await waitFor(() => {
+      const post = apiMock.mock.calls.find(([u, o]) => String(u) === "/team/payments" && (o as { method?: string })?.method === "POST");
+      const body = (post?.[1] as { body: Record<string, unknown> }).body;
+      expect(body).toMatchObject({ professionalId: "m1", amount: 60 });
+      expect(body.periodFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(body.paidOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
   });
 });

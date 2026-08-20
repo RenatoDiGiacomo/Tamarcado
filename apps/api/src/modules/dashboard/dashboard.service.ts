@@ -19,6 +19,10 @@ export interface DashboardMetrics {
   received: number;
   /** Ainda a receber no período: soma dos `pendente`. */
   pending: number;
+  /** SAÍDAS no período: pagamentos à equipe (Story 5.10). */
+  expenses: number;
+  /** Resultado do período: recebido − saídas (entrou menos saiu). */
+  result: number;
   /** Quantidade de vendas: nº de pagamentos `pago` no período. */
   salesCount: number;
   /** Ticket médio: valor bruto ÷ atendimentos concluídos (0 se não houver). */
@@ -94,6 +98,7 @@ export class DashboardService {
     const { completed, distinctClients } =
       await this.dashboard.completedAndDistinctClients(startUtc, endUtc);
     const totalClients = await this.dashboard.countClients();
+    const expenses = await this.dashboard.expenses(from, to);
     const statusBreakdown = await this.dashboard.statusBreakdown(startUtc, endUtc);
     const topClients = await this.dashboard.topClients(startUtc, endUtc, 5);
     const paidRows = await this.dashboard.paidPaymentRows(startUtc, endUtc);
@@ -127,6 +132,8 @@ export class DashboardService {
     return {
       received: totals.received,
       pending: totals.pending,
+      expenses: Math.round(expenses * 100) / 100,
+      result: Math.round((totals.received - expenses) * 100) / 100,
       salesCount: totals.receivedCount,
       averageTicket,
       appointmentsCompleted: completed,

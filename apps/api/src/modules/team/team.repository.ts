@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { User } from "../../database/entities/user.entity";
 import { Appointment } from "../../database/entities/appointment.entity";
 import { ProfessionalService } from "../../database/entities/professional-service.entity";
+import { TeamPayment } from "../../database/entities/team-payment.entity";
 import { TenantAwareRepository } from "../../common/repository/tenant-aware.repository";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 
@@ -132,5 +133,98 @@ export class TeamRepository extends TenantAwareRepository<User> {
         { companyId: this.companyId, professionalId, serviceId },
       )
       .execute();
+  }
+
+  /** Registra uma SAÍDA (pagamento à equipe) — Story 5.10. */
+  async insertPayment(data: {
+    professionalId: string;
+    amount: number;
+    paidOn: string;
+    periodFrom: string;
+    periodTo: string;
+    note: string | null;
+    createdByUserId: string;
+  }): Promise<void> {
+    const repo = this.repo.manager.getRepository(TeamPayment);
+    await repo.save(
+      repo.create({
+        company_id: this.companyId,
+        professional_id: data.professionalId,
+        amount: data.amount.toFixed(2),
+        paid_on: data.paidOn,
+        period_from: data.periodFrom,
+        period_to: data.periodTo,
+        note: data.note,
+        created_by_user_id: data.createdByUserId,
+      }),
+    );
+  }
+
+  /** Saídas por `paid_on` em [from, to], com o nome do profissional. */
+  async listPayments(
+    from: string,
+    to: string,
+  ): Promise<
+    {
+      id: string;
+      professionalId: string;
+      professionalName: string;
+      amount: number;
+      paidOn: string;
+      periodFrom: string;
+      periodTo: string;
+      note: string | null;
+    }[]
+  > {
+    const rows = await this.repo.manager
+      .getRepository(TeamPayment)
+      .createQueryBuilder("tp")
+      .leftJoin("users", "u", "u.id = tp.professional_id AND u.company_id = tp.company_id")
+      .select("tp.id", "id")
+      .addSelect("tp.professional_id", "professional_id")
+      .addSelect("u.name", "professional_name")
+      .addSelect("tp.amount", "amount")
+      .addSelect("tp.paid_on", "paid_on")
+      .addSelect("tp.period_from", "period_from")
+      .addSelect("tp.period_to", "period_to")
+      .addSelect("tp.note", "note")
+      .where("tp.company_id = :companyId", { companyId: this.companyId })
+      .andWhere("tp.paid_on >= :from AND tp.paid_on <= :to", { from, to })
+      .orderBy("tp.paid_on", "DESC")
+      .addOrderBy("tp.id", "DESC")
+      .getRawMany<{
+        id: string;
+        professional_id: string;
+        professional_name: string | null;
+        amount: string;
+        paid_on: string | Date;
+        period_from: string | Date;
+        period_to: string | Date;
+        note: string | null;
+      }>();
+    const day = (v: string | Date): string =>
+      (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
+    return rows.map((r) => ({
+      id: String(r.id),
+      professionalId: String(r.professional_id),
+      professionalName: r.professional_name ?? "",
+      amount: Number(r.amount),
+      paidOn: day(r.paid_on),
+      periodFrom: day(r.period_from),
+      periodTo: day(r.period_to),
+      note: r.note,
+    }));
+  }
+
+  /** Soma das SAÍDAS por `paid_on` em [from, to] — resultado do Dashboard. */
+  async sumPayments(from: string, to: string): Promise<number> {
+    const row = await this.repo.manager
+      .getRepository(TeamPayment)
+      .createQueryBuilder("tp")
+      .select("SUM(tp.amount)", "total")
+      .where("tp.company_id = :companyId", { companyId: this.companyId })
+      .andWhere("tp.paid_on >= :from AND tp.paid_on <= :to", { from, to })
+      .getRawOne<{ total: string | null }>();
+    return Number(row?.total ?? 0);
   }
 }
