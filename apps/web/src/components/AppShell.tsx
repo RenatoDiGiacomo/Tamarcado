@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   CreditCard,
   Inbox,
+  LayoutDashboard,
   LogOut,
   Settings,
   Users,
@@ -31,9 +32,17 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: "agenda", label: "Agenda", to: "/", icon: CalendarDays },
+  { key: "agenda", label: "Agenda", to: "/agenda", icon: CalendarDays },
   { key: "clientes", label: "Clientes", to: "/clientes", icon: Users },
 ];
+
+/** Dashboard (Story 5.6) — PRIMEIRO no menu; só para quem tem o módulo (DL-062). */
+const dashboardItem: NavItem = {
+  key: "dashboard",
+  label: "Dashboard",
+  to: "/dashboard",
+  icon: LayoutDashboard,
+};
 
 /** Financeiro (Story 5.2) — só aparece para quem tem o módulo (DL-062). */
 const financeiroItem: NavItem = {
@@ -45,7 +54,8 @@ const financeiroItem: NavItem = {
 
 /** Título da tela para a AppBar mobile (Épico 7). */
 function screenTitle(pathname: string): string {
-  if (pathname === "/") return "Agenda";
+  if (pathname.startsWith("/dashboard")) return "Dashboard";
+  if (pathname === "/" || pathname.startsWith("/agenda")) return "Agenda";
   if (pathname.startsWith("/pendentes")) return "Pendentes";
   if (pathname.startsWith("/clientes")) return "Clientes";
   if (pathname.startsWith("/financeiro")) return "Financeiro";
@@ -106,8 +116,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // para os demais (DL-062). O polling de flags do AuthContext faz aparecer/sumir
   // sem relogar.
   const canSeeFinanceiro = canViewModule(user, "financeiro");
-  // Agenda · Pendentes (escopado) · Clientes · Financeiro (se tem acesso).
+  const canSeeDashboard = canViewModule(user, "dashboard");
+  // Dashboard (se tem) · Agenda · Pendentes (escopado) · Clientes · Financeiro (se tem).
   const mainItems: NavItem[] = [
+    ...(canSeeDashboard ? [dashboardItem] : []),
     NAV_ITEMS[0],
     ...(canSeePendentes ? [pendItem] : []),
     NAV_ITEMS[1],
@@ -220,10 +232,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const rightTabs = tabs.slice(mid);
 
   const renderTab = (item: NavItem) => {
-    const active =
-      item.to === "/"
-        ? location.pathname === "/"
-        : location.pathname.startsWith(item.to);
+    const active = location.pathname.startsWith(item.to);
     return (
       <Link
         key={item.key}
@@ -280,7 +289,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <button
             type="button"
             aria-label="Novo agendamento"
-            onClick={() => navigate("/", { state: { novo: Date.now() } })}
+            onClick={() => navigate("/agenda", { state: { novo: Date.now() } })}
             className="absolute left-1/2 top-[-11px] grid size-11 -translate-x-1/2 place-items-center rounded-full border-[3px] border-background bg-primary text-primary-foreground shadow-lg shadow-primary/40"
           >
             <CalendarPlus className="size-[21px]" aria-hidden="true" />
