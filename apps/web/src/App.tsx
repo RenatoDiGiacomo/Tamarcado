@@ -13,7 +13,7 @@ import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
-import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
+import { Equipe } from "./pages/Equipe";
 import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { DefinirSenha } from "./pages/DefinirSenha";
@@ -122,13 +122,17 @@ export function App() {
             </RequireModule>
           }
         />
+        {/* Equipe (Story 5.9) — menu próprio, saiu de Configurações. Owner-only
+            (a própria página redireciona quem não for Dono). */}
+        <Route path="/equipe" element={<Equipe />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />
           <Route path="identidade" element={<ConfiguracoesIdentidade />} />
           <Route path="servicos" element={<ConfiguracoesServicos />} />
           <Route path="horarios" element={<ConfiguracoesHorarios />} />
-          <Route path="equipe" element={<ConfiguracoesEquipe />} />
+          {/* Equipe saiu de Configurações (5.9) — redireciona links antigos. */}
+          <Route path="equipe" element={<Navigate to="/equipe" replace />} />
           <Route path="link" element={<ConfiguracoesLinkPublico />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

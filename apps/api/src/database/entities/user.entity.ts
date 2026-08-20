@@ -9,6 +9,10 @@ import {
 
 export type AccessLevel = "owner" | "professional";
 export type UserTheme = "light" | "dark";
+/** Remuneração (Story 5.9). */
+export type SalaryCadence = "daily" | "weekly" | "monthly";
+export type CommissionScope = "none" | "professional" | "service";
+export type CommissionKind = "percent" | "fixed";
 
 /**
  * Usuário interno (Dono, Gestão). Schema em architecture.md §3.2.
@@ -85,6 +89,31 @@ export class User {
    */
   @Column({ type: "int", default: 0 })
   token_version!: number;
+
+  // ---- Remuneração (Story 5.9) — salário fixo + comissão por profissional ----
+  /** Salário fixo (valor). Coexiste com comissão. Null = sem salário fixo. */
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  salary_amount!: string | null;
+
+  /** Cadência do salário fixo. Null quando não há salário. */
+  @Column({ type: "enum", enum: ["daily", "weekly", "monthly"], nullable: true })
+  salary_cadence!: SalaryCadence | null;
+
+  /** Origem da comissão: nenhuma / por profissional / por serviço (professional_services). */
+  @Column({
+    type: "enum",
+    enum: ["none", "professional", "service"],
+    default: "none",
+  })
+  commission_scope!: CommissionScope;
+
+  /** Tipo da comissão POR PROFISSIONAL (quando scope='professional'). */
+  @Column({ type: "enum", enum: ["percent", "fixed"], nullable: true })
+  commission_kind!: CommissionKind | null;
+
+  /** Valor da comissão por profissional: % (ex.: 30.00) ou valor fixo por atendimento. */
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  commission_value!: string | null;
 
   @CreateDateColumn({ type: "timestamp" })
   created_at!: Date;

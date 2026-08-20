@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  UserCog,
   Users,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
@@ -59,6 +60,7 @@ function screenTitle(pathname: string): string {
   if (pathname.startsWith("/pendentes")) return "Pendentes";
   if (pathname.startsWith("/clientes")) return "Clientes";
   if (pathname.startsWith("/financeiro")) return "Financeiro";
+  if (pathname.startsWith("/equipe")) return "Equipe";
   if (pathname.startsWith("/configuracoes")) return "Configurações";
   if (pathname.startsWith("/perfil")) return "Perfil";
   return "Tamarcado";
@@ -112,6 +114,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
     to: "/configuracoes",
     icon: Settings,
   };
+  // Equipe (Story 5.9) — menu próprio, owner-only (saiu de Configurações).
+  const equipeItem: NavItem = {
+    key: "equipe",
+    label: "Equipe",
+    to: "/equipe",
+    icon: UserCog,
+  };
+  const ownerItems: NavItem[] = isOwner ? [equipeItem, configItem] : [];
   // Financeiro (Story 5.2) só para quem tem o módulo — igual ao menu não existir
   // para os demais (DL-062). O polling de flags do AuthContext faz aparecer/sumir
   // sem relogar.
@@ -125,8 +135,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
     NAV_ITEMS[1],
     ...(canSeeFinanceiro ? [financeiroItem] : []),
   ];
-  // Desktop: sidebar inclui Configurações (owner) ao fim.
-  const items: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
+  // Desktop: sidebar inclui Equipe + Configurações (owner) ao fim.
+  const items: NavItem[] = [...mainItems, ...ownerItems];
 
   // Cabeçalho (rule 6, 2026-08-14): mostra logo E nome juntos (antes era um OU
   // outro). O logo, quando existe, vem maior; o nome fica ao lado na mesma linha.
@@ -226,7 +236,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // ---- MOBILE (Épico 7): AppBar enxuta + tab bar 4 abas + FAB central ----
   // Tabs para a tab bar: mainItems (+ Configurações para owner). O FAB fica no
   // meio; nome do estabelecimento NÃO aparece no topo (vive em Perfil).
-  const tabs: NavItem[] = [...mainItems, ...(isOwner ? [configItem] : [])];
+  const tabs: NavItem[] = [...mainItems, ...ownerItems];
   const mid = Math.ceil(tabs.length / 2);
   const leftTabs = tabs.slice(0, mid);
   const rightTabs = tabs.slice(mid);

@@ -17,4 +17,12 @@ export class ProfessionalService {
 
   @Column({ type: "bigint" })
   company_id!: string;
+
+  // ---- Comissão POR SERVIÇO (Story 5.9) — usada quando o profissional tem
+  // commission_scope='service'. Null = sem comissão para este serviço. ----
+  @Column({ type: "enum", enum: ["percent", "fixed"], nullable: true })
+  commission_kind!: "percent" | "fixed" | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  commission_value!: string | null;
 }
