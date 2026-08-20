@@ -29,10 +29,16 @@ describe("Migration RenameManagerToProfessional — contra base POPULADA (e2e)",
   });
 
   it("converte manager→professional numa base com linhas (não trunca)", async () => {
-    // Volta para ANTES do rename: desfaz CreatePayments e RenameManager. O enum
-    // de `access_level` volta a ('owner','manager').
-    await ds.undoLastMigration(); // CreatePayments
-    await ds.undoLastMigration(); // RenameManagerToProfessional
+    // Volta para ANTES do rename: desfaz os migrations do topo UM A UM até o
+    // rename sair (robusto a novos migrations empilhados depois dele). O enum de
+    // `access_level` volta a ('owner','manager').
+    for (let i = 0; i < 30; i++) {
+      const applied: unknown[] = await ds.query(
+        "SELECT 1 FROM migrations WHERE name LIKE '%RenameManagerToProfessional%'",
+      );
+      if (applied.length === 0) break;
+      await ds.undoLastMigration();
+    }
 
     // POPULADA: uma empresa + um usuário com o valor ANTIGO ('manager').
     const company = await ds

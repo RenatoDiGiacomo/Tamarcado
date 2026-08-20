@@ -20,6 +20,7 @@ import { ClientsModule } from "./modules/clients/clients.module";
 import { AvailabilityModule } from "./modules/availability/availability.module";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { TeamModule } from "./modules/team/team.module";
 import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
 import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
@@ -42,6 +43,7 @@ import { PlatformModule } from "./modules/platform/platform.module";
     AvailabilityModule,
     AppointmentsModule,
     DashboardModule,
+    TeamModule,
     InstallationModule,
     PublicBookingModule,
     PlatformModule,

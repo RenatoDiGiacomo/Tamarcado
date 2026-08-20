@@ -15,6 +15,7 @@ import type { User } from "../../../database/entities/user.entity";
 const MODULE_FLAG: Record<ModuleName, keyof User> = {
   financeiro: "can_view_financeiro",
   dashboard: "can_view_dashboard",
+  equipe: "can_view_equipe",
 };
 
 /**

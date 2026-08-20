@@ -352,6 +352,9 @@ export class UsersService {
       if (dto.can_view_dashboard !== undefined) {
         user.can_view_dashboard = dto.can_view_dashboard;
       }
+      if (dto.can_view_equipe !== undefined) {
+        user.can_view_equipe = dto.can_view_equipe;
+      }
       if (dto.can_manage_all_appointments !== undefined) {
         user.can_manage_all_appointments = dto.can_manage_all_appointments;
       }

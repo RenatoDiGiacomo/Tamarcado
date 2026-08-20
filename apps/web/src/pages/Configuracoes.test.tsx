@@ -34,8 +34,8 @@ describe("Configuracoes (casca)", () => {
       "aria-current",
       "page",
     );
-    // Todas as abas ativas (Horários 3.3.2, Equipe 3.3.3) — nenhuma "em breve".
-    for (const name of ["Serviços", "Horários", "Equipe", "Identidade visual"]) {
+    // Equipe saiu de Configurações (5.9) — virou menu próprio. Abas restantes ativas.
+    for (const name of ["Serviços", "Horários", "Identidade visual"]) {
       expect(screen.getByRole("tab", { name })).not.toHaveAttribute("aria-disabled");
     }
     expect(screen.getByText("ABA IDENTIDADE")).toBeInTheDocument();

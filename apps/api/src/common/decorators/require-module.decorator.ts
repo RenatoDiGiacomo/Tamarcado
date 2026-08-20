@@ -1,7 +1,7 @@
 import { SetMetadata } from "@nestjs/common";
 
 /** Módulos com visibilidade controlada por pessoa (DL-062). */
-export type ModuleName = "financeiro" | "dashboard";
+export type ModuleName = "financeiro" | "dashboard" | "equipe";
 
 export const REQUIRE_MODULE_KEY = "requireModule";
 

@@ -7,7 +7,7 @@ import type { CurrentUser } from "../auth/AuthContext";
  * isto é só UX — esconder o que a pessoa não pode usar.
  */
 
-export type ModuleName = "financeiro" | "dashboard";
+export type ModuleName = "financeiro" | "dashboard" | "equipe";
 
 /** Opera a agenda de TODA a equipe? owner OU `can_manage_all_appointments`. */
 export function canManageAllAppointments(user: CurrentUser | null): boolean {
@@ -22,7 +22,7 @@ export function canViewModule(
 ): boolean {
   if (!user) return false;
   if (user.accessLevel === "owner") return true;
-  return module === "financeiro"
-    ? user.canViewFinanceiro
-    : user.canViewDashboard;
+  if (module === "financeiro") return user.canViewFinanceiro;
+  if (module === "dashboard") return user.canViewDashboard;
+  return user.canViewEquipe;
 }
