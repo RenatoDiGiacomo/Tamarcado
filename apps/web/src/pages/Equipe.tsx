@@ -39,6 +39,13 @@ interface SvcComm {
   kind: Kind | null;
   value: number | null;
 }
+/** Linha de comissão por serviço em EDIÇÃO: guarda o TEXTO mascarado (R$/%). */
+interface EditSvc {
+  serviceId: string;
+  serviceName: string;
+  kind: Kind | null;
+  text: string;
+}
 interface Forecast {
   commission: number;
   salary: number;
@@ -259,7 +266,7 @@ export function Equipe() {
           {isOwner && (
             <Button
               type="button"
-              variant="secondary"
+              variant="default"
               className="ml-auto"
               onClick={() => {
                 setInviteLink(null);
@@ -475,10 +482,28 @@ function RemuneracaoDialog({
   const [kind, setKind] = useState<Kind>(r.commissionKind ?? "percent");
   const [percent, setPercent] = useState(r.commissionKind === "percent" && r.commissionValue != null ? String(r.commissionValue) : "");
   const [fixed, setFixed] = useState(r.commissionKind === "fixed" && r.commissionValue != null ? brl(r.commissionValue) : "");
-  const [svc, setSvc] = useState<SvcComm[]>(member.serviceCommissions);
+  const [svc, setSvc] = useState<EditSvc[]>(() =>
+    member.serviceCommissions.map((s) => ({
+      serviceId: s.serviceId,
+      serviceName: s.serviceName,
+      kind: s.kind,
+      text:
+        s.value == null
+          ? ""
+          : s.kind === "fixed"
+            ? brl(s.value)
+            : String(s.value).replace(".", ","),
+    })),
+  );
 
-  function setSvcRow(serviceId: string, patch: Partial<SvcComm>): void {
+  function setSvcRow(serviceId: string, patch: Partial<EditSvc>): void {
     setSvc((prev) => prev.map((s) => (s.serviceId === serviceId ? { ...s, ...patch } : s)));
+  }
+
+  /** Texto mascarado (R$/%) → número, conforme o tipo da linha. */
+  function svcNumber(s: EditSvc): number {
+    if (s.text === "") return 0;
+    return s.kind === "fixed" ? brlToNumber(s.text) : Number(s.text.replace(",", ".")) || 0;
   }
 
   function submit(): void {
@@ -495,7 +520,11 @@ function RemuneracaoDialog({
           : null,
     };
     if (scope === "service") {
-      body.serviceCommissions = svc.map((s) => ({ serviceId: s.serviceId, kind: s.kind, value: s.value }));
+      body.serviceCommissions = svc.map((s) => ({
+        serviceId: s.serviceId,
+        kind: s.kind,
+        value: s.kind == null ? null : svcNumber(s),
+      }));
     }
     onSave(body);
   }
@@ -559,24 +588,46 @@ function RemuneracaoDialog({
                         aria-label={`Tipo da comissão de ${s.serviceName}`}
                         className={cn(inputCls, "w-28")}
                         value={s.kind ?? "none"}
-                        onChange={(e) => setSvcRow(s.serviceId, { kind: e.target.value === "none" ? null : (e.target.value as Kind), value: e.target.value === "none" ? null : s.value })}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "none") {
+                            setSvcRow(s.serviceId, { kind: null, text: "" });
+                            return;
+                          }
+                          const newKind = v as Kind;
+                          // Reaproveita o número atual, reformatando para o novo tipo.
+                          const n = svcNumber(s);
+                          const text =
+                            s.text === "" ? "" : newKind === "fixed" ? brl(n) : String(n).replace(".", ",");
+                          setSvcRow(s.serviceId, { kind: newKind, text });
+                        }}
                       >
                         <option value="none">Sem</option>
                         <option value="percent">%</option>
                         <option value="fixed">Fixo</option>
                       </select>
-                      {s.kind && (
+                      {s.kind === "fixed" && (
                         <Input
                           aria-label={`Valor da comissão de ${s.serviceName}`}
-                          inputMode="decimal"
-                          placeholder={s.kind === "percent" ? "30" : "0,00"}
-                          value={s.value != null ? String(s.value).replace(".", ",") : ""}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^\d.,]/g, "").replace(",", ".");
-                            setSvcRow(s.serviceId, { value: raw === "" ? null : Number(raw) });
-                          }}
-                          className="w-24"
+                          inputMode="numeric"
+                          placeholder="R$ 0,00"
+                          value={s.text}
+                          onChange={(e) => setSvcRow(s.serviceId, { text: maskBRL(e.target.value) })}
+                          className="w-28"
                         />
+                      )}
+                      {s.kind === "percent" && (
+                        <div className="relative w-24">
+                          <Input
+                            aria-label={`Percentual da comissão de ${s.serviceName}`}
+                            inputMode="decimal"
+                            placeholder="30"
+                            value={s.text}
+                            onChange={(e) => setSvcRow(s.serviceId, { text: e.target.value.replace(/[^\d.,]/g, "") })}
+                            className="w-24 pr-6"
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                        </div>
                       )}
                     </div>
                   ))
