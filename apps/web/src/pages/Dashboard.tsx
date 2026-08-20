@@ -12,6 +12,7 @@ import {
 } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { InfoTip } from "@/components/ui/info-tip";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,28 @@ const STATUS_META: Record<
   no_show: { label: "Não compareceu", fillClass: "fill-status-noshow", dotClass: "bg-status-noshow" },
 };
 const STATUS_ORDER: ApptStatus[] = ["completed", "confirmed", "pending", "cancelled", "no_show"];
+
+/** Significado + cálculo de cada indicador/gráfico (Story 5.6). */
+const TIP = {
+  received:
+    "Soma de tudo que entrou no período — pagamentos marcados como Pago. Cálculo: soma dos recebimentos Pago. Não inclui o pendente (veja 'a receber').",
+  sales:
+    "Quantidade de recebimentos marcados como Pago no período. Cálculo: contagem dos pagamentos Pago.",
+  ticket:
+    "Quanto, em média, cada atendimento concluído rendeu. Cálculo: Valor bruto ÷ Atendimentos concluídos.",
+  completed:
+    "Número de agendamentos com status Concluído no período. Cálculo: contagem dos agendamentos Concluídos.",
+  clients:
+    "Total de clientes ativas no seu cadastro. Não é do período — é o total atual (clientes não excluídas).",
+  perWeek:
+    "Média de clientes diferentes atendidas por semana no período. Cálculo: clientes distintas atendidas ÷ nº de semanas do período.",
+  revenue:
+    "Faturamento recebido (Pago) ao longo do tempo. Barras por dia até ~2 meses; por mês em períodos longos (ex.: Ano).",
+  status:
+    "Distribuição dos agendamentos do período por situação: Concluído, Confirmado, Pendente, Cancelado e Não compareceu. Cálculo: contagem por status.",
+  topClients:
+    "As 5 clientes com mais atendimentos no período. Frequência = número de agendamentos (qualquer situação) da cliente.",
+} as const;
 
 function ymd(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -230,31 +253,45 @@ export function Dashboard() {
                 value={brl(data.received)}
                 tone="confirmed"
                 hint={`A receber: ${brl(data.pending)}`}
+                info={TIP.received}
               />
-              <Kpi label="Vendas" value={String(data.salesCount)} />
-              <Kpi label="Ticket médio" value={brl(data.averageTicket)} />
+              <Kpi
+                label="Vendas"
+                value={String(data.salesCount)}
+                info={TIP.sales}
+                infoAlign="right"
+              />
+              <Kpi label="Ticket médio" value={brl(data.averageTicket)} info={TIP.ticket} />
               <Kpi
                 label="Atendimentos concluídos"
                 value={String(data.appointmentsCompleted)}
+                info={TIP.completed}
+                infoAlign="right"
               />
-              <Kpi label="Clientes cadastradas" value={String(data.totalClients)} />
+              <Kpi
+                label="Clientes cadastradas"
+                value={String(data.totalClients)}
+                info={TIP.clients}
+              />
               <Kpi
                 label="Clientes/semana (média)"
                 value={String(data.avgClientsPerWeek)}
+                info={TIP.perWeek}
+                infoAlign="right"
               />
             </div>
 
             {/* Linha: faturamento no tempo */}
-            <ChartCard title="Faturamento no período">
+            <ChartCard title="Faturamento no período" info={TIP.revenue}>
               <LineChart data={data.revenueSeries} formatValue={brl} />
             </ChartCard>
 
             {/* Pizza + Barras */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <ChartCard title="Atendimentos por status">
+              <ChartCard title="Atendimentos por status" info={TIP.status}>
                 <PieChart segments={pieSegments} />
               </ChartCard>
-              <ChartCard title="Clientes com maior frequência (top 5)">
+              <ChartCard title="Clientes com maior frequência (top 5)" info={TIP.topClients}>
                 <HBarChart
                   items={data.topClients.map((c) => ({ label: c.name, value: c.count }))}
                 />
@@ -294,11 +331,15 @@ function Kpi({
   value,
   tone,
   hint,
+  info,
+  infoAlign,
 }: {
   label: string;
   value: string;
   tone?: "confirmed";
   hint?: string;
+  info: string;
+  infoAlign?: "left" | "right";
 }) {
   return (
     <div
@@ -307,8 +348,9 @@ function Kpi({
         tone === "confirmed" ? "border-l-status-confirmed" : "border-l-primary",
       )}
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
+      <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <span>{label}</span>
+        <InfoTip text={info} label={`O que é ${label}?`} align={infoAlign} />
       </div>
       <div
         className={cn(
@@ -325,17 +367,22 @@ function Kpi({
   );
 }
 
-/** Cartão de gráfico — título + conteúdo. */
+/** Cartão de gráfico — título (com dica) + conteúdo. */
 function ChartCard({
   title,
+  info,
   children,
 }: {
   title: string;
+  info: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <span>{title}</span>
+        <InfoTip text={info} label={`O que é ${title}?`} />
+      </h3>
       {children}
     </section>
   );

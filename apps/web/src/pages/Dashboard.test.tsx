@@ -92,6 +92,22 @@ describe("Dashboard (Story 5.6)", () => {
     expect(content).toContain("Top cliente 1;Ana Lima (9)");
   });
 
+  it("cada indicador tem dica (significado + cálculo) que abre no clique (mobile)", async () => {
+    apiMock.mockResolvedValue(jsonRes(METRICS));
+    render(<Dashboard />);
+    await screen.findByText("Valor bruto");
+    // Fechada por padrão.
+    expect(screen.queryByText(/Valor bruto ÷ Atendimentos concluídos/)).toBeNull();
+    // Abre a dica do Ticket médio (explica o cálculo).
+    fireEvent.click(screen.getByRole("button", { name: "O que é Ticket médio?" }));
+    expect(
+      screen.getByText(/Valor bruto ÷ Atendimentos concluídos/),
+    ).toBeInTheDocument();
+    // Gráficos também têm dica.
+    fireEvent.click(screen.getByRole("button", { name: /O que é Clientes com maior frequência/ }));
+    expect(screen.getByText(/Frequência = número de agendamentos/)).toBeInTheDocument();
+  });
+
   it("estado de erro quando a API falha", async () => {
     apiMock.mockResolvedValue(jsonRes({}, false));
     render(<Dashboard />);
