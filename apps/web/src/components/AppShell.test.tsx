@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
@@ -208,25 +208,39 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: /Dashboard/ })).toBeNull();
   });
 
-  it("mobile (<768px): tab bar de 4 abas + FAB direto para Novo agendamento (Épico 7)", () => {
+  it("mobile: barra fixa (Agenda·Pendentes·FAB·Clientes·Menu); módulos vão pro drawer", () => {
     useAuthMock.mockReturnValue({
       user: { name: "Dono", accessLevel: "owner", theme: "light" },
       logout: vi.fn(),
     });
     mockMatchMedia(false);
     renderShell();
-    expect(
-      screen.getByRole("navigation", { name: /inferior/i }),
-    ).toBeInTheDocument();
-    // FAB único (calendar-plus) — sem mais o botão "Ações rápidas".
-    expect(
-      screen.getByRole("button", { name: /novo agendamento/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /ações rápidas/i }),
-    ).toBeNull();
-    // Configurações vira aba no mobile (owner).
-    expect(screen.getByRole("link", { name: /Configurações/ })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /inferior/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /novo agendamento/i })).toBeInTheDocument();
+    // Barra: só os fixos de uso diário; Configurações NÃO está na barra (foi p/ o menu).
+    expect(screen.getByRole("link", { name: /Agenda/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Clientes/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Configurações/ })).toBeNull();
+    // Menu abre o drawer (esquerda) com Configurações + Perfil.
+    fireEvent.click(screen.getByRole("button", { name: /abrir menu/i }));
+    const drawer = screen.getByRole("dialog", { name: /menu/i });
+    expect(within(drawer).getByRole("button", { name: /Configurações/ })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: /Perfil/ })).toBeInTheDocument();
+  });
+
+  it("mobile: drawer respeita permissões — Financeiro só para quem tem o módulo", () => {
+    useAuthMock.mockReturnValue({
+      user: { name: "Prof", accessLevel: "professional", theme: "light", canViewFinanceiro: false },
+      logout: vi.fn(),
+    });
+    mockMatchMedia(false);
+    renderShell();
+    fireEvent.click(screen.getByRole("button", { name: /abrir menu/i }));
+    const drawer = screen.getByRole("dialog", { name: /menu/i });
+    expect(within(drawer).queryByRole("button", { name: /Financeiro/ })).toBeNull();
+    // Configurações também some (não-owner); Perfil sempre aparece.
+    expect(within(drawer).queryByRole("button", { name: /Configurações/ })).toBeNull();
+    expect(within(drawer).getByRole("button", { name: /Perfil/ })).toBeInTheDocument();
   });
 
   it("tem ação Sair", () => {
