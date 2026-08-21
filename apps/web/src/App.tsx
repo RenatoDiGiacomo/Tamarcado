@@ -21,6 +21,7 @@ import { PublicAgendar } from "./pages/PublicAgendar";
 import { Pendentes } from "./pages/Pendentes";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
+import { ChangelogNotice } from "./components/ChangelogNotice";
 import { PendentesProvider } from "./lib/usePendentes";
 
 function Protected({ children }: { children: ReactNode }) {
@@ -75,6 +76,8 @@ function Layout() {
         <AppShell>
           <Outlet />
         </AppShell>
+        {/* Aviso de atualização (novidades da versão) — DEPOIS do login. */}
+        <ChangelogNotice />
       </PendentesProvider>
     </Protected>
   );

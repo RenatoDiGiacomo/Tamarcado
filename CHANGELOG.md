@@ -8,6 +8,26 @@ As versões seguem **X.Y.Z** (SemVer), decididas no PR `dev → main` — ver
 **DL-063**. Durante o beta, a interface exibe **"v1.0…b"** (o "b" some quando o
 sistema sair do beta).
 
+## v1.1.0b — 2026-08-20
+
+- **Financeiro:** registre o pagamento recebido de cada atendimento (pago ou
+  pendente, forma de pagamento opcional) e acompanhe os recebimentos por período,
+  com filtros e exportação para o Excel (CSV).
+- **Clientes:** na lista e no perfil de cada cliente aparece quanto está em aberto
+  e o que já foi pago.
+- **Dashboard:** um painel de leitura com os números do negócio — faturamento,
+  vendas, ticket médio, atendimentos, clientes e o resultado do período — com
+  gráficos. Abre como a primeira página ao entrar.
+- **Equipe:** virou um menu próprio para cadastrar a remuneração de cada
+  profissional (comissão e/ou salário) e ver a previsão do período.
+- **Pagamento à equipe:** registre no Financeiro quanto pagou à equipe; o sistema
+  passa a mostrar o resultado — o que entrou menos o que saiu.
+- **Aviso de novidades:** ao entrar depois de uma atualização, você vê um resumo
+  do que mudou. Dá para reabrir em Perfil → Novidades.
+
+> **Sincronize** este arquivo com `apps/web/src/lib/changelog.ts` (fonte do aviso
+> na tela) a cada versão.
+
 ## v1.0.1b — 2026-08-13
 
 - **Corrigido:** o sistema não perde mais a sessão quando fica muito tempo

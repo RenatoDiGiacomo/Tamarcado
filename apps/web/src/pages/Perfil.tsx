@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageLayout } from "@/components/PageLayout";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { ChangelogDialog } from "@/components/ChangelogDialog";
+import { CHANGELOG } from "../lib/changelog";
 
 const ACCESS_LABEL: Record<string, string> = {
   owner: "Dono",
@@ -23,6 +25,7 @@ export function Perfil() {
   const installation = useInstallation();
   const isDark = user?.theme === "dark";
   const [pwdOpen, setPwdOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
   return (
     <PageLayout title="Perfil" className="mx-auto max-w-lg">
@@ -91,10 +94,19 @@ export function Perfil() {
             </Button>
           </div>
 
-          {/* Sobre / versão (sai de cima do conteúdo no mobile) */}
+          {/* Sobre / versão (sai de cima do conteúdo no mobile) + Novidades */}
           <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
             <span className="font-medium">Sobre</span>
-            <span className="text-muted-foreground">{APP_VERSION}</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setNewsOpen(true)}
+                className="text-primary hover:underline"
+              >
+                Novidades
+              </button>
+              <span className="text-muted-foreground">{APP_VERSION}</span>
+            </div>
           </div>
 
           {/* Sair — ícone porta em vermelho (danger) + rótulo; ghost, mais leve
@@ -112,6 +124,14 @@ export function Perfil() {
       </Card>
 
       <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
+      {/* Novidades — histórico de versões (reabre o aviso quando a pessoa quiser). */}
+      <ChangelogDialog
+        open={newsOpen}
+        onClose={() => setNewsOpen(false)}
+        entries={CHANGELOG}
+        title="Novidades"
+        closeLabel="Fechar"
+      />
     </PageLayout>
   );
 }
