@@ -22,12 +22,31 @@ function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
 }
 
+/**
+ * jsdom não tem layout, então quem decide a forma da tela é o `matchMedia` que o
+ * `useIsDesktop` consulta. O padrão da suíte é CELULAR (o público do sistema);
+ * os testes que guardam o painel do desktop pedem "desktop" explicitamente.
+ */
+function setViewport(kind: "mobile" | "desktop"): void {
+  window.matchMedia = ((query: string) => ({
+    matches: kind === "desktop",
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })) as unknown as typeof window.matchMedia;
+}
+
 describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
   beforeEach(() => {
     apiMock.mockReset();
     navigateMock.mockReset();
     vi.mocked(downloadCsv).mockReset();
     localStorage.setItem("tamarcado.access", "tok");
+    setViewport("mobile");
   });
 
   it("busca recebimentos do período e mostra totais + lista", async () => {
@@ -69,7 +88,8 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     expect(screen.getByText("Pago")).toBeInTheDocument();
   });
 
-  it("filtro por SITUAÇÃO (pagos) esconde os pendentes na lista", async () => {
+  it("desktop: filtro por SITUAÇÃO (pagos) esconde os pendentes na lista", async () => {
+    setViewport("desktop"); // no PC os filtros ficam no painel, sem sheet
     apiMock.mockResolvedValue(
       jsonRes({
         receipts: [
@@ -89,7 +109,8 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     expect(screen.queryByText(/Barba/)).toBeNull();
   });
 
-  it("filtra por cliente via BUSCA (nome/telefone), como no Novo agendamento", async () => {
+  it("desktop: filtra por cliente via BUSCA (nome/telefone), como no Novo agendamento", async () => {
+    setViewport("desktop");
     apiMock.mockImplementation((url: string) => {
       if (String(url).includes("/clients?search=")) {
         return Promise.resolve(
@@ -273,7 +294,8 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     });
   });
 
-  it("abas (reorg UX): Recebimentos mostra a lista + filtros; Saídas troca a leitura", async () => {
+  it("desktop — abas (reorg UX): Recebimentos mostra a lista + filtros; Saídas troca a leitura", async () => {
+    setViewport("desktop");
     apiMock.mockImplementation((url: string) => {
       const u = String(url);
       if (u.includes("/team/payments")) return Promise.resolve(jsonRes({ payments: [{ id: "x", professionalName: "Bia", amount: 50, paidOn: "2026-09-08", periodFrom: "2026-09-01", periodTo: "2026-09-30", note: null }], total: 50 }));
@@ -289,5 +311,123 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
     expect(screen.queryByText("Ana Lima")).toBeNull();
     expect(screen.queryByLabelText("Situação")).toBeNull();
     expect(screen.getByText("Bia")).toBeInTheDocument();
+  });
+
+  // ---- MOBILE: três filtros lado a lado não cabiam (o campo da cliente
+  // aparecia cortado em "Bu"). Fica o período; o resto vai para o sheet. ----
+  describe("mobile — filtros no sheet", () => {
+    function comDoisRecebimentos(): void {
+      apiMock.mockImplementation((url: string) => {
+        const u = String(url);
+        if (u.includes("/clients?search=")) {
+          return Promise.resolve(
+            jsonRes({
+              clients: [
+                { id: "c1", name: "Ana Lima", phone_whatsapp: "+5511999990000" },
+              ],
+            }),
+          );
+        }
+        if (u.includes("/team/payments")) {
+          return Promise.resolve(jsonRes({ payments: [], total: 0 }));
+        }
+        return Promise.resolve(
+          jsonRes({
+            receipts: [
+              { appointmentId: "1", clientId: "c1", clientName: "Ana Lima", serviceName: "Corte", date: "2026-09-10", amount: 50, method: "pix", status: "pago" },
+              { appointmentId: "2", clientId: "c2", clientName: "Bruno", serviceName: "Barba", date: "2026-09-11", amount: 30, method: null, status: "pendente" },
+            ],
+            totalReceived: 50,
+            totalPending: 30,
+          }),
+        );
+      });
+    }
+
+    it("período fica visível; situação/forma/cliente só dentro do sheet", async () => {
+      comDoisRecebimentos();
+      render(<Financeiro />);
+      await screen.findByText(/Corte/);
+      // O período é o mais usado — segue na tela.
+      expect(screen.getByLabelText("De")).toBeInTheDocument();
+      expect(screen.getByLabelText("Até")).toBeInTheDocument();
+      // Os outros três saem da tela (era o que cortava o campo da cliente).
+      expect(screen.queryByLabelText("Situação")).toBeNull();
+      expect(screen.queryByLabelText("Forma de pagamento")).toBeNull();
+      expect(screen.queryByLabelText("Cliente")).toBeNull();
+      // E aparecem ao abrir "Filtros".
+      fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
+      expect(await screen.findByLabelText("Situação")).toBeInTheDocument();
+      expect(screen.getByLabelText("Forma de pagamento")).toBeInTheDocument();
+      expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
+    });
+
+    it("filtrar pelo sheet recorta a lista e o botão passa a contar os ativos", async () => {
+      comDoisRecebimentos();
+      render(<Financeiro />);
+      await screen.findByText(/Corte/);
+      fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
+      fireEvent.change(await screen.findByLabelText("Situação"), {
+        target: { value: "pago" },
+      });
+      // O botão de fechar já diz o que vai aparecer na lista.
+      fireEvent.click(screen.getByRole("button", { name: "Ver 1 recebimento" }));
+      await waitFor(() => expect(screen.queryByText(/Barba/)).toBeNull());
+      expect(screen.getByText(/Corte/)).toBeInTheDocument();
+      // O filtro escondido não some de vista: o botão passa a contar.
+      expect(
+        screen.getByRole("button", { name: "Filtros (1 ativo)" }),
+      ).toBeInTheDocument();
+    });
+
+    it("a busca da cliente funciona dentro do sheet e soma na contagem", async () => {
+      comDoisRecebimentos();
+      render(<Financeiro />);
+      await screen.findByText(/Corte/);
+      fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
+      fireEvent.change(await screen.findByLabelText("Situação"), {
+        target: { value: "pago" },
+      });
+      fireEvent.change(screen.getByLabelText("Cliente"), {
+        target: { value: "Ana" },
+      });
+      fireEvent.click(await screen.findByRole("button", { name: /5511999990000/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Ver 1 recebimento" }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Filtros (2 ativos)" }),
+        ).toBeInTheDocument(),
+      );
+      expect(screen.queryByText(/Barba/)).toBeNull();
+    });
+
+    it("Limpar zera os filtros escondidos e devolve a lista inteira", async () => {
+      comDoisRecebimentos();
+      render(<Financeiro />);
+      await screen.findByText(/Corte/);
+      fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
+      fireEvent.change(await screen.findByLabelText("Situação"), {
+        target: { value: "pago" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Ver 2 recebimentos" }),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Filtros" })).toBeInTheDocument(),
+      );
+      expect(screen.getByText(/Barba/)).toBeInTheDocument();
+    });
+
+    it("na aba Saídas não há botão de Filtros (não se aplicam)", async () => {
+      comDoisRecebimentos();
+      render(<Financeiro />);
+      await screen.findByText(/Corte/);
+      expect(screen.getByRole("button", { name: "Filtros" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "Saídas" }));
+      expect(screen.queryByRole("button", { name: "Filtros" })).toBeNull();
+      // O período continua — ele vale para as duas leituras do caixa.
+      expect(screen.getByLabelText("De")).toBeInTheDocument();
+    });
   });
 });

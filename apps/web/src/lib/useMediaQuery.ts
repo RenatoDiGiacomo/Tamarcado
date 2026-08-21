@@ -16,3 +16,12 @@ export function useMediaQuery(query: string): boolean {
 
   return matches;
 }
+
+/**
+ * Breakpoint do shell (768px): o mesmo que o `AppShell` usa para decidir entre
+ * sidebar (desktop) e tab bar (mobile), e o mesmo do `md:` do Tailwind. Telas
+ * que trocam de FORMA — e não só de tamanho — entre celular e PC dependem dele.
+ */
+export function useIsDesktop(): boolean {
+  return useMediaQuery("(min-width: 768px)");
+}

@@ -5,6 +5,8 @@ import { brl } from "../lib/currency";
 import { toCsv, csvAmount, downloadCsv } from "../lib/csv";
 import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
+import { StatStrip, type StatItem } from "@/components/StatStrip";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 import {
   ErrorState,
   errorKindFrom,
@@ -120,9 +122,14 @@ const brDate = (d: string) => d.split("-").reverse().join("/");
  * quem tem o módulo; DL-062). KPIs (valor bruto, vendas, ticket médio, atendimentos,
  * clientes) + gráficos: LINHA (faturamento no tempo), PIZZA (atendimentos por
  * status), BARRAS (top clientes por frequência). Período dia/semana/mês/ano.
- * Exportar CSV reaproveita o `lib/csv.ts` (5.4). Mobile: tudo empilha.
+ * Exportar CSV reaproveita o `lib/csv.ts` (5.4).
+ *
+ * Mobile: os indicadores viram uma FAIXA que rola para o lado (`StatStrip`) —
+ * empilhados, os oito ocupavam duas telas antes do primeiro gráfico — e o
+ * "Exportar CSV" vira só o ícone, para o período caber numa linha.
  */
 export function Dashboard() {
+  const isDesktop = useIsDesktop();
   const [preset, setPreset] = useState<Preset>("mes");
   const [range, setRange] = useState(() => rangeFor("mes"));
   const [data, setData] = useState<DashboardMetrics | null>(null);
@@ -205,6 +212,74 @@ export function Dashboard() {
         }))
     : [];
 
+  // Os oito indicadores, na ordem de leitura. No PC viram a grade de sempre; no
+  // celular, a faixa que rola para o lado (StatStrip).
+  const kpis: StatItem[] = data
+    ? [
+        {
+          key: "bruto",
+          label: "Valor bruto",
+          value: brl(data.received),
+          accentClass: "border-l-status-confirmed",
+          valueClass: "text-status-confirmed",
+          hint: `A receber: ${brl(data.pending)}`,
+          info: TIP.received,
+        },
+        {
+          key: "saidas",
+          label: "Saídas (equipe)",
+          value: brl(data.expenses),
+          info: TIP.expenses,
+          infoAlign: "right",
+        },
+        {
+          key: "resultado",
+          label: "Resultado",
+          value: brl(data.result),
+          accentClass:
+            data.result < 0
+              ? "border-l-status-cancelled"
+              : "border-l-status-confirmed",
+          valueClass:
+            data.result < 0 ? "text-status-cancelled" : "text-status-confirmed",
+          info: TIP.result,
+        },
+        {
+          key: "vendas",
+          label: "Vendas",
+          value: String(data.salesCount),
+          info: TIP.sales,
+          infoAlign: "right",
+        },
+        {
+          key: "ticket",
+          label: "Ticket médio",
+          value: brl(data.averageTicket),
+          info: TIP.ticket,
+        },
+        {
+          key: "concluidos",
+          label: "Atendimentos concluídos",
+          value: String(data.appointmentsCompleted),
+          info: TIP.completed,
+          infoAlign: "right",
+        },
+        {
+          key: "clientes",
+          label: "Clientes cadastradas",
+          value: String(data.totalClients),
+          info: TIP.clients,
+        },
+        {
+          key: "clientes-semana",
+          label: "Clientes/semana (média)",
+          value: String(data.avgClientsPerWeek),
+          info: TIP.perWeek,
+          infoAlign: "right",
+        },
+      ]
+    : [];
+
   return (
     <PageLayout title="Dashboard">
       <div className="flex flex-col gap-4">
@@ -230,76 +305,64 @@ export function Dashboard() {
           <span className="text-sm text-muted-foreground">
             {brDate(range.from)} a {brDate(range.to)}
           </span>
-          <Button
-            type="button"
-            variant="secondary"
-            className="ml-auto"
-            onClick={() => setExportOpen(true)}
-            disabled={!data}
-          >
-            <Download className="size-4" /> Exportar CSV
-          </Button>
+          {/* No celular o rótulo come a linha inteira do período: vira só o
+              ícone, em destaque (primary), com o nome no aria-label. */}
+          {isDesktop ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="ml-auto"
+              onClick={() => setExportOpen(true)}
+              disabled={!data}
+            >
+              <Download className="size-4" /> Exportar CSV
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="icon"
+              aria-label="Exportar CSV"
+              className="ml-auto"
+              onClick={() => setExportOpen(true)}
+              disabled={!data}
+            >
+              <Download className="size-4" />
+            </Button>
+          )}
         </div>
 
         {loading ? (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
+            {/* O esqueleto imita a forma final: grade no PC, faixa no celular. */}
+            {isDesktop ? (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="-mx-4 flex gap-3 overflow-hidden px-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-20 w-[40vw] min-w-[8.75rem] max-w-[10.5rem] shrink-0"
+                  />
+                ))}
+              </div>
+            )}
             <Skeleton className="h-56 w-full" />
           </div>
         ) : errorKind ? (
           <ErrorState kind={errorKind} resource="o dashboard" onRetry={() => void load()} />
         ) : data ? (
           <>
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Kpi
-                label="Valor bruto"
-                value={brl(data.received)}
-                tone="confirmed"
-                hint={`A receber: ${brl(data.pending)}`}
-                info={TIP.received}
-              />
-              <Kpi
-                label="Saídas (equipe)"
-                value={brl(data.expenses)}
-                info={TIP.expenses}
-                infoAlign="right"
-              />
-              <Kpi
-                label="Resultado"
-                value={brl(data.result)}
-                tone={data.result < 0 ? "negative" : "confirmed"}
-                info={TIP.result}
-              />
-              <Kpi
-                label="Vendas"
-                value={String(data.salesCount)}
-                info={TIP.sales}
-                infoAlign="right"
-              />
-              <Kpi label="Ticket médio" value={brl(data.averageTicket)} info={TIP.ticket} />
-              <Kpi
-                label="Atendimentos concluídos"
-                value={String(data.appointmentsCompleted)}
-                info={TIP.completed}
-                infoAlign="right"
-              />
-              <Kpi
-                label="Clientes cadastradas"
-                value={String(data.totalClients)}
-                info={TIP.clients}
-              />
-              <Kpi
-                label="Clientes/semana (média)"
-                value={String(data.avgClientsPerWeek)}
-                info={TIP.perWeek}
-                infoAlign="right"
-              />
-            </div>
+            {/* KPIs — grade no PC, faixa que rola para o lado no celular. */}
+            <StatStrip
+              items={kpis}
+              label="Indicadores do período"
+              valueSize="xl"
+              gridClassName="md:grid-cols-3 lg:grid-cols-4"
+            />
 
             {/* Linha: faturamento no tempo */}
             <ChartCard title="Faturamento no período" info={TIP.revenue}>
@@ -342,56 +405,6 @@ export function Dashboard() {
         </DialogContent>
       </Dialog>
     </PageLayout>
-  );
-}
-
-/** Cartão de indicador (KPI) — rótulo + valor grande; tom opcional de status. */
-function Kpi({
-  label,
-  value,
-  tone,
-  hint,
-  info,
-  infoAlign,
-}: {
-  label: string;
-  value: string;
-  tone?: "confirmed" | "negative";
-  hint?: string;
-  info: string;
-  infoAlign?: "left" | "right";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border border-l-4 border-border bg-card p-4",
-        tone === "confirmed"
-          ? "border-l-status-confirmed"
-          : tone === "negative"
-            ? "border-l-status-cancelled"
-            : "border-l-primary",
-      )}
-    >
-      <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        <span>{label}</span>
-        <InfoTip text={info} label={`O que é ${label}?`} align={infoAlign} />
-      </div>
-      <div
-        className={cn(
-          "mt-1 text-xl font-semibold tabular-nums",
-          tone === "confirmed"
-            ? "text-status-confirmed"
-            : tone === "negative"
-              ? "text-status-cancelled"
-              : "text-foreground",
-        )}
-      >
-        {value}
-      </div>
-      {hint ? (
-        <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
-      ) : null}
-    </div>
   );
 }
 

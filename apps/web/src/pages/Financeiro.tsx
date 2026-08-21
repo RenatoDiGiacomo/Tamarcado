@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Download, Wallet } from "lucide-react";
+import { Users, Download, Wallet, SlidersHorizontal } from "lucide-react";
 import { authedRequest } from "../lib/session";
 import { useAuth } from "../auth/AuthContext";
+import { useIsDesktop } from "../lib/useMediaQuery";
 import { RegistrarSaidaDialog } from "@/components/financeiro/RegistrarSaidaDialog";
+import { StatStrip, type StatItem } from "@/components/StatStrip";
 import { brl } from "../lib/currency";
 import { toCsv, csvAmount, downloadCsv } from "../lib/csv";
 import { cn } from "@/lib/utils";
@@ -97,11 +99,17 @@ const brDate = (d: string) => d.split("-").reverse().join("/");
  * a CLIENTE por busca (nome/telefone, como no Novo agendamento). Exportar CSV
  * confirma num modal (5.4; PDF ficou fora, DL-061). O registro do pagamento
  * acontece no Financeiro e no perfil da cliente (DL-066).
+ *
+ * Mobile: os totais viram a faixa que rola para o lado (`StatStrip`); do filtro
+ * fica visível só o PERÍODO — situação/forma/cliente vão para o sheet do botão
+ * "Filtros", que mostra quantos estão ativos. Lado a lado os três não cabiam e o
+ * campo da cliente aparecia cortado.
  */
 export function Financeiro() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isOwner = user?.accessLevel === "owner";
+  const isDesktop = useIsDesktop();
   const [from, setFrom] = useState(currentMonthRange().from);
   const [to, setTo] = useState(currentMonthRange().to);
   const [statusF, setStatusF] = useState<"all" | "pago" | "pendente">("all");
@@ -124,6 +132,10 @@ export function Financeiro() {
   const [payOpen, setPayOpen] = useState(false);
   // Abas: as duas leituras do caixa (entrou / saiu) separadas (reorg UX, Sally).
   const [tab, setTab] = useState<"recebimentos" | "saidas">("recebimentos");
+  // Sheet de filtros do CELULAR: situação/forma/cliente não cabem lado a lado
+  // com o período (o campo da cliente ficava cortado em "Bu"). O período fica
+  // fora — é o mais usado. No desktop o painel continua inteiro, sem sheet.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,6 +209,193 @@ export function Financeiro() {
     return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [filtered]);
 
+  // Os quatro totais: entrou, a receber, saiu e o RESULTADO (recebido − saídas).
+  // Central de entradas E saídas (DL-061). No PC é a grade de sempre; no celular
+  // vira a faixa que rola para o lado (StatStrip).
+  const totalReceived = data?.totalReceived ?? 0;
+  const totalOut = expenses?.total ?? 0;
+  const result = totalReceived - totalOut;
+  const totais: StatItem[] = [
+    {
+      key: "recebido",
+      label: "Recebido",
+      value: brl(totalReceived),
+      accentClass: "border-l-status-confirmed",
+      valueClass: "text-status-confirmed",
+    },
+    {
+      key: "pendente",
+      label: "Pendente",
+      value: brl(data?.totalPending ?? 0),
+      accentClass: "border-l-status-pending",
+      valueClass: "text-status-pending",
+    },
+    {
+      key: "saidas",
+      label: "Saídas (equipe)",
+      value: brl(totalOut),
+      accentClass: "border-l-status-cancelled",
+      valueClass: "text-status-cancelled",
+    },
+    {
+      key: "resultado",
+      label: "Resultado",
+      value: brl(result),
+      valueClass: result < 0 ? "text-status-cancelled" : "text-foreground",
+    },
+  ];
+
+  // Quantos filtros (fora o período) estão ativos — vira o número no botão
+  // "Filtros" do celular, para o que está escondido no sheet não sumir.
+  const activeFilters =
+    (statusF !== "all" ? 1 : 0) +
+    (methodF !== "all" ? 1 : 0) +
+    (selectedClient !== null ? 1 : 0);
+
+  function clearFilters(): void {
+    setStatusF("all");
+    setMethodF("all");
+    setSelectedClient(null);
+    setClientQuery("");
+  }
+
+  // Campos de filtro — os MESMOS elementos no painel do desktop e no sheet do
+  // celular (nunca os dois na tela ao mesmo tempo); só muda o invólucro.
+  const wrapData = isDesktop
+    ? "flex flex-col gap-1 text-sm"
+    : "flex min-w-0 flex-1 flex-col gap-1 text-sm";
+  const campoDe = (
+    <label className={wrapData}>
+      <span className="text-muted-foreground">De</span>
+      <input
+        type="date"
+        aria-label="De"
+        className={controlCls}
+        value={from}
+        max={to}
+        onChange={(e) => setFrom(e.target.value)}
+      />
+    </label>
+  );
+  const campoAte = (
+    <label className={wrapData}>
+      <span className="text-muted-foreground">Até</span>
+      <input
+        type="date"
+        aria-label="Até"
+        className={controlCls}
+        value={to}
+        min={from}
+        onChange={(e) => setTo(e.target.value)}
+      />
+    </label>
+  );
+  const campoSituacao = (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-muted-foreground">Situação</span>
+      <select
+        aria-label="Situação"
+        className={controlCls}
+        value={statusF}
+        onChange={(e) => setStatusF(e.target.value as typeof statusF)}
+      >
+        <option value="all">Todos</option>
+        <option value="pago">Pagos</option>
+        <option value="pendente">Pendentes</option>
+      </select>
+    </label>
+  );
+  const campoForma = (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-muted-foreground">Forma</span>
+      <select
+        aria-label="Forma de pagamento"
+        className={controlCls}
+        value={methodF}
+        onChange={(e) => setMethodF(e.target.value as typeof methodF)}
+      >
+        <option value="all">Todas</option>
+        {METHODS.map((m) => (
+          <option key={m} value={m}>
+            {METHOD_LABEL[m]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  /**
+   * Cliente por busca. `floating`: no painel do desktop a lista de resultados
+   * FLUTUA sobre o conteúdo (absolute); dentro do sheet ela entra no fluxo — o
+   * sheet rola e recorta o que passa da borda, então um dropdown absoluto
+   * apareceria cortado.
+   */
+  const campoCliente = (floating: boolean) => (
+    <div
+      className={
+        floating
+          ? "flex flex-1 flex-col gap-1 text-sm sm:min-w-52"
+          : "flex flex-col gap-1 text-sm"
+      }
+    >
+      <span className="text-muted-foreground">Cliente</span>
+      {selectedClient ? (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-input px-3 py-1.5 text-sm">
+          <span className="truncate">
+            {selectedClient.name}
+            {selectedClient.phone_whatsapp ? (
+              <span className="text-muted-foreground"> · {selectedClient.phone_whatsapp}</span>
+            ) : null}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setSelectedClient(null);
+              setClientQuery("");
+            }}
+          >
+            limpar
+          </button>
+        </div>
+      ) : (
+        <div className={floating ? "relative" : undefined}>
+          <Input
+            aria-label="Cliente"
+            placeholder="Buscar por nome ou telefone"
+            value={clientQuery}
+            onChange={(e) => setClientQuery(e.target.value)}
+          />
+          {clientResults.length > 0 && (
+            <ul
+              className={cn(
+                "mt-1 w-full rounded-md border border-border bg-card",
+                floating && "absolute z-10 shadow-md",
+              )}
+            >
+              {clientResults.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                    onClick={() => {
+                      setSelectedClient(c);
+                      setClientResults([]);
+                    }}
+                  >
+                    {c.name}
+                    {c.phone_whatsapp ? (
+                      <span className="text-muted-foreground"> · {c.phone_whatsapp}</span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   // Exporta o que está NA TELA (filtros aplicados) para CSV (Story 5.4).
   function exportCsv(): void {
     const rows = filtered.map((r) => [
@@ -220,13 +419,18 @@ export function Financeiro() {
       title="Financeiro"
       action={
         <div className="flex gap-2">
+          {/* No celular o rótulo não cabe ao lado de "Pagar à equipe" — vira só
+              o ícone (o nome segue no aria-label). Ver Dashboard, mesmo padrão. */}
           <Button
             type="button"
             variant="secondary"
+            size={isDesktop ? "default" : "icon"}
+            aria-label={isDesktop ? undefined : "Exportar CSV"}
             onClick={() => setExportOpen(true)}
             disabled={filtered.length === 0}
           >
-            <Download className="size-4" /> Exportar CSV
+            <Download className="size-4" />
+            {isDesktop ? " Exportar CSV" : null}
           </Button>
           {isOwner && (
             <Button type="button" onClick={() => setPayOpen(true)}>
@@ -240,146 +444,60 @@ export function Financeiro() {
         {/* Totais no topo — entrou (recebido), a receber (pendente), saiu
             (equipe) e o RESULTADO (recebido − saídas). Central de entradas E
             saídas (DL-061). */}
-        {(() => {
-          const received = data?.totalReceived ?? 0;
-          const out = expenses?.total ?? 0;
-          const result = received - out;
-          return (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:max-w-3xl">
-              <div className="rounded-lg border border-l-4 border-border border-l-status-confirmed bg-card p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recebido</div>
-                <div className="mt-1 text-lg font-semibold text-status-confirmed">{brl(received)}</div>
-              </div>
-              <div className="rounded-lg border border-l-4 border-border border-l-status-pending bg-card p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pendente</div>
-                <div className="mt-1 text-lg font-semibold text-status-pending">{brl(data?.totalPending ?? 0)}</div>
-              </div>
-              <div className="rounded-lg border border-l-4 border-border border-l-status-cancelled bg-card p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Saídas (equipe)</div>
-                <div className="mt-1 text-lg font-semibold text-status-cancelled">{brl(out)}</div>
-              </div>
-              <div className="rounded-lg border border-l-4 border-border border-l-primary bg-card p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resultado</div>
-                <div className={cn("mt-1 text-lg font-semibold", result < 0 ? "text-status-cancelled" : "text-foreground")}>
-                  {brl(result)}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        <StatStrip
+          items={totais}
+          label="Totais do período"
+          gridClassName="md:grid-cols-2 lg:grid-cols-4 lg:max-w-3xl"
+        />
 
-        {/* Filtros num painel único (reorg UX, Sally): período sempre; situação/
-            forma/cliente só na aba Recebimentos (não se aplicam às saídas). */}
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">De</span>
-            <input
-              type="date"
-              aria-label="De"
-              className={controlCls}
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Até</span>
-            <input
-              type="date"
-              aria-label="Até"
-              className={controlCls}
-              value={to}
-              min={from}
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </label>
-          {tab === "recebimentos" && (
-            <>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Situação</span>
-                <select
-                  aria-label="Situação"
-                  className={controlCls}
-                  value={statusF}
-                  onChange={(e) => setStatusF(e.target.value as typeof statusF)}
-                >
-                  <option value="all">Todos</option>
-                  <option value="pago">Pagos</option>
-                  <option value="pendente">Pendentes</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Forma</span>
-                <select
-                  aria-label="Forma de pagamento"
-                  className={controlCls}
-                  value={methodF}
-                  onChange={(e) => setMethodF(e.target.value as typeof methodF)}
-                >
-                  <option value="all">Todas</option>
-                  {METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {METHOD_LABEL[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex flex-1 flex-col gap-1 text-sm sm:min-w-52">
-                <span className="text-muted-foreground">Cliente</span>
-                {selectedClient ? (
-                  <div className="flex items-center justify-between gap-2 rounded-md border border-input px-3 py-1.5 text-sm">
-                    <span className="truncate">
-                      {selectedClient.name}
-                      {selectedClient.phone_whatsapp ? (
-                        <span className="text-muted-foreground"> · {selectedClient.phone_whatsapp}</span>
-                      ) : null}
-                    </span>
-                    <button
-                      type="button"
-                      className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setSelectedClient(null);
-                        setClientQuery("");
-                      }}
-                    >
-                      limpar
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      aria-label="Cliente"
-                      placeholder="Buscar por nome ou telefone"
-                      value={clientQuery}
-                      onChange={(e) => setClientQuery(e.target.value)}
-                    />
-                    {clientResults.length > 0 && (
-                      <ul className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-md">
-                        {clientResults.map((c) => (
-                          <li key={c.id}>
-                            <button
-                              type="button"
-                              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
-                              onClick={() => {
-                                setSelectedClient(c);
-                                setClientResults([]);
-                              }}
-                            >
-                              {c.name}
-                              {c.phone_whatsapp ? (
-                                <span className="text-muted-foreground"> · {c.phone_whatsapp}</span>
-                              ) : null}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        {/* Filtros. DESKTOP: painel único (reorg UX, Sally) — período sempre;
+            situação/forma/cliente só na aba Recebimentos (não se aplicam às
+            saídas). CELULAR: três filtros lado a lado não cabem — ficam só De/Até
+            (o mais usado) e o resto vai para o sheet do botão "Filtros". */}
+        {isDesktop ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+            {campoDe}
+            {campoAte}
+            {tab === "recebimentos" && (
+              <>
+                {campoSituacao}
+                {campoForma}
+                {campoCliente(true)}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+            <div className="flex items-end gap-2">
+              {campoDe}
+              {campoAte}
+            </div>
+            {tab === "recebimentos" && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                aria-label={
+                  activeFilters === 0
+                    ? "Filtros"
+                    : activeFilters === 1
+                      ? "Filtros (1 ativo)"
+                      : `Filtros (${activeFilters} ativos)`
+                }
+                onClick={() => setFiltersOpen(true)}
+              >
+                <SlidersHorizontal className="size-4" />
+                Filtros
+                {/* O número é o que impede o filtro escondido de ser esquecido. */}
+                {activeFilters > 0 ? (
+                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-primary-foreground">
+                    {activeFilters}
+                  </span>
+                ) : null}
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Abas: as duas leituras do caixa (entrou / saiu) — reorg UX (Sally). */}
         <div role="tablist" aria-label="Entradas e saídas" className="flex gap-1 border-b border-border">
@@ -588,6 +706,48 @@ export function Financeiro() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Filtros do CELULAR. Não é componente novo: o `DialogContent` já nasce
+          bottom sheet abaixo de `md` e dialog central acima (ver ui/dialog.tsx).
+          Só existe no mobile — no desktop os campos vivem no painel. */}
+      {!isDesktop && (
+        <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Filtros</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              {campoSituacao}
+              {campoForma}
+              {campoCliente(false)}
+            </div>
+            {/* O botão diz o resultado ANTES de fechar — a filtragem é na tela,
+                então não há "aplicar": é só voltar para a lista já recortada. */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={clearFilters}
+                disabled={activeFilters === 0}
+              >
+                Limpar
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={() => setFiltersOpen(false)}
+              >
+                {filtered.length === 0
+                  ? "Nenhum recebimento"
+                  : filtered.length === 1
+                    ? "Ver 1 recebimento"
+                    : `Ver ${filtered.length} recebimentos`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Confirmação de exportação (Story 5.4): não baixa direto — modal central
           com Exportar/Cancelar. Exporta os recebimentos com os filtros aplicados. */}
