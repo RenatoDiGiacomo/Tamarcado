@@ -22,11 +22,22 @@ sistema sair do beta).
   profissional (comissão e/ou salário) e ver a previsão do período.
 - **Pagamento à equipe:** registre no Financeiro quanto pagou à equipe; o sistema
   passa a mostrar o resultado — o que entrou menos o que saiu.
+- **No celular, a navegação mudou:** a barra de baixo ficou fixa com Agenda,
+  Pendentes, o botão de novo agendamento no meio, Clientes e um Menu. Dashboard,
+  Financeiro, Equipe, Configurações e Perfil ficam no Menu, que abre pelo lado —
+  assim nada fica escondido nem espremido quando o sistema ganha uma tela nova.
+- **No celular, o Dashboard e o Financeiro ficaram mais fáceis de ler:** os
+  números agora deslizam para o lado, como as fotos de uma rede social, em vez de
+  ocuparem a tela inteira empilhados. No Dashboard o gráfico já aparece de cara.
+  No Financeiro, as datas continuam à mão e os outros filtros (situação, forma de
+  pagamento e cliente) abrem pelo botão "Filtros", que mostra quantos estão
+  ligados — antes o campo da cliente aparecia cortado no celular.
 - **Aviso de novidades:** ao entrar depois de uma atualização, você vê um resumo
   do que mudou. Dá para reabrir em Perfil → Novidades.
 
 > **Sincronize** este arquivo com `apps/web/src/lib/changelog.ts` (fonte do aviso
-> na tela) a cada versão.
+> na tela) a cada versão. Agora a suíte cobra: `changelog.test.ts` falha se as
+> duas listas discordarem em versão, data ou número de novidades.
 
 ## v1.0.1b — 2026-08-13
 
