@@ -130,6 +130,8 @@ describe("Dashboard — números do negócio (e2e, Story 5.6)", () => {
     expect(res.body).toMatchObject({
       received: 80, // 50 + 30 (pagos) = valor bruto
       pending: 20, // pendente
+      expenses: 0, // sem saídas neste cenário
+      result: 80, // recebido − saídas
       salesCount: 2, // dois pagamentos `pago`
       averageTicket: 26.67, // 80 ÷ 3 concluídos
       appointmentsCompleted: 3, // a1, a2 e o 4º (c1 sem pagamento)

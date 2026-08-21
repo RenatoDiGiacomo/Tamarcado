@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
@@ -6,9 +6,16 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { ModuleGuard } from "../auth/guards/module.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RequireModule } from "../../common/decorators/require-module.decorator";
-import { TeamService, type Remuneration, type TeamMemberView } from "./team.service";
+import { CurrentActor, type Actor } from "../auth/actor.decorator";
+import {
+  TeamService,
+  type Remuneration,
+  type TeamMemberView,
+  type TeamPaymentsView,
+} from "./team.service";
 import { TeamQueryDto } from "./dto/team-query.dto";
 import { UpdateRemunerationDto } from "./dto/update-remuneration.dto";
+import { RegisterTeamPaymentDto } from "./dto/register-team-payment.dto";
 
 /**
  * Equipe — cadastro/controle de remuneração (Story 5.9). Menu próprio (saiu de
@@ -28,6 +35,24 @@ export class TeamController {
   @RequireModule("equipe")
   async list(@Query() q: TeamQueryDto): Promise<{ members: TeamMemberView[] }> {
     return this.team.list(q.from, q.to);
+  }
+
+  /** SAÍDAS do período (por data do pagamento) — mostradas no Financeiro (módulo). */
+  @Get("payments")
+  @RequireModule("financeiro")
+  async payments(@Query() q: TeamQueryDto): Promise<TeamPaymentsView> {
+    return this.team.listPayments(q.from, q.to);
+  }
+
+  /** Registra uma SAÍDA (pagamento à equipe) — só o Dono (fecha o previsão→real). */
+  @Post("payments")
+  @Roles("owner")
+  async registerPayment(
+    @Body() dto: RegisterTeamPaymentDto,
+    @CurrentActor() actor: Actor,
+  ): Promise<{ ok: true }> {
+    await this.team.registerPayment(dto, actor.userId);
+    return { ok: true };
   }
 
   /** Salva a remuneração de um membro (salário + comissão) — só o Dono. */

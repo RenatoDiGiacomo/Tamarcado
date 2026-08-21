@@ -20,15 +20,17 @@ function jsonRes(body: unknown, ok = true): Response {
 const METRICS = {
   received: 800,
   pending: 200,
+  expenses: 300,
+  result: 500,
   salesCount: 16,
   averageTicket: 50,
   appointmentsCompleted: 11,
   totalClients: 34,
   avgClientsPerWeek: 5.5,
   revenueSeries: [
-    { label: "01/09", value: 100 },
-    { label: "02/09", value: 300 },
-    { label: "03/09", value: 400 },
+    { label: "01/09", value: 110 },
+    { label: "02/09", value: 250 },
+    { label: "03/09", value: 440 },
   ],
   statusBreakdown: [
     { status: "completed", count: 11 },
@@ -55,6 +57,10 @@ describe("Dashboard (Story 5.6)", () => {
     // KPIs
     expect(await screen.findByText("Valor bruto")).toBeInTheDocument();
     expect(screen.getByText(/R\$\s*800,00/)).toBeInTheDocument(); // valor bruto
+    expect(screen.getByText("Saídas (equipe)")).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*300,00/)).toBeInTheDocument(); // saídas
+    expect(screen.getByText("Resultado")).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*500,00/)).toBeInTheDocument(); // resultado
     expect(screen.getByText("16")).toBeInTheDocument(); // vendas
     expect(screen.getByText("Ticket médio")).toBeInTheDocument();
     expect(screen.getByText(/R\$\s*50,00/)).toBeInTheDocument(); // ticket

@@ -33,6 +33,8 @@ type ApptStatus =
 interface DashboardMetrics {
   received: number;
   pending: number;
+  expenses: number;
+  result: number;
   salesCount: number;
   averageTicket: number;
   appointmentsCompleted: number;
@@ -66,6 +68,10 @@ const TIP = {
     "Quantidade de recebimentos marcados como Pago no período. Cálculo: contagem dos pagamentos Pago.",
   ticket:
     "Quanto, em média, cada atendimento concluído rendeu. Cálculo: Valor bruto ÷ Atendimentos concluídos.",
+  expenses:
+    "Saídas do período: pagamentos à equipe registrados no Financeiro. Cálculo: soma dos pagamentos à equipe com data no período.",
+  result:
+    "O que sobrou no período. Cálculo: Valor bruto (recebido) − Saídas (pagamentos à equipe).",
   completed:
     "Número de agendamentos com status Concluído no período. Cálculo: contagem dos agendamentos Concluídos.",
   clients:
@@ -160,6 +166,8 @@ export function Dashboard() {
       ["Período", `${brDate(range.from)} a ${brDate(range.to)}`],
       ["Valor bruto (recebido)", csvAmount(data.received)],
       ["A receber (pendente)", csvAmount(data.pending)],
+      ["Saídas (equipe)", csvAmount(data.expenses)],
+      ["Resultado", csvAmount(data.result)],
       ["Vendas", String(data.salesCount)],
       ["Ticket médio", csvAmount(data.averageTicket)],
       ["Atendimentos concluídos", String(data.appointmentsCompleted)],
@@ -247,13 +255,25 @@ export function Dashboard() {
         ) : data ? (
           <>
             {/* KPIs */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <Kpi
                 label="Valor bruto"
                 value={brl(data.received)}
                 tone="confirmed"
                 hint={`A receber: ${brl(data.pending)}`}
                 info={TIP.received}
+              />
+              <Kpi
+                label="Saídas (equipe)"
+                value={brl(data.expenses)}
+                info={TIP.expenses}
+                infoAlign="right"
+              />
+              <Kpi
+                label="Resultado"
+                value={brl(data.result)}
+                tone={data.result < 0 ? "negative" : "confirmed"}
+                info={TIP.result}
               />
               <Kpi
                 label="Vendas"
@@ -336,7 +356,7 @@ function Kpi({
 }: {
   label: string;
   value: string;
-  tone?: "confirmed";
+  tone?: "confirmed" | "negative";
   hint?: string;
   info: string;
   infoAlign?: "left" | "right";
@@ -345,7 +365,11 @@ function Kpi({
     <div
       className={cn(
         "rounded-lg border border-l-4 border-border bg-card p-4",
-        tone === "confirmed" ? "border-l-status-confirmed" : "border-l-primary",
+        tone === "confirmed"
+          ? "border-l-status-confirmed"
+          : tone === "negative"
+            ? "border-l-status-cancelled"
+            : "border-l-primary",
       )}
     >
       <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -355,7 +379,11 @@ function Kpi({
       <div
         className={cn(
           "mt-1 text-xl font-semibold tabular-nums",
-          tone === "confirmed" ? "text-status-confirmed" : "text-foreground",
+          tone === "confirmed"
+            ? "text-status-confirmed"
+            : tone === "negative"
+              ? "text-status-cancelled"
+              : "text-foreground",
         )}
       >
         {value}

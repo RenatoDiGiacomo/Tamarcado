@@ -158,6 +158,34 @@ describe("Equipe — remuneração e previsão (e2e, Story 5.9)", () => {
     expect(m.forecast.total).toBe(1060);
   });
 
+  it("SAÍDA (5.10): Dono registra pagamento à equipe; lista no Financeiro; gate", async () => {
+    const owner = await login("dono@eq.dev");
+    // Dono registra a saída (pagamento a P1 referente ao período).
+    await api()
+      .post("/api/team/payments")
+      .set("Authorization", `Bearer ${owner}`)
+      .send({ professionalId: p1, amount: 500, paidOn: "2026-09-08", periodFrom: FROM, periodTo: TO, note: "Comissão de setembro" })
+      .expect(201);
+    // Lista as saídas do período (owner tem Financeiro).
+    const res = await api()
+      .get(`/api/team/payments?from=${FROM}&to=${TO}`)
+      .set("Authorization", `Bearer ${owner}`);
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(500);
+    expect(res.body.payments).toHaveLength(1);
+    expect(res.body.payments[0]).toMatchObject({ professionalId: p1, amount: 500, paidOn: "2026-09-08" });
+    // Sem o módulo Financeiro (viewer só tem Equipe) → 403 na lista de saídas.
+    const viewer = await login("ver@eq.dev");
+    await api().get(`/api/team/payments?from=${FROM}&to=${TO}`).set("Authorization", `Bearer ${viewer}`).expect(403);
+    // Registrar é owner-only → profissional 403.
+    const prof = await login("p1@eq.dev");
+    await api()
+      .post("/api/team/payments")
+      .set("Authorization", `Bearer ${prof}`)
+      .send({ professionalId: p1, amount: 10, paidOn: "2026-09-08", periodFrom: FROM, periodTo: TO })
+      .expect(403);
+  });
+
   it("comissão POR SERVIÇO (fixo R$25/atendimento), sem salário", async () => {
     const owner = await login("dono@eq.dev");
     await patch(owner, p1, {

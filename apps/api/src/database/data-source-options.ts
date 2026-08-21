@@ -9,6 +9,7 @@ import { Client } from "./entities/client.entity";
 import { Appointment } from "./entities/appointment.entity";
 import { AppointmentChange } from "./entities/appointment-change.entity";
 import { Payment } from "./entities/payment.entity";
+import { TeamPayment } from "./entities/team-payment.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
@@ -25,6 +26,7 @@ import { RenameManagerToProfessional1718901200000 } from "./migrations/171890120
 import { CreatePayments1718901300000 } from "./migrations/1718901300000-CreatePayments";
 import { AddTeamRemuneration1718901400000 } from "./migrations/1718901400000-AddTeamRemuneration";
 import { AddCanViewEquipe1718901500000 } from "./migrations/1718901500000-AddCanViewEquipe";
+import { CreateTeamPayments1718901600000 } from "./migrations/1718901600000-CreateTeamPayments";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -51,6 +53,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       Appointment,
       AppointmentChange,
       Payment,
+      TeamPayment,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -69,6 +72,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreatePayments1718901300000,
       AddTeamRemuneration1718901400000,
       AddCanViewEquipe1718901500000,
+      CreateTeamPayments1718901600000,
     ],
     synchronize: false,
     migrationsRun: false,

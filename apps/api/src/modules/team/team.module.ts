@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { User } from "../../database/entities/user.entity";
 import { Company } from "../../database/entities/company.entity";
+import { TeamPayment } from "../../database/entities/team-payment.entity";
 import { TenantModule } from "../tenant/tenant.module";
 import { UsersModule } from "../users/users.module";
 import { ActiveUserGuard } from "../auth/guards/active-user.guard";
@@ -17,7 +18,7 @@ import { TeamRepository } from "./team.repository";
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Company]),
+    TypeOrmModule.forFeature([User, Company, TeamPayment]),
     TenantModule,
     UsersModule,
   ],

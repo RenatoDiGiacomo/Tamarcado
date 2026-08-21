@@ -12,6 +12,23 @@ import { TenantContextService } from "../../common/tenant/tenant-context.service
 import { addDays, zonedWallTimeToUtc } from "../availability/tz.util";
 import { TeamRepository, type ServiceCommissionRow } from "./team.repository";
 import { UpdateRemunerationDto } from "./dto/update-remuneration.dto";
+import { RegisterTeamPaymentDto } from "./dto/register-team-payment.dto";
+
+/** Uma SAÍDA (pagamento à equipe) na lista do Financeiro (Story 5.10). */
+export interface TeamPaymentView {
+  id: string;
+  professionalId: string;
+  professionalName: string;
+  amount: number;
+  paidOn: string;
+  periodFrom: string;
+  periodTo: string;
+  note: string | null;
+}
+export interface TeamPaymentsView {
+  payments: TeamPaymentView[];
+  total: number;
+}
 
 export interface Remuneration {
   salaryAmount: number | null;
@@ -214,5 +231,30 @@ export class TeamService {
       commissionValue:
         user.commission_value != null ? Number(user.commission_value) : null,
     };
+  }
+
+  /** Registra uma SAÍDA (pagamento à equipe) — Story 5.10. Só o Dono (controller). */
+  async registerPayment(
+    dto: RegisterTeamPaymentDto,
+    createdByUserId: string,
+  ): Promise<void> {
+    const prof = await this.team.member(dto.professionalId);
+    if (!prof) throw new NotFoundException("Profissional não encontrado.");
+    await this.team.insertPayment({
+      professionalId: dto.professionalId,
+      amount: dto.amount,
+      paidOn: dto.paidOn,
+      periodFrom: dto.periodFrom,
+      periodTo: dto.periodTo,
+      note: dto.note?.trim() || null,
+      createdByUserId,
+    });
+  }
+
+  /** Lista as SAÍDAS do período (por `paid_on`) + total — para o Financeiro. */
+  async listPayments(from: string, to: string): Promise<TeamPaymentsView> {
+    const payments = await this.team.listPayments(from, to);
+    const total = payments.reduce((acc, p) => acc + p.amount, 0);
+    return { payments, total: Math.round(total * 100) / 100 };
   }
 }
