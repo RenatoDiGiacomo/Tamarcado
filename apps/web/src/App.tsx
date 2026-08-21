@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useAuth, loginPath } from "./auth/AuthContext";
 import { canViewModule } from "./lib/permissions";
 import { Financeiro } from "./pages/Financeiro";
+import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { Perfil } from "./pages/Perfil";
 import { Agenda } from "./pages/Agenda";
@@ -12,7 +13,7 @@ import { Configuracoes } from "./pages/Configuracoes";
 import { ConfiguracoesIdentidade } from "./pages/ConfiguracoesIdentidade";
 import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
-import { ConfiguracoesEquipe } from "./pages/ConfiguracoesEquipe";
+import { Equipe } from "./pages/Equipe";
 import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { DefinirSenha } from "./pages/DefinirSenha";
@@ -20,6 +21,7 @@ import { PublicAgendar } from "./pages/PublicAgendar";
 import { Pendentes } from "./pages/Pendentes";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
 import { AppShell } from "./components/AppShell";
+import { ChangelogNotice } from "./components/ChangelogNotice";
 import { PendentesProvider } from "./lib/usePendentes";
 
 function Protected({ children }: { children: ReactNode }) {
@@ -45,11 +47,25 @@ function RequireModule({
   module,
   children,
 }: {
-  module: "financeiro" | "dashboard";
+  module: "financeiro" | "dashboard" | "equipe";
   children: ReactNode;
 }) {
   const { user } = useAuth();
   return canViewModule(user, module) ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+/**
+ * Página inicial ao abrir o sistema (Story 5.6): o **Dashboard** é a primeira
+ * tela para quem tem o módulo; os demais caem na **Agenda**. `"/"` só decide e
+ * redireciona — as telas vivem em `/dashboard` e `/agenda`.
+ */
+function Landing() {
+  const { user } = useAuth();
+  return canViewModule(user, "dashboard") ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <Navigate to="/agenda" replace />
+  );
 }
 
 /** Layout autenticado: o AppShell envolve as páginas internas (Outlet). */
@@ -60,6 +76,8 @@ function Layout() {
         <AppShell>
           <Outlet />
         </AppShell>
+        {/* Aviso de atualização (novidades da versão) — DEPOIS do login. */}
+        <ChangelogNotice />
       </PendentesProvider>
     </Protected>
   );
@@ -81,7 +99,18 @@ export function App() {
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}
       <Route path="/demo" element={<DesignSystemDemo />} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Agenda />} />
+        {/* `"/"` decide a landing (Dashboard p/ quem tem; senão Agenda). */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/agenda" element={<Agenda />} />
+        {/* Dashboard (Story 5.6) — só para quem tem o módulo (DL-062). */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireModule module="dashboard">
+              <Dashboard />
+            </RequireModule>
+          }
+        />
         {/* Pendentes é acessível a todo autenticado; o backend ESCOPA (o
             profissional vê só os seus). Refino DL-062 (2026-08-14). */}
         <Route path="/pendentes" element={<Pendentes />} />
@@ -96,13 +125,25 @@ export function App() {
             </RequireModule>
           }
         />
+        {/* Equipe (Story 5.9) — menu próprio, saiu de Configurações. Gateado pelo
+            módulo `equipe` (owner OU can_view_equipe). Editar remuneração/gestão
+            é owner-only (dentro da página). */}
+        <Route
+          path="/equipe"
+          element={
+            <RequireModule module="equipe">
+              <Equipe />
+            </RequireModule>
+          }
+        />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/configuracoes" element={<Configuracoes />}>
           <Route index element={<Navigate to="identidade" replace />} />
           <Route path="identidade" element={<ConfiguracoesIdentidade />} />
           <Route path="servicos" element={<ConfiguracoesServicos />} />
           <Route path="horarios" element={<ConfiguracoesHorarios />} />
-          <Route path="equipe" element={<ConfiguracoesEquipe />} />
+          {/* Equipe saiu de Configurações (5.9) — redireciona links antigos. */}
+          <Route path="equipe" element={<Navigate to="/equipe" replace />} />
           <Route path="link" element={<ConfiguracoesLinkPublico />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -31,6 +31,7 @@ export interface CurrentUser {
   // O `owner` ignora os flags (ver lib/permissions). Vêm de /users/me.
   canViewFinanceiro: boolean;
   canViewDashboard: boolean;
+  canViewEquipe: boolean;
   canManageAllAppointments: boolean;
 }
 

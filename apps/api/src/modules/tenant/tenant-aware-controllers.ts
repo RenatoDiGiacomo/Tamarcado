@@ -7,6 +7,8 @@ import { ServicesController } from "../services/services.controller";
 import { SchedulesController } from "../schedules/schedules.controller";
 import { AvailabilityController } from "../availability/availability.controller";
 import { AppointmentsController } from "../appointments/appointments.controller";
+import { DashboardController } from "../dashboard/dashboard.controller";
+import { TeamController } from "../team/team.controller";
 import { ClientsController } from "../clients/clients.controller";
 import { PublicBookingController } from "../public-booking/public-booking.controller";
 
@@ -28,6 +30,8 @@ export const TENANT_AWARE_CONTROLLERS: Type[] = [
   SchedulesController,
   AvailabilityController,
   AppointmentsController,
+  DashboardController,
+  TeamController,
   ClientsController,
 ];
 

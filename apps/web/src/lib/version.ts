@@ -22,4 +22,7 @@ export function formatVersion(raw: string): string {
 // Guarda o caso (testes/ambientes) em que o `define` não substituiu o global.
 const raw = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "0.0.0";
 
+/** Versão CRUA (ex.: "1.1.0-beta") — chave para o aviso de novidades por versão. */
+export const APP_VERSION_RAW = raw;
+
 export const APP_VERSION = formatVersion(raw);

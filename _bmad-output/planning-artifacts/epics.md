@@ -329,7 +329,10 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Épico 5 — Financeiro (1ª leva, DL-061/DL-062):**
 - ✅ **5.1** Fundação de permissões (visibilidade de módulo + interruptores + escopo de dados do Profissional + rename manager→professional) — mergeada (PRs #81/#82).
 - ✅ **5.2 (+ 5.3 e 5.5 absorvidas)** Financeiro — registro de pagamento no agendamento **+ Recebimentos + situação financeira em Clientes** (menu próprio): tabela `payments` (upsert, 1/agendamento; valor **pré-preenchido pelo preço do serviço** + máscara de moeda + forma opcional + situação pago/pendente); registro por **dois caminhos do domínio financeiro** (clique no recebimento do Financeiro **e** no perfil da cliente, via `PaymentForm` — fonte única; **fora da Agenda**, que só ganha um **link para a cliente**; DL-066 revisa DL-065); **gate do módulo** (`@RequireModule('financeiro')` → 403 + menu ausente); **corte de valor** (`payment`/`price`/`finance` só no payload de quem tem Financeiro — `@Actor.canViewFinanceiro`); **Recebimentos** (`GET /appointments/payments`) com **atalhos de período (Dia/Semana/Mês/custom) + filtros (situação/forma/cliente) + coloração por token de status + cards agrupados por data + totais recebido/pendente**; **situação financeira da cliente** (`finance {owed,paid}`) **na lista de Clientes** (indicador "Deve" ao lado do nome) **e no perfil**. `pendente` não mexe no status do agendamento. e2e: gate/valor/upsert/recebimentos/finance + **migration contra base populada (DL-064)**.
-- ⏳ **5.4 (exportação CSV)** e **5.6 (Dashboard)** — próximas.
+- ✅ **5.4 (exportação CSV)** — botão Exportar CSV no Financeiro (totais no topo; Dia/Semana/Mês removidos; Cliente por busca nome/telefone; modal de confirmação; util reutilizável `lib/csv.ts`).
+- ✅ **5.6 (Dashboard)** — menu próprio **1º na navegação + página inicial** (Agenda logo abaixo); `GET /dashboard` gateado por `can_view_dashboard`; KPIs read-only (faturamento/recebido+pendente, atendimentos concluídos, total de clientes, média clientes/semana) por período dia/semana/mês; Exportar CSV reusa `lib/csv.ts`. Fecha a 1ª leva do Financeiro.
+- ✅ **5.9 (Equipe/remuneração — 2ª leva, 1ª story)** — **Equipe vira menu próprio** (saiu de Configurações). **Módulo `can_view_equipe`** (DL-062): VER é owner OU quem tem o interruptor "Pode ver Equipe"; **EDITAR** (convite/papel/permissões/remuneração/ativar) é **owner-only**. Cadastro de remuneração por profissional: **comissão** (percentual OU valor fixo; **por profissional** OU **por serviço**) + **salário fixo** (diário/semanal/mensal), coexistem. **Previsão** do período (comissão por atendimento **concluído** + salário **rateado pelos dias**). UI: **lista com dropdown** (accordion, escala p/ equipe grande) + **filtro por nome** + Convidar na linha do período. `GET /team` (módulo) + `PATCH /team/:id/remuneration` (owner). **Fora:** metas/faixas.
+- ✅ **5.10 (pagamento à equipe — SAÍDA — fecha o Épico 5)** — o Dono registra no **Financeiro** o pagamento à equipe (previsão→**real**): tabela `team_payments`, `POST /team/payments` (owner) + `GET /team/payments` (módulo financeiro). O **Financeiro** vira central de **entradas E saídas**: totais Recebido/Pendente/**Saídas**/**Resultado** (recebido − saídas) + lista de saídas + "Pagar à equipe" (pré-preenche a previsão). O **Dashboard** ganha KPIs **Saídas** e **Resultado**. **Fecha a 2ª leva e o Épico 5.**
 
 **Épico 5B — Agendamento pela Cliente (link público):** **Escopo FECHADO (DL-049)** — 3 stories. Specs `5B-1/5B-2/5B-3`.
 - ✅ **5B.1** Fundação pública por slug (branding/serviços/profissionais) — mergeada (PR #41)
@@ -1011,6 +1014,17 @@ So that eu saiba quanto entrou e quanto ainda está pendente.
 
 ### Story 5.4: Financeiro — exportação em CSV
 
+> **✅ Implementada (2026-08-19).** Botão **Exportar CSV** (ícone) no Financeiro,
+> **à direita** da linha de Situação/Forma. Layout revisado (Renato, 2026-08-19):
+> **totais Recebido/Pendente no topo**; **Dia/Semana/Mês removidos** (o De/Até já
+> resolve o período); **Cliente virou BUSCA** (autocomplete por nome/telefone, mesmo
+> padrão do Novo agendamento), abaixo de Situação/Forma. Não baixa direto: **modal
+> central de confirmação** (Exportar/Cancelar). Exporta os recebimentos **com os
+> filtros aplicados** (o que está na tela), colunas Data/Cliente/Serviço/Forma/
+> Situação/Valor. Util **reutilizável** em `lib/csv.ts` (`toCsv`/`csvAmount`/
+> `downloadCsv`, separador `;` + decimal vírgula + BOM p/ Excel) — o **Dashboard
+> (5.6)** reaproveita. **PDF fica FORA** (corte de escopo DL-061).
+>
 > **Corte de escopo (Renato, 2026-08-14): SOMENTE CSV.** O CSV abre no Excel e
 > resolve o caso real (contabilidade, comprovação). **PDF fica como evolução** —
 > não bloqueia a 1ª leva.
@@ -1053,6 +1067,17 @@ So that eu saiba quanto ela deve e o que já pagou.
 **Then** o bloco de situação financeira **não aparece** no perfil da cliente (o resto do perfil segue normal)
 
 ### Story 5.6: Dashboard (menu próprio, somente leitura + exportação)
+
+> **✅ Implementada (2026-08-19).** `GET /dashboard?from&to` (novo `DashboardModule`,
+> `DashboardRepository` tenant-aware) gateado por `@RequireModule('dashboard')` →
+> **403** + menu ausente. Página **somente leitura** com KPIs: **faturamento**
+> (recebido + a receber/pendente), **atendimentos concluídos**, **total de
+> clientes**, **média de clientes/semana**; período por atalhos **dia/semana/mês**.
+> **Exportar CSV** reaproveita o `lib/csv.ts` (5.4), com modal de confirmação.
+> **Navegação (pedido do Renato, 2026-08-19):** o Dashboard é o **1º item do menu**
+> e a **página inicial ao abrir o sistema** (`"/"` decide: Dashboard p/ quem tem o
+> módulo, senão Agenda); a **Agenda** vem **logo abaixo** e passou a viver em
+> `/agenda`. e2e: `dashboard.e2e-spec` (gate 403 + números do período).
 
 As a Dono/Profissional com acesso a Dashboard,
 I want um painel de leitura com os números do negócio,
@@ -1107,6 +1132,55 @@ So that uma futura integração (ex: Asaas) não exija mudança no core do produ
 **Given** a arquitetura (NFR-O4)
 **When** o registro manual de pagamento opera
 **Then** funciona de forma totalmente independente do gateway, sem acoplamento ao `PaymentGateway`
+
+---
+
+### Story 5.9: Equipe — cadastro de remuneração + previsão (2ª leva, menu próprio)
+
+> **✅ Implementada (2026-08-20).** Primeira story da **2ª leva** (DL-061).
+> **Equipe deixa de ser aba de Configurações e vira menu próprio.** Virou **módulo
+> `can_view_equipe`** (DL-062): **VER** a equipe/remuneração é do **owner OU de
+> quem tem o interruptor "Pode ver Equipe"**; **EDITAR** (convite, papel,
+> permissões, remuneração, ativar/desativar) segue **owner-only**. UI em **lista
+> com dropdown** (accordion — escala para equipe grande) + **filtro por nome** +
+> Convidar na mesma linha do período. Além
+> da gestão que já existia (convite, atende, permissões, ativar/desativar), passa
+> a ser o **cadastro/controle de remuneração**:
+> - **Comissão** percentual OU valor fixo; **por profissional** (uma taxa) OU
+>   **por serviço** (na tabela de vínculo `professional_services`); apurada por
+>   **atendimento CONCLUÍDO** (percentual incide sobre o preço do serviço; fixo é
+>   valor por atendimento).
+> - **Salário fixo** diário/semanal/mensal; **fixo e comissão coexistem**.
+> - **Previsão** do período por membro = comissão + **salário rateado pelos dias**
+>   (mensal×dias/30 etc. — decisão do Renato), com filtro Dia/Semana/Mês/Ano.
+> Backend: `GET /team?from&to` + `PATCH /team/:id/remuneration` (owner-only);
+> `TeamRepository` tenant-aware (guard-rail DL-027); migration adiciona colunas em
+> `users` (salário + comissão por profissional) e `professional_services`
+> (comissão por serviço). e2e `team.e2e-spec` (403 owner-only + previsão prof/serviço).
+> **NÃO é caixa.** **Fora (5.10, próxima):** o **registro do pagamento efetivo à
+> equipe (SAÍDA)** acontece **no Financeiro**. **Fora (evolução):** metas/faixas.
+
+As a Dono,
+I want cadastrar como cada profissional é remunerado e ver a previsão do período,
+So that eu saiba quanto vou pagar à equipe antes de registrar a saída no Financeiro.
+
+### Story 5.10: Pagamento à equipe (SAÍDA) no Financeiro — fecha o previsão→real (e o Épico 5)
+
+> **✅ Implementada (2026-08-20).** Última story da 2ª leva. O **Dono** registra
+> **no Financeiro** o pagamento efetivo à equipe (a SAÍDA que fecha o previsão→
+> real): tabela `team_payments` (profissional, valor, data do pagamento, período
+> a que se refere, observação). **Backend:** `POST /team/payments` (**owner-only**)
+> e `GET /team/payments?from&to` (**módulo financeiro**). O **Financeiro** passa a
+> ser a central de **entradas E saídas** (DL-061): totais **Recebido / Pendente /
+> Saídas / Resultado** (recebido − saídas), uma **lista de saídas** e o botão
+> **"Pagar à equipe"** (owner) que **pré-preenche a previsão** do profissional
+> (`GET /team`). O **Dashboard** ganha os KPIs **Saídas** e **Resultado**. e2e
+> `team.e2e-spec` (registrar/listar/gate) + `dashboard.e2e-spec` (expenses/result).
+> **Fecha a 2ª leva e o Épico 5.** *(Evolução: editar/estornar uma saída.)*
+
+As a Dono,
+I want registrar no Financeiro o quanto paguei à equipe no período,
+So that o Financeiro mostre o resultado (entrou − saiu) e feche o previsão→real.
 
 ---
 
