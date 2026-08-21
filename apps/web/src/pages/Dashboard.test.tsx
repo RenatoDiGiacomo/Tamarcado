@@ -42,11 +42,26 @@ const METRICS = {
   ],
 };
 
+/** jsdom não tem layout: a forma da tela vem do matchMedia (useIsDesktop). */
+function setViewport(kind: "mobile" | "desktop"): void {
+  window.matchMedia = ((query: string) => ({
+    matches: kind === "desktop",
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })) as unknown as typeof window.matchMedia;
+}
+
 describe("Dashboard (Story 5.6)", () => {
   beforeEach(() => {
     apiMock.mockReset();
     vi.mocked(downloadCsv).mockReset();
     localStorage.setItem("tamarcado.access", "tok");
+    setViewport("mobile");
   });
 
   it("busca as métricas do período e mostra KPIs + gráficos", async () => {
@@ -112,6 +127,33 @@ describe("Dashboard (Story 5.6)", () => {
     // Gráficos também têm dica.
     fireEvent.click(screen.getByRole("button", { name: /O que é Clientes com maior frequência/ }));
     expect(screen.getByText(/Frequência = número de agendamentos/)).toBeInTheDocument();
+  });
+
+  it("mobile: os oito indicadores viram uma faixa rolável e o Exportar CSV vira só ícone", async () => {
+    apiMock.mockResolvedValue(jsonRes(METRICS));
+    render(<Dashboard />);
+    // Os oito continuam todos ali — deixaram de empilhar, passaram a rolar.
+    const faixa = await screen.findByRole("region", {
+      name: "Indicadores do período",
+    });
+    expect(faixa.children).toHaveLength(8);
+    // O botão perde o rótulo (o nome fica no aria-label) para o período caber.
+    const exportar = screen.getByRole("button", { name: "Exportar CSV" });
+    expect(exportar).toHaveTextContent("");
+    // E continua abrindo a confirmação, não baixando direto.
+    fireEvent.click(exportar);
+    expect(await screen.findByText("Exportar dashboard")).toBeInTheDocument();
+  });
+
+  it("desktop: os indicadores seguem na grade e o Exportar CSV mantém o rótulo", async () => {
+    setViewport("desktop");
+    apiMock.mockResolvedValue(jsonRes(METRICS));
+    render(<Dashboard />);
+    await screen.findByText("Valor bruto");
+    expect(screen.queryByRole("region")).toBeNull(); // sem faixa rolável no PC
+    expect(
+      screen.getByRole("button", { name: /Exportar CSV/ }),
+    ).toHaveTextContent("Exportar CSV");
   });
 
   it("estado de erro quando a API falha", async () => {
