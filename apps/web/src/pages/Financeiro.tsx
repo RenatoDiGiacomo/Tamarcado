@@ -122,6 +122,8 @@ export function Financeiro() {
   // Saídas — pagamentos à equipe (Story 5.10).
   const [expenses, setExpenses] = useState<ExpensesData | null>(null);
   const [payOpen, setPayOpen] = useState(false);
+  // Abas: as duas leituras do caixa (entrou / saiu) separadas (reorg UX, Sally).
+  const [tab, setTab] = useState<"recebimentos" | "saidas">("recebimentos");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -214,7 +216,26 @@ export function Financeiro() {
   }
 
   return (
-    <PageLayout title="Financeiro">
+    <PageLayout
+      title="Financeiro"
+      action={
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setExportOpen(true)}
+            disabled={filtered.length === 0}
+          >
+            <Download className="size-4" /> Exportar CSV
+          </Button>
+          {isOwner && (
+            <Button type="button" onClick={() => setPayOpen(true)}>
+              <Wallet className="size-4" /> Pagar à equipe
+            </Button>
+          )}
+        </div>
+      }
+    >
       <div className="flex flex-col gap-4">
         {/* Totais no topo — entrou (recebido), a receber (pendente), saiu
             (equipe) e o RESULTADO (recebido − saídas). Central de entradas E
@@ -247,8 +268,9 @@ export function Financeiro() {
           );
         })()}
 
-        {/* Período por De/Até (Dia/Semana/Mês removidos — o filtro de data resolve) */}
-        <div className="flex flex-wrap items-end gap-3">
+        {/* Filtros num painel único (reorg UX, Sally): período sempre; situação/
+            forma/cliente só na aba Recebimentos (não se aplicam às saídas). */}
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">De</span>
             <input
@@ -271,115 +293,129 @@ export function Financeiro() {
               onChange={(e) => setTo(e.target.value)}
             />
           </label>
-        </div>
-
-        {/* Situação + Forma (esquerda) + Exportar CSV (direita). O botão abre um
-            modal de confirmação (Story 5.4). */}
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Situação</span>
-            <select
-              aria-label="Situação"
-              className={controlCls}
-              value={statusF}
-              onChange={(e) => setStatusF(e.target.value as typeof statusF)}
-            >
-              <option value="all">Todos</option>
-              <option value="pago">Pagos</option>
-              <option value="pendente">Pendentes</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Forma</span>
-            <select
-              aria-label="Forma de pagamento"
-              className={controlCls}
-              value={methodF}
-              onChange={(e) => setMethodF(e.target.value as typeof methodF)}
-            >
-              <option value="all">Todas</option>
-              {METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {METHOD_LABEL[m]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            variant="secondary"
-            className="ml-auto"
-            onClick={() => setExportOpen(true)}
-            disabled={filtered.length === 0}
-          >
-            <Download className="size-4" /> Exportar CSV
-          </Button>
-        </div>
-
-        {/* Cliente por BUSCA (nome/telefone), abaixo de situação/forma — mesmo
-            padrão do Novo agendamento (autocomplete). */}
-        <div className="flex flex-col gap-1.5 sm:max-w-sm">
-          <span className="text-sm text-muted-foreground">Cliente</span>
-          {selectedClient ? (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
-              <span className="truncate">
-                {selectedClient.name}
-                {selectedClient.phone_whatsapp ? (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {selectedClient.phone_whatsapp}
-                  </span>
-                ) : null}
-              </span>
-              <button
-                type="button"
-                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setSelectedClient(null);
-                  setClientQuery("");
-                }}
-              >
-                limpar
-              </button>
-            </div>
-          ) : (
+          {tab === "recebimentos" && (
             <>
-              <Input
-                aria-label="Cliente"
-                placeholder="Buscar por nome ou telefone"
-                value={clientQuery}
-                onChange={(e) => setClientQuery(e.target.value)}
-              />
-              {clientResults.length > 0 && (
-                <ul className="rounded-md border border-border">
-                  {clientResults.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
-                        onClick={() => {
-                          setSelectedClient(c);
-                          setClientResults([]);
-                        }}
-                      >
-                        {c.name}
-                        {c.phone_whatsapp ? (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {c.phone_whatsapp}
-                          </span>
-                        ) : null}
-                      </button>
-                    </li>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-muted-foreground">Situação</span>
+                <select
+                  aria-label="Situação"
+                  className={controlCls}
+                  value={statusF}
+                  onChange={(e) => setStatusF(e.target.value as typeof statusF)}
+                >
+                  <option value="all">Todos</option>
+                  <option value="pago">Pagos</option>
+                  <option value="pendente">Pendentes</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-muted-foreground">Forma</span>
+                <select
+                  aria-label="Forma de pagamento"
+                  className={controlCls}
+                  value={methodF}
+                  onChange={(e) => setMethodF(e.target.value as typeof methodF)}
+                >
+                  <option value="all">Todas</option>
+                  {METHODS.map((m) => (
+                    <option key={m} value={m}>
+                      {METHOD_LABEL[m]}
+                    </option>
                   ))}
-                </ul>
-              )}
+                </select>
+              </label>
+              <div className="flex flex-1 flex-col gap-1 text-sm sm:min-w-52">
+                <span className="text-muted-foreground">Cliente</span>
+                {selectedClient ? (
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-input px-3 py-1.5 text-sm">
+                    <span className="truncate">
+                      {selectedClient.name}
+                      {selectedClient.phone_whatsapp ? (
+                        <span className="text-muted-foreground"> · {selectedClient.phone_whatsapp}</span>
+                      ) : null}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setSelectedClient(null);
+                        setClientQuery("");
+                      }}
+                    >
+                      limpar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      aria-label="Cliente"
+                      placeholder="Buscar por nome ou telefone"
+                      value={clientQuery}
+                      onChange={(e) => setClientQuery(e.target.value)}
+                    />
+                    {clientResults.length > 0 && (
+                      <ul className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-md">
+                        {clientResults.map((c) => (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                              onClick={() => {
+                                setSelectedClient(c);
+                                setClientResults([]);
+                              }}
+                            >
+                              {c.name}
+                              {c.phone_whatsapp ? (
+                                <span className="text-muted-foreground"> · {c.phone_whatsapp}</span>
+                              ) : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
 
-        {/* Lista agrupada por data */}
-        {loading ? (
+        {/* Abas: as duas leituras do caixa (entrou / saiu) — reorg UX (Sally). */}
+        <div role="tablist" aria-label="Entradas e saídas" className="flex gap-1 border-b border-border">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "recebimentos"}
+            onClick={() => setTab("recebimentos")}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-semibold transition-colors",
+              tab === "recebimentos"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Recebimentos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "saidas"}
+            onClick={() => setTab("saidas")}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-semibold transition-colors",
+              tab === "saidas"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Saídas
+          </button>
+        </div>
+
+        {/* Aba Recebimentos (entradas), agrupada por data */}
+        {tab === "recebimentos" &&
+          (loading ? (
           <div className="flex flex-col gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
@@ -469,24 +505,19 @@ export function Financeiro() {
             title="Nenhum recebimento no período"
             description="Registre pagamentos abrindo um agendamento na Agenda."
           />
-        )}
+        ))}
 
-        {/* SAÍDAS — pagamentos à equipe (Story 5.10). O registro é do Dono. */}
-        <section className="flex flex-col gap-3 border-t border-border pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              Saídas — pagamentos à equipe
-            </h2>
-            {isOwner && (
-              <Button type="button" variant="secondary" onClick={() => setPayOpen(true)}>
-                <Wallet className="size-4" /> Pagar à equipe
-              </Button>
-            )}
-          </div>
-          {!expenses?.payments?.length ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma saída no período.
-            </p>
+        {/* Aba Saídas — pagamentos à equipe (Story 5.10). Registro no header (Dono). */}
+        {tab === "saidas" &&
+          (!expenses?.payments?.length ? (
+            <EmptyState
+              title="Nenhuma saída no período"
+              description={
+                isOwner
+                  ? 'Registre um pagamento à equipe no botão "Pagar à equipe".'
+                  : "Nenhum pagamento à equipe registrado."
+              }
+            />
           ) : (
             <ul className="flex flex-col gap-2">
               {expenses.payments.map((p) => (
@@ -509,8 +540,7 @@ export function Financeiro() {
                 </li>
               ))}
             </ul>
-          )}
-        </section>
+          ))}
       </div>
 
       {/* Editar/receber o pagamento a partir do Financeiro (DL-065): o MESMO

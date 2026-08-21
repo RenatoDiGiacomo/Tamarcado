@@ -251,11 +251,13 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
       return Promise.resolve(jsonRes({}));
     });
     render(<Financeiro />);
-    // Saída listada + Resultado (100 − 50 = 50).
+    // Resultado (KPI, sempre visível) = recebido − saídas.
+    expect(await screen.findByText("Resultado")).toBeInTheDocument();
+    // A lista de saídas vive na ABA "Saídas".
+    fireEvent.click(screen.getByRole("tab", { name: "Saídas" }));
     expect(await screen.findByText("Bia")).toBeInTheDocument();
     expect(screen.getByText(/−\s*R\$\s*50,00/)).toBeInTheDocument();
-    expect(screen.getByText("Resultado")).toBeInTheDocument();
-    // Abre o registro de saída.
+    // Registro fica no header (Dono).
     fireEvent.click(screen.getByRole("button", { name: /Pagar à equipe/ }));
     expect(await screen.findByText("Pagar à equipe (saída)")).toBeInTheDocument();
     // Escolhe o profissional → valor pré-preenche com a previsão (R$ 60,00).
@@ -269,5 +271,23 @@ describe("Financeiro — recebimentos (Stories 5.2/5.3)", () => {
       expect(body.periodFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(body.paidOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
+  });
+
+  it("abas (reorg UX): Recebimentos mostra a lista + filtros; Saídas troca a leitura", async () => {
+    apiMock.mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/team/payments")) return Promise.resolve(jsonRes({ payments: [{ id: "x", professionalName: "Bia", amount: 50, paidOn: "2026-09-08", periodFrom: "2026-09-01", periodTo: "2026-09-30", note: null }], total: 50 }));
+      if (u.startsWith("/team?")) return Promise.resolve(jsonRes({ members: [] }));
+      return Promise.resolve(jsonRes({ receipts: [{ appointmentId: "1", clientId: null, clientName: "Ana Lima", serviceName: "Corte", date: "2026-09-10", amount: 50, method: "pix", status: "pago" }], totalReceived: 50, totalPending: 0 }));
+    });
+    render(<Financeiro />);
+    // Recebimentos (aba padrão): recibo visível + filtro Situação presente.
+    expect(await screen.findByText("Ana Lima")).toBeInTheDocument();
+    expect(screen.getByLabelText("Situação")).toBeInTheDocument();
+    // Troca para Saídas: recibo some, filtro Situação some, saída aparece.
+    fireEvent.click(screen.getByRole("tab", { name: "Saídas" }));
+    expect(screen.queryByText("Ana Lima")).toBeNull();
+    expect(screen.queryByLabelText("Situação")).toBeNull();
+    expect(screen.getByText("Bia")).toBeInTheDocument();
   });
 });
