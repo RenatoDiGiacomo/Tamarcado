@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- ═══ SEO: título e descrição da página ═══════════════════════════════════
+     O tráfego é orgânico. O título carrega o termo que o público busca
+     ("sistema de agendamento para salão"), não o nome da marca sozinho. -->
+<title>Tamarcado — sistema de agendamento para salão de beleza, manicure e barbearia</title>
+<meta name="description" content="Agenda online, link de agendamento para as clientes marcarem sozinhas, cadastro de clientes, controle financeiro e painel no celular. Organize o seu salão sem papel e sem caderno." />
+<link rel="canonical" href="https://tamarcado.tec.br/" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#6C63FF" />
+<meta name="author" content="Tamarcado" />
+
+<!-- ═══ LIMPEZA DO PWA ANTIGO (obrigatório — não remover) ═══════════════════
+     Até esta mudança, o PAINEL morava aqui na raiz e registrava um service
+     worker no escopo "/" desta origem. Agora a raiz é a landing page e o
+     painel vive em app.tamarcado.tec.br.
+
+     Sem esta limpeza, o service worker antigo continua instalado no navegador
+     de quem já abriu o painel e pode interceptar as requisições desta página,
+     servindo assets do app velho por cima da LP. Roda inline e cedo de
+     propósito: precisa acontecer antes de qualquer outra requisição.
+
+     ATENÇÃO: isso NÃO migra o PWA instalado. Origem diferente é outro
+     aplicativo para o navegador — quem tem o ícone na tela inicial precisa
+     desinstalar e instalar de novo por app.tamarcado.tec.br
+     (RUNBOOK-producao.md §12). -->
+<script>
+  (function () {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) { reg.unregister(); });
+      }).catch(function () { /* navegador sem suporte ou modo restrito: ignora */ });
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (nomes) {
+        nomes.forEach(function (nome) { caches.delete(nome); });
+      }).catch(function () { /* idem */ });
+    }
+  })();
+</script>
+
+<!-- ═══ Compartilhamento (Instagram, WhatsApp, Facebook) ═══════════════════ -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Tamarcado" />
+<meta property="og:locale" content="pt_BR" />
+<meta property="og:url" content="https://tamarcado.tec.br/" />
+<meta property="og:title" content="Tamarcado — o sistema que organiza a agenda do seu salão" />
+<meta property="og:description" content="Suas clientes marcam sozinhas por um link. Você acompanha agenda, clientes e dinheiro pelo celular." />
+<meta property="og:image" content="https://tamarcado.tec.br/assets/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Tamarcado — sistema de agendamento para salões" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Tamarcado — o sistema que organiza a agenda do seu salão" />
+<meta name="twitter:description" content="Suas clientes marcam sozinhas por um link. Você acompanha agenda, clientes e dinheiro pelo celular." />
+<meta name="twitter:image" content="https://tamarcado.tec.br/assets/og-image.png" />
+
+<link rel="icon" href="/assets/favicon-192.png" sizes="192x192" type="image/png" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+<link rel="stylesheet" href="/styles.css" />
+
+<!-- ═══ PONTO DE INSERÇÃO — Search Console ══════════════════════════════════
+     Renato: cole aqui a meta de verificação do Google Search Console.
+     <meta name="google-site-verification" content="SEU_TOKEN_AQUI" />          -->
+
+<!-- ═══ PONTO DE INSERÇÃO — Google Analytics (GA4) ══════════════════════════
+     Renato: troque G-XXXXXXXXXX pelo ID da propriedade e DESCOMENTE o bloco.
+     Fica no fim do <head> de propósito: não bloqueia a primeira pintura.
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag("js", new Date());
+  gtag("config", "G-XXXXXXXXXX");
+</script>
+                                                                              -->
+
+<!-- ═══ Dados estruturados ═════════════════════════════════════════════════
+     SoftwareApplication descreve o produto para o Google; FAQPage habilita o
+     resultado expandido com as perguntas. Mantenha em sincronia com o texto
+     visível da página — dado estruturado que não bate com a página é punido. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://tamarcado.tec.br/#software",
+      "name": "Tamarcado",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Sistema de agendamento",
+      "operatingSystem": "Web (navegador), Android, iOS",
+      "url": "https://tamarcado.tec.br/",
+      "inLanguage": "pt-BR",
+      "description": "Sistema de agendamento para salão de beleza, manicure, barbearia e estética: agenda por profissional, link público de agendamento, cadastro de clientes, controle financeiro e painel no celular.",
+      "featureList": [
+        "Agenda por dia e por semana",
+        "Link público de agendamento para as clientes",
+        "Cadastro de clientes com histórico e observações",
+        "Controle financeiro de entradas e saídas",
+        "Painel com faturamento e atendimentos",
+        "Funciona no celular, instalável na tela inicial"
+      ],
+      "publisher": { "@id": "https://tamarcado.tec.br/#organizacao" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://tamarcado.tec.br/#organizacao",
+      "name": "Tamarcado",
+      "url": "https://tamarcado.tec.br/",
+      "logo": "https://tamarcado.tec.br/assets/icone-512.png",
+      "email": "contato@tamarcado.tec.br",
+      "areaServed": "BR",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "vendas",
+        "telephone": "+5511998325320",
+        "availableLanguage": "Portuguese"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://tamarcado.tec.br/#perguntas",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Preciso instalar algum programa para usar?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Não. O Tamarcado abre no navegador do celular e do computador. No celular dá para adicionar na tela inicial e usar como um aplicativo, sem passar pela loja." }
+        },
+        {
+          "@type": "Question",
+          "name": "Minha cliente precisa baixar aplicativo para marcar horário?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Não. Você compartilha um link — na bio do Instagram ou no WhatsApp — e ela escolhe o serviço e o horário pelo próprio celular. O pedido chega no seu painel para você confirmar." }
+        },
+        {
+          "@type": "Question",
+          "name": "Serve para manicure, barbearia e estética?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sim. Você cadastra os seus serviços com duração e preço, e os horários de atendimento de cada profissional. O sistema se adapta ao que você faz." }
+        },
+        {
+          "@type": "Question",
+          "name": "Trabalho com mais gente no salão. Cada uma tem a própria agenda?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sim. Cada profissional tem os próprios horários e a própria agenda, e você controla o que cada pessoa enxerga — inclusive se ela vê ou não a parte financeira." }
+        },
+        {
+          "@type": "Question",
+          "name": "Consigo controlar quanto entrou e quanto saiu?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sim. Você registra o recebimento de cada atendimento e os pagamentos à equipe no mesmo lugar, com totais por dia, semana e mês, e exportação em planilha." }
+        },
+        {
+          "@type": "Question",
+          "name": "Como eu começo?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Fale com a gente no WhatsApp. A conta do seu salão é criada configurada: serviços, horários e equipe já prontos para você usar no mesmo dia." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="topo" id="topo">
+  <div class="wrap topo__linha">
+    <a class="topo__marca" href="/" aria-label="Tamarcado — página inicial">
+      <img src="/assets/logo-horizontal-claro.svg" alt="Tamarcado" width="644" height="203" class="marca marca--claro" />
+      <img src="/assets/logo-horizontal-escuro.svg" alt="" aria-hidden="true" width="644" height="203" class="marca marca--escuro" />
+    </a>
+
+    <button class="topo__menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Abrir o menu de navegação">
+      <span class="topo__menu-icone" aria-hidden="true"></span>
+    </button>
+
+    <nav class="topo__nav" id="menu" aria-label="Navegação principal">
+      <ul class="topo__lista">
+        <li><a href="#funcionalidades">Funcionalidades</a></li>
+        <li><a href="#como-funciona">Como funciona</a></li>
+        <li><a href="#para-quem">Para quem é</a></li>
+        <li><a href="#perguntas">Perguntas</a></li>
+      </ul>
+      <div class="topo__acoes">
+        <a class="btn btn--fantasma" href="https://app.tamarcado.tec.br/login">Entrar</a>
+        <a class="btn btn--primario" href="https://wa.me/5511998325320?text=Ol%C3%A1%21%20Vi%20o%20site%20do%20Tamarcado%20e%20quero%20saber%20mais." rel="noopener">Falar no WhatsApp</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="conteudo">
+
+  <!-- ═══ Proposta de valor ═════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="wrap hero__grade">
+      <div class="hero__texto">
+        <h1>O sistema de agendamento que organiza o seu salão</h1>
+        <p class="hero__linha-fina">
+          Suas clientes marcam sozinhas por um link. Você acompanha a agenda, o cadastro
+          das clientes e o dinheiro do salão — tudo pelo celular, sem caderno e sem
+          conversa perdida no WhatsApp.
+        </p>
+        <div class="hero__botoes">
+          <a class="btn btn--primario btn--grande" href="https://wa.me/5511998325320?text=Ol%C3%A1%21%20Quero%20conhecer%20o%20Tamarcado%20para%20o%20meu%20sal%C3%A3o." rel="noopener">
+            Quero conhecer o Tamarcado
+          </a>
+          <a class="btn btn--fantasma btn--grande" href="#funcionalidades">Ver o que ele faz</a>
+        </div>
+        <ul class="hero__selos">
+          <li>Funciona no celular</li>
+          <li>Sem instalar nada</li>
+          <li>Configurado por nós</li>
+        </ul>
+      </div>
+
+      <div class="hero__imagem">
+        <figure class="shot shot--desktop">
+          <img class="shot__img" src="/assets/screens/agenda-desktop.png"
+               alt="Agenda semanal do Tamarcado no computador, com os atendimentos de cada profissional organizados por horário e cores por situação."
+               width="1440" height="900" fetchpriority="high" decoding="async" />
+          <figcaption class="shot__falta" hidden>assets/screens/agenda-desktop.png</figcaption>
+        </figure>
+        <figure class="shot shot--mobile">
+          <img class="shot__img" src="/assets/screens/agenda-mobile.png"
+               alt="Agenda do dia no celular, em lista, mostrando horário, serviço e nome da cliente."
+               width="390" height="844" decoding="async" />
+          <figcaption class="shot__falta" hidden>assets/screens/agenda-mobile.png</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Funcionalidades ═══════════════════════════════════════════════ -->
+  <section class="secao" id="funcionalidades" aria-labelledby="t-funcionalidades">
+    <div class="wrap">
+      <p class="secao__chapeu">Funcionalidades</p>
+      <h2 id="t-funcionalidades">Tudo o que o salão precisa, num lugar só</h2>
+      <p class="secao__intro">
+        Da hora que a cliente marca até a hora de fechar o caixa — sem planilha paralela
+        e sem depender de você lembrar de tudo.
+      </p>
+
+      <ul class="cartoes">
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">📅</span>
+          <h3>Agenda por dia e por semana</h3>
+          <p>
+            Veja os atendimentos de cada profissional na hora certa, com cor por situação:
+            pendente, confirmado, concluído, cancelado. Marque, remarque, troque a profissional
+            ou registre quem não compareceu em poucos toques.
+          </p>
+        </li>
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">🔗</span>
+          <h3>Link público de agendamento</h3>
+          <p>
+            Um endereço só seu para colocar na bio do Instagram ou mandar no WhatsApp. A cliente
+            escolhe o serviço e o horário livre pelo celular dela; o pedido cai no seu painel
+            para você confirmar. Sem cadastro, sem aplicativo.
+          </p>
+        </li>
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">👥</span>
+          <h3>Cadastro de clientes</h3>
+          <p>
+            Histórico de atendimentos, observações do que cada uma gosta (a cor, a alergia,
+            a marca) e busca pelo nome. O relacionamento deixa de morar na sua memória.
+          </p>
+        </li>
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">💰</span>
+          <h3>Controle financeiro</h3>
+          <p>
+            Registre o que entrou em cada atendimento e o que saiu no pagamento da equipe.
+            Totais por dia, semana e mês, filtro por situação e exportação em planilha para
+            levar ao contador.
+          </p>
+        </li>
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">📊</span>
+          <h3>Painel de acompanhamento</h3>
+          <p>
+            Faturamento, quantidade de atendimentos, total de clientes e a média de movimento
+            por semana. Os números que respondem se o mês foi bom, sem você fazer conta.
+          </p>
+        </li>
+        <li class="cartao">
+          <span class="cartao__icone" aria-hidden="true">📱</span>
+          <h3>No seu celular</h3>
+          <p>
+            O painel inteiro funciona no telefone e pode ser instalado na tela inicial como
+            aplicativo. Você não precisa de computador no salão para trabalhar.
+          </p>
+        </li>
+      </ul>
+
+      <div class="galeria">
+        <figure class="shot">
+          <img class="shot__img" src="/assets/screens/link-publico-mobile.png"
+               alt="Tela do link público de agendamento no celular da cliente, com a lista de horários disponíveis."
+               width="390" height="844" loading="lazy" decoding="async" />
+          <figcaption class="shot__falta" hidden>assets/screens/link-publico-mobile.png</figcaption>
+        </figure>
+        <figure class="shot">
+          <img class="shot__img" src="/assets/screens/financeiro-desktop.png"
+               alt="Tela do financeiro do Tamarcado, com os recebimentos do período e os totais recebido e pendente."
+               width="1440" height="900" loading="lazy" decoding="async" />
+          <figcaption class="shot__falta" hidden>assets/screens/financeiro-desktop.png</figcaption>
+        </figure>
+        <figure class="shot">
+          <img class="shot__img" src="/assets/screens/dashboard-desktop.png"
+               alt="Painel de acompanhamento do Tamarcado, com faturamento do mês, atendimentos e total de clientes."
+               width="1440" height="900" loading="lazy" decoding="async" />
+          <figcaption class="shot__falta" hidden>assets/screens/dashboard-desktop.png</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Como funciona ═════════════════════════════════════════════════ -->
+  <section class="secao secao--alt" id="como-funciona" aria-labelledby="t-como">
+    <div class="wrap">
+      <p class="secao__chapeu">Como funciona</p>
+      <h2 id="t-como">Três passos para sair do caderno</h2>
+
+      <ol class="passos">
+        <li class="passo">
+          <span class="passo__num" aria-hidden="true">1</span>
+          <h3>A gente configura para você</h3>
+          <p>
+            Seus serviços, com duração e preço; os horários de atendimento de cada profissional;
+            a equipe e o que cada pessoa pode ver. Você recebe a conta pronta para usar.
+          </p>
+        </li>
+        <li class="passo">
+          <span class="passo__num" aria-hidden="true">2</span>
+          <h3>Você divulga o seu link</h3>
+          <p>
+            Coloque o endereço de agendamento na bio do Instagram e mande no WhatsApp de quem
+            pedir horário. As clientes escolhem entre os horários que estão realmente livres.
+          </p>
+        </li>
+        <li class="passo">
+          <span class="passo__num" aria-hidden="true">3</span>
+          <h3>Você confirma e acompanha</h3>
+          <p>
+            Os pedidos chegam no painel para você confirmar. Depois é só acompanhar a agenda do
+            dia, registrar os recebimentos e ver o resultado do mês.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══ Para quem é ═══════════════════════════════════════════════════ -->
+  <section class="secao" id="para-quem" aria-labelledby="t-para-quem">
+    <div class="wrap">
+      <p class="secao__chapeu">Para quem é</p>
+      <h2 id="t-para-quem">Feito para quem atende com hora marcada</h2>
+      <p class="secao__intro">
+        O Tamarcado foi desenhado com donas de salão, não em cima de um sistema genérico de
+        empresa. Ele serve para qualquer negócio que trabalhe por horário:
+      </p>
+      <ul class="publicos">
+        <li><strong>Salão de beleza</strong><span>cabelo, escova, coloração, com várias profissionais na mesma agenda</span></li>
+        <li><strong>Manicure e nail designer</strong><span>atendimento individual, agenda cheia e cliente que volta sempre</span></li>
+        <li><strong>Barbearia</strong><span>corte e barba com hora marcada, vários barbeiros no mesmo dia</span></li>
+        <li><strong>Estética e sobrancelhas</strong><span>procedimentos de duração diferente, com histórico do que já foi feito</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══ Perguntas frequentes ══════════════════════════════════════════ -->
+  <section class="secao secao--alt" id="perguntas" aria-labelledby="t-perguntas">
+    <div class="wrap wrap--estreito">
+      <p class="secao__chapeu">Perguntas frequentes</p>
+      <h2 id="t-perguntas">O que as donas de salão perguntam antes de começar</h2>
+
+      <div class="faq">
+        <details class="faq__item">
+          <summary>Preciso instalar algum programa para usar?</summary>
+          <p>Não. O Tamarcado abre no navegador do celular e do computador. No celular dá para
+            adicionar na tela inicial e usar como um aplicativo, sem passar pela loja.</p>
+        </details>
+        <details class="faq__item">
+          <summary>Minha cliente precisa baixar aplicativo para marcar horário?</summary>
+          <p>Não. Você compartilha um link — na bio do Instagram ou no WhatsApp — e ela escolhe o
+            serviço e o horário pelo próprio celular. O pedido chega no seu painel para você confirmar.</p>
+        </details>
+        <details class="faq__item">
+          <summary>Serve para manicure, barbearia e estética?</summary>
+          <p>Sim. Você cadastra os seus serviços com duração e preço, e os horários de atendimento
+            de cada profissional. O sistema se adapta ao que você faz.</p>
+        </details>
+        <details class="faq__item">
+          <summary>Trabalho com mais gente no salão. Cada uma tem a própria agenda?</summary>
+          <p>Sim. Cada profissional tem os próprios horários e a própria agenda, e você controla o
+            que cada pessoa enxerga — inclusive se ela vê ou não a parte financeira.</p>
+        </details>
+        <details class="faq__item">
+          <summary>Consigo controlar quanto entrou e quanto saiu?</summary>
+          <p>Sim. Você registra o recebimento de cada atendimento e os pagamentos à equipe no mesmo
+            lugar, com totais por dia, semana e mês, e exportação em planilha.</p>
+        </details>
+        <details class="faq__item">
+          <summary>Como eu começo?</summary>
+          <p>Fale com a gente no WhatsApp. A conta do seu salão é criada configurada: serviços,
+            horários e equipe já prontos para você usar no mesmo dia.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Chamada final ═════════════════════════════════════════════════ -->
+  <section class="cta" id="contato" aria-labelledby="t-cta">
+    <div class="wrap wrap--estreito cta__caixa">
+      <h2 id="t-cta">Vamos organizar a sua agenda?</h2>
+      <p>
+        Chame no WhatsApp e conte como o seu salão funciona hoje. A gente mostra o sistema
+        funcionando com os seus serviços, sem compromisso.
+      </p>
+      <a class="btn btn--claro btn--grande" href="https://wa.me/5511998325320?text=Ol%C3%A1%21%20Quero%20organizar%20a%20agenda%20do%20meu%20sal%C3%A3o%20com%20o%20Tamarcado." rel="noopener">
+        Falar no WhatsApp agora
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="wrap rodape__grade">
+    <div>
+      <img src="/assets/logo-horizontal-escuro.svg" alt="Tamarcado" width="644" height="203" class="rodape__marca" />
+      <p class="rodape__frase">Sistema de agendamento para salão de beleza, manicure, barbearia e estética.</p>
+    </div>
+    <nav aria-label="Navegação do rodapé">
+      <h2 class="rodape__titulo">Navegar</h2>
+      <ul>
+        <li><a href="#funcionalidades">Funcionalidades</a></li>
+        <li><a href="#como-funciona">Como funciona</a></li>
+        <li><a href="#para-quem">Para quem é</a></li>
+        <li><a href="#perguntas">Perguntas frequentes</a></li>
+      </ul>
+    </nav>
+    <div>
+      <h2 class="rodape__titulo">Contato</h2>
+      <ul>
+        <li><a href="https://wa.me/5511998325320" rel="noopener">WhatsApp (11) 99832-5320</a></li>
+        <li><a href="mailto:contato@tamarcado.tec.br">contato@tamarcado.tec.br</a></li>
+        <li><a href="https://app.tamarcado.tec.br/login">Entrar no painel</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap rodape__base">
+    <p>&copy; <span id="ano">2026</span> Tamarcado. Todos os direitos reservados.</p>
+  </div>
+</footer>
+
+<!-- Botão flutuante: acompanha a rolagem em toda a página. -->
+<a class="zap" href="https://wa.me/5511998325320?text=Ol%C3%A1%21%20Vi%20o%20site%20do%20Tamarcado%20e%20quero%20saber%20mais."
+   rel="noopener" aria-label="Falar com o Tamarcado no WhatsApp">
+  <svg class="zap__icone" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.67c2.2 0 4.27.86 5.83 2.42a8.2 8.2 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.25 8.24a8.23 8.23 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24m-4.53 4.4c-.21 0-.55.08-.84.39s-1.1 1.08-1.1 2.62 1.13 3.04 1.29 3.25c.16.21 2.22 3.39 5.38 4.62 2.63 1.04 3.17.83 3.74.78.57-.05 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.29-.21-.6-.36-.31-.16-1.83-.9-2.11-1.01-.29-.1-.5-.16-.7.16-.21.31-.8 1.01-.98 1.22-.18.21-.36.24-.67.08-.31-.16-1.31-.48-2.5-1.54-.92-.82-1.55-1.84-1.73-2.15-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.69-1.7-.95-2.32-.25-.61-.5-.53-.69-.54h-.6Z"/>
+  </svg>
+  <span class="zap__texto">Fale conosco</span>
+</a>
+
+<script src="/main.js" defer></script>
+</body>
+</html>

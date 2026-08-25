@@ -7,6 +7,7 @@
 set -euo pipefail
 ROOT=/opt/tamarcado
 WEB=/var/www/tamarcado
+LP=/var/www/tamarcado-lp          # landing page (DL-069)
 
 CUR="$(readlink -f "$ROOT/current" 2>/dev/null || true)"
 [ -n "$CUR" ] || { echo "sem release ativa (current)"; exit 1; }
@@ -22,6 +23,7 @@ echo "current: $(basename "$CUR")  ->  rollback para: $(basename "$PREV")"
 ln -sfn "$PREV" "$ROOT/current"
 ( cd "$ROOT/current" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save )
 rsync -a --delete "$PREV/web/" "$WEB/"
+[ -d "$PREV/landing" ] && rsync -a --delete "$PREV/landing/" "$LP/"
 sleep 2
 curl -fsS -m 8 http://127.0.0.1:3000/health && echo "  <- OK (rollback aplicado)"
 

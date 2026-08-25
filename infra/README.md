@@ -23,18 +23,32 @@ Builda as imagens com o **target `production`** e roda localmente — smoke test
 ### Produção (VPS brasileiro — ADR-009)
 
 VPS Hostinger (preferencial) ou HostGator, datacenter São Paulo, ~2 vCPU / 8GB RAM.
-Stack: PM2 (`tamarcado-api`) + Nginx (`infra/nginx/tamarcado.conf`) + Certbot (TLS).
+Stack: PM2 (`tamarcado-api`) + Nginx + Certbot (TLS).
 Custo estimado R$45–96/mês — dentro do teto NFR-O1 (≤ R$130/mês).
 
-Layout no servidor:
+**Endereços (DL-069):** três server blocks, um por nome — as confs vivem em
+`infra/nginx/` e são copiadas à mão para `/etc/nginx/sites-available/`
+(o pacote de deploy não leva `infra/`).
+
+| Nome | Serve | Conf |
+|---|---|---|
+| `tamarcado.tec.br` | landing page estática | `tamarcado.tec.br.conf` |
+| `app.tamarcado.tec.br` | painel + `/agendar/{slug}` | `app.tamarcado.tec.br.conf` |
+| `api.tamarcado.tec.br` | API (proxy) + `deny` do `/api/platform/` | `api.tamarcado.tec.br.conf` |
+
+Layout no servidor (detalhe completo no RUNBOOK §3):
 
 ```
-/opt/tamarcado/          # repositório (git pull origin main)
-  apps/api/dist/         # build NestJS rodando no PM2
-  apps/web/dist/         # build estático (copiado para /var/www/tamarcado)
-  ecosystem.config.js    # PM2
-/var/www/tamarcado/      # arquivos servidos pelo Nginx
+/opt/tamarcado/          # releases + symlink current
+  current/dist/          # build NestJS rodando no PM2
+  current/web/           # build do painel  (copiado para /var/www/tamarcado)
+  current/landing/       # landing page     (copiada para /var/www/tamarcado-lp)
+/var/www/tamarcado/      # painel servido pelo Nginx
+/var/www/tamarcado-lp/   # landing page servida pelo Nginx
 ```
+
+> **Migração de endereços (DL-069):** DNS do `app.`, certificado, env e a
+> reinstalação do PWA estão no **RUNBOOK §12**, passo a passo.
 
 ## CI/CD
 

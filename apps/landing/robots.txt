@@ -1,0 +1,5 @@
+# Landing page do Tamarcado — tudo aqui é para ser indexado.
+User-agent: *
+Allow: /
+
+Sitemap: https://tamarcado.tec.br/sitemap.xml

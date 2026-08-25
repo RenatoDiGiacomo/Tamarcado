@@ -53,6 +53,10 @@ jobs:
           pnpm --filter api deploy --prod "$PKG"     # dist + node_modules(prod) + package.json
           cp ecosystem.config.js "$PKG/"             # PM2
           mkdir -p "$PKG/web" && cp -r apps/web/dist/. "$PKG/web/"   # estático do front
+          # Landing page (DL-069): estática, sem build — vai como está para
+          # /var/www/tamarcado-lp. Segue o mesmo release do app para que uma
+          # troca de endereço nunca fique metade nova, metade velha.
+          mkdir -p "$PKG/landing" && cp -r apps/landing/. "$PKG/landing/"
           echo "conteúdo do pacote:"; ls -1 "$PKG"
 
       - name: Identificar release

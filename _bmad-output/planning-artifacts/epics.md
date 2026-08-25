@@ -284,6 +284,9 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
   - **Dashboard** exibe o **"quanto gastei com a equipe"** (consolidado, leitura) — operado no Financeiro.
   - *(Fora desta leva, evolução: **metas / faixas de comissão**.)*
 
+**3.5. Landing page + separação de endereços — NOVO (DL-069).** `tamarcado.tec.br` vira **landing page** (estática, servida pelo Nginx) e o painel migra para **`app.tamarcado.tec.br`** (com `/agendar/{slug}` junto); a API segue em `api.`. **Por que agora:** ainda **não há cliente com link divulgado** — depois, mudar quebra link em bio de Instagram e material impresso **de terceiros**. Inclui: `WEB_BASE_URL`/`CORS_ORIGIN` apontando para o `app.`, **301** das rotas antigas na raiz (salva os e-mails de convite/senha já enviados), **reinstalação do PWA** (origem nova = app novo para o navegador; a LP desregistra o service worker velho) e SEO da LP (o painel fica **fora** do índice). **Depende do Renato:** registro DNS do `app` (hoje **NXDOMAIN**), certificado via Certbot, capturas de tela reais e os IDs de GA4/Search Console. Procedimento no **RUNBOOK §12**.
+> *Numerado como **3.5** de propósito: os itens 4–6 abaixo **não** foram renumerados para não invalidar as referências a "roadmap item 2/4" espalhadas nos documentos e no runbook.*
+
 **4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev) — **começar em paralelo já**, pois é o gargalo.
 
 **5. Monitoramento do bot** — alertas de queda/entrega + painel (vindo do **DL-058**). Fica **com o Épico 6** (mesma estrutura de coleta do Financeiro/Dashboard); **não** entra nas duas levas do item 3.
