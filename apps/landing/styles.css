@@ -265,43 +265,68 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   .hero__grade { grid-template-columns: 1fr 1fr; align-items: center; gap: 3rem; }
 }
 
-/* ── Capturas de tela ────────────────────────────────────────────────────── */
-.shot { margin: 0; position: relative; }
-.shot__img {
-  width: 100%;
-  border-radius: calc(var(--radius) + 4px);
+/* ── Capturas de tela e molduras ─────────────────────────────────────────
+   As capturas ganham moldura de dispositivo: barra de navegador para as telas
+   de computador, corpo de telefone para as de celular. Duas razões práticas —
+   dá contexto (a pessoa entende na hora "isso é o sistema aberto no
+   computador") e concilia proporções muito diferentes (2,43:1 contra 0,96:1)
+   num mesmo bloco, sem esticar imagem. Tudo em CSS: nenhuma imagem de moldura
+   para baixar. */
+.shot { position: relative; }
+.shot__img { display: block; width: 100%; height: auto; background: hsl(var(--card)); }
+
+.moldura {
   border: 1px solid hsl(var(--border));
-  box-shadow: var(--sombra-forte);
   background: hsl(var(--card));
-}
-/* No CELULAR mostro só a captura do celular: a tela de desktop reduzida a
-   390px de largura fica ilegível, e quem chega pelo Instagram está no telefone.
-   A partir do desktop as duas aparecem, com a do celular sobreposta. */
-.shot--desktop { display: none; }
-.shot--mobile {
-  width: 68%;
-  max-width: 15rem;
-  margin-inline: auto;
-}
-.shot--mobile .shot__img { border-radius: 1.25rem; }
-
-@media (min-width: 62rem) {
-  .shot--desktop { display: block; }
-  .shot--mobile {
-    width: 34%;
-    max-width: 11rem;
-    position: absolute;
-    /* Dentro da caixa: `right` negativo criava rolagem horizontal na página. */
-    right: 0;
-    bottom: -1.5rem;
-    margin-inline: 0;
-  }
+  box-shadow: var(--sombra-forte);
+  overflow: hidden;
 }
 
-/* Enquanto as capturas reais não estão na pasta, o bloco não pode quebrar o
-   layout nem mostrar ícone de imagem quebrada: main.js marca a figura como
-   .shot--sem-arquivo e o espaço vira uma moldura com o nome do arquivo que
-   falta. Some sozinho quando o PNG for adicionado. */
+/* Navegador: barra com as bolinhas e o endereço da tela mostrada. */
+.moldura--navegador { border-radius: calc(var(--radius) + 4px); }
+.moldura__barra {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.moldura__bolinhas {
+  flex: none;
+  width: 2.75rem;
+  height: 0.5rem;
+  /* Três pontos desenhados em gradiente — sem três elementos vazios no HTML. */
+  background-image: radial-gradient(circle, hsl(var(--border)) 45%, transparent 47%);
+  background-size: 0.9375rem 100%;
+  background-repeat: repeat-x;
+}
+.moldura__url {
+  flex: 1;
+  min-width: 0;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Celular: borda grossa e cantos bem arredondados fazem o corpo do aparelho. */
+.moldura--celular {
+  border-width: 0.5rem;
+  border-radius: 1.75rem;
+}
+.moldura--celular .shot__img { border-radius: 1.25rem; }
+
+/* Enquanto uma captura não estiver na pasta, o bloco não pode quebrar o layout
+   nem mostrar ícone de imagem quebrada: main.js marca a moldura como
+   .shot--sem-arquivo e o espaço vira uma área com o nome do arquivo que falta.
+   Some sozinho quando o PNG é adicionado. */
 .shot--sem-arquivo .shot__img { display: none; }
 .shot--sem-arquivo .shot__falta {
   display: flex;
@@ -309,23 +334,117 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   justify-content: center;
   text-align: center;
   padding: 1rem;
-  aspect-ratio: var(--proporcao, 16 / 10);
-  border: 2px dashed hsl(var(--border));
-  border-radius: calc(var(--radius) + 4px);
+  aspect-ratio: var(--proporcao, 1920 / 790);
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
   font-size: 0.8125rem;
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
-.shot--mobile.shot--sem-arquivo .shot__falta { --proporcao: 9 / 19.5; }
+.moldura--celular.shot--sem-arquivo .shot__falta { --proporcao: 497 / 520; }
 
-.galeria {
+/* Hero: no CELULAR mostro só a captura do celular — a tela de computador
+   reduzida a 390px de largura fica ilegível, e quem chega pelo Instagram está
+   no telefone. A partir do desktop as duas aparecem, com a do celular
+   sobreposta no canto. */
+.hero__imagem .shot--desktop { display: none; }
+.hero__imagem .shot--mobile {
+  width: 68%;
+  max-width: 14rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 62rem) {
+  .hero__imagem .shot--desktop { display: block; }
+  .hero__imagem .shot--mobile {
+    width: 30%;
+    max-width: 9.5rem;
+    position: absolute;
+    /* Dentro da caixa: `right` negativo criava rolagem horizontal na página. */
+    right: 0;
+    bottom: -2rem;
+    margin-inline: 0;
+  }
+}
+
+/* ── Vitrine de telas ────────────────────────────────────────────────────
+   Celular: uma embaixo da outra. Computador: a tela em destaque ocupa a coluna
+   larga, com o celular ao lado atravessando as duas linhas — assim as alturas
+   fecham e não sobra buraco à direita. */
+.vitrine {
   display: grid;
   gap: 1.5rem;
   margin-top: 3rem;
 }
-@media (min-width: 48rem) {
-  .galeria { grid-template-columns: repeat(3, 1fr); align-items: start; }
+/* Coluna com a legenda empurrada para o fim: quando dois quadros dividem a
+   mesma linha e têm alturas diferentes, as legendas ainda assim alinham
+   embaixo, em vez de flutuarem cada uma numa altura. */
+.quadro {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* Sem isto, um item de grid/flex cresce até o conteúdo (a imagem larga da
+     moldura arrastável) e empurra a página inteira para o lado. */
+  min-width: 0;
+}
+.quadro .moldura { min-width: 0; max-width: 100%; }
+.quadro figcaption {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+.quadro figcaption strong { color: hsl(var(--foreground)); font-weight: 650; }
+
+/* A do celular é estreita por natureza: no telefone ela não pode ocupar a
+   largura toda, senão fica desproporcional ao lado das telas de computador. */
+.quadro--celular .moldura { max-width: 17rem; margin-inline: auto; }
+
+/* ── No CELULAR ──────────────────────────────────────────────────────────
+   Uma tela de computador (1920px) espremida em 350px não se lê — vira o
+   "retângulo borrado". Duas medidas:
+
+   1. A captura DO CELULAR vem primeiro: é a tela que a pessoa consegue ler no
+      aparelho dela, e é a que mostra o que a cliente dela vê.
+   2. As telas de computador ficam em tamanho legível e ARRASTÁVEIS na
+      horizontal dentro da própria moldura. A pessoa desliza para ver o resto,
+      como faria com uma foto larga. A rolagem vertical da página não é
+      afetada, e no computador nada disso se aplica. */
+@media (max-width: 61.99rem) {
+  .quadro--celular { order: -1; }
+  .quadro--destaque .moldura,
+  .quadro--secundario .moldura {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .quadro--destaque .moldura__barra,
+  .quadro--secundario .moldura__barra {
+    /* A barra acompanha a largura da imagem para não "descolar" ao arrastar. */
+    position: sticky;
+    left: 0;
+  }
+  .quadro--destaque .shot__img,
+  .quadro--secundario .shot__img {
+    width: 52rem;
+    max-width: none;
+  }
+}
+
+@media (min-width: 62rem) {
+  .vitrine {
+    grid-template-columns: 2fr 1fr;
+    gap: 2.5rem;
+    /* `stretch` (padrão) + a legenda no fim do quadro = legendas alinhadas. */
+    align-items: stretch;
+  }
+  /* A tela que precisa ser LIDA ocupa a largura inteira: é a que convence.
+     Embaixo, as duas menores dividem a linha — a de computador na coluna
+     larga, o celular na estreita, que é a proporção natural de cada uma. */
+  .quadro--destaque { grid-column: 1 / -1; }
+  .quadro--secundario { grid-column: 1; }
+  .quadro--celular { grid-column: 2; }
+  .quadro--celular .moldura { max-width: none; }
+  .quadro--destaque figcaption { font-size: 1.0625rem; }
 }
 
 /* ── Seções ──────────────────────────────────────────────────────────────── */

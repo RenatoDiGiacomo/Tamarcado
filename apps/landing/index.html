@@ -234,18 +234,22 @@
       </div>
 
       <div class="hero__imagem">
-        <figure class="shot shot--desktop">
+        <div class="moldura moldura--navegador shot shot--desktop">
+          <div class="moldura__barra" aria-hidden="true">
+            <span class="moldura__bolinhas"></span>
+            <span class="moldura__url">app.tamarcado.tec.br/agenda</span>
+          </div>
           <img class="shot__img" src="/assets/screens/agenda-desktop.png"
-               alt="Agenda semanal do Tamarcado no computador, com os atendimentos de cada profissional organizados por horário e cores por situação."
-               width="1440" height="900" fetchpriority="high" decoding="async" />
-          <figcaption class="shot__falta" hidden>assets/screens/agenda-desktop.png</figcaption>
-        </figure>
-        <figure class="shot shot--mobile">
+               alt="Agenda do Tamarcado no computador: os atendimentos do dia organizados por horário, com o nome da cliente, o serviço e a cor da situação."
+               width="1920" height="790" fetchpriority="high" decoding="async" />
+          <span class="shot__falta" hidden>assets/screens/agenda-desktop.png</span>
+        </div>
+        <div class="moldura moldura--celular shot shot--mobile">
           <img class="shot__img" src="/assets/screens/agenda-mobile.png"
-               alt="Agenda do dia no celular, em lista, mostrando horário, serviço e nome da cliente."
-               width="390" height="844" decoding="async" />
-          <figcaption class="shot__falta" hidden>assets/screens/agenda-mobile.png</figcaption>
-        </figure>
+               alt="A mesma agenda no celular, em lista: horário, cliente, serviço e a situação de cada atendimento."
+               width="498" height="969" decoding="async" />
+          <span class="shot__falta" hidden>assets/screens/agenda-mobile.png</span>
+        </div>
       </div>
     </div>
   </section>
@@ -314,24 +318,47 @@
         </li>
       </ul>
 
-      <div class="galeria">
-        <figure class="shot">
-          <img class="shot__img" src="/assets/screens/link-publico-mobile.png"
-               alt="Tela do link público de agendamento no celular da cliente, com a lista de horários disponíveis."
-               width="390" height="844" loading="lazy" decoding="async" />
-          <figcaption class="shot__falta" hidden>assets/screens/link-publico-mobile.png</figcaption>
+      <!-- Vitrine: uma tela grande em destaque, as outras ao lado. Três do
+           mesmo tamanho competiam entre si e ninguém lia nenhuma. As molduras
+           (navegador e celular) dão contexto e resolvem a diferença de
+           proporção entre uma tela de computador e uma de telefone. -->
+      <div class="vitrine">
+        <figure class="quadro quadro--destaque">
+          <div class="moldura moldura--navegador shot">
+            <div class="moldura__barra" aria-hidden="true">
+              <span class="moldura__bolinhas"></span>
+              <span class="moldura__url">app.tamarcado.tec.br/financeiro</span>
+            </div>
+            <img class="shot__img" src="/assets/screens/financeiro-desktop.png"
+                 alt="Tela do Financeiro: os recebimentos do período, um por cliente e serviço, com os totais de recebido, pendente, saídas e o resultado no alto."
+                 width="1920" height="790" loading="lazy" decoding="async" />
+            <span class="shot__falta" hidden>assets/screens/financeiro-desktop.png</span>
+          </div>
+          <figcaption>O <strong>Financeiro</strong> mostra o que entrou, o que está em aberto e o que saiu — com filtro por período e exportação para planilha.</figcaption>
         </figure>
-        <figure class="shot">
-          <img class="shot__img" src="/assets/screens/financeiro-desktop.png"
-               alt="Tela do financeiro do Tamarcado, com os recebimentos do período e os totais recebido e pendente."
-               width="1440" height="900" loading="lazy" decoding="async" />
-          <figcaption class="shot__falta" hidden>assets/screens/financeiro-desktop.png</figcaption>
+
+        <figure class="quadro quadro--secundario">
+          <div class="moldura moldura--navegador shot">
+            <div class="moldura__barra" aria-hidden="true">
+              <span class="moldura__bolinhas"></span>
+              <span class="moldura__url">app.tamarcado.tec.br/dashboard</span>
+            </div>
+            <img class="shot__img" src="/assets/screens/dashboard-desktop.png"
+                 alt="Tela do Dashboard: faturamento do período em gráfico, ticket médio, atendimentos concluídos, clientes cadastradas e as clientes que mais voltam."
+                 width="1920" height="790" loading="lazy" decoding="async" />
+            <span class="shot__falta" hidden>assets/screens/dashboard-desktop.png</span>
+          </div>
+          <figcaption>O <strong>painel de acompanhamento</strong> responde se o mês foi bom, sem você fazer conta.</figcaption>
         </figure>
-        <figure class="shot">
-          <img class="shot__img" src="/assets/screens/dashboard-desktop.png"
-               alt="Painel de acompanhamento do Tamarcado, com faturamento do mês, atendimentos e total de clientes."
-               width="1440" height="900" loading="lazy" decoding="async" />
-          <figcaption class="shot__falta" hidden>assets/screens/dashboard-desktop.png</figcaption>
+
+        <figure class="quadro quadro--celular">
+          <div class="moldura moldura--celular shot">
+            <img class="shot__img" src="/assets/screens/link-publico-mobile.png"
+                 alt="O link público no celular da cliente: ela escolhe o serviço, com duração e preço à vista, antes de ver os horários livres."
+                 width="497" height="520" loading="lazy" decoding="async" />
+            <span class="shot__falta" hidden>assets/screens/link-publico-mobile.png</span>
+          </div>
+          <figcaption>O <strong>link de agendamento</strong> como a sua cliente vê no celular dela.</figcaption>
         </figure>
       </div>
     </div>

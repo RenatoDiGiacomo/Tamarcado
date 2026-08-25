@@ -31,35 +31,49 @@ apps/landing/
     apple-touch-icon.png  ícone do iOS
     icone-512.png         usado no dado estruturado da organização
     og-image.png          ⚠️ FALTA — imagem do compartilhamento (1200×630)
-    screens/              ⚠️ FALTAM — capturas reais do sistema
+    screens/              capturas do sistema (ver a seção abaixo)
 ```
 
-## O que ainda falta (imagens)
+## As capturas de tela
 
-A página está completa; o que falta são os arquivos de imagem. Enquanto não
-existirem, cada bloco de captura aparece como uma moldura tracejada com o nome
-do arquivo esperado — o layout **não quebra**. Basta colocar os PNGs nos
-caminhos abaixo e recarregar; não é preciso mexer no código.
-
-| Arquivo | Proporção sugerida | Tela a capturar |
+| Arquivo | Tamanho atual | Onde aparece |
 |---|---|---|
-| `assets/screens/agenda-desktop.png` | 1440×900 | Agenda semanal no computador |
-| `assets/screens/agenda-mobile.png` | 390×844 | Agenda do dia no celular (lista) |
-| `assets/screens/link-publico-mobile.png` | 390×844 | `/agendar/{slug}` no celular, na escolha de horário |
-| `assets/screens/financeiro-desktop.png` | 1440×900 | Financeiro com recebimentos e totais |
-| `assets/screens/dashboard-desktop.png` | 1440×900 | Dashboard com faturamento e atendimentos |
-| `assets/og-image.png` | **1200×630 exatos** | Arte de compartilhamento (logo + frase sobre fundo da marca) |
+| `assets/screens/agenda-desktop.png` | 1920×790 | hero, na moldura de navegador |
+| `assets/screens/agenda-mobile.png` | 498×969 | hero, na moldura de celular |
+| `assets/screens/financeiro-desktop.png` | 1920×790 | vitrine, **em destaque** (largura inteira) |
+| `assets/screens/dashboard-desktop.png` | 1920×790 | vitrine, abaixo do destaque |
+| `assets/screens/link-publico-mobile.png` | 497×520 | vitrine, na moldura de celular |
+| `assets/og-image.png` | **1200×630 exatos** | ⚠️ FALTA — arte de compartilhamento |
 
-Ao capturar:
+**As telas de computador precisam ter a MESMA proporção** (hoje 1920×790).
+É o que mantém a vitrine alinhada; uma captura fora do padrão desalinha a linha
+inteira. Ao trocar uma delas:
 
-- **Use dados de verdade** (ou plausíveis). Nome de teste tipo "aaa" aparece na
-  imagem e queima a página.
-- **Esconda o que for sensível** — telefone e valor de cliente real. Se precisar,
-  troque o nome antes de capturar.
-- Exporte em PNG. Se algum arquivo passar de ~400 KB, comprima (TinyPNG ou
-  `pngquant`) — a página é indexada também por velocidade.
-- O texto alternativo (`alt`) de cada imagem já está escrito no `index.html`
-  descrevendo a tela. **Se você trocar a tela capturada, ajuste o `alt`.**
+- capture em 1920 de largura e **corte a barra de janela do aplicativo** (os
+  ~26px do topo) — a moldura de navegador da página já faz esse papel, e as duas
+  juntas ficam redundantes;
+- **corte o vazio do rodapé** da tela, deixando a altura em 790. Espaço vazio
+  numa captura é o que faz a imagem parecer "fraca" na página;
+- para a tela de celular, corte a área sem conteúdo do rodapé pelo mesmo motivo
+  (o link público ficou 497×520 depois do corte).
+
+Ao capturar, também:
+
+- **use dados que pareçam de salão.** As capturas atuais mostram serviços de TI
+  ("Suporte Tecnico", "Consultoria Sistêmica") e o estabelecimento "TamarcadoTec"
+  — a dona de salão vê isso e não se reconhece. Cadastre Escova, Manicure,
+  Coloração, com nomes e preços plausíveis, antes de capturar;
+- **cuide dos números.** O Dashboard e o Financeiro de hoje mostram
+  `RESULTADO −R$ 4.430,00` em vermelho: a página está vendendo organização
+  financeira com uma tela de prejuízo. Registre alguns recebimentos e uma saída
+  menor para o resultado ficar positivo;
+- esconda o que for sensível — telefone e valor de cliente real;
+- se algum arquivo passar de ~400 KB, comprima (TinyPNG ou `pngquant`);
+- o texto alternativo (`alt`) de cada imagem descreve a tela: **se trocar a
+  captura, ajuste o `alt`** no `index.html`.
+
+Se uma captura sumir da pasta, o bloco não quebra: aparece uma área com o nome
+do arquivo que falta, e volta ao normal quando o PNG é reposto.
 
 ## Antes de publicar
 
@@ -69,7 +83,8 @@ Ao capturar:
 2. **Search Console** — na mesma região do arquivo, cole a meta
    `google-site-verification`. Depois, no Search Console, envie
    `https://tamarcado.tec.br/sitemap.xml`.
-3. **Capturas e `og-image.png`** — conforme a tabela acima.
+3. **`og-image.png`** — conforme a tabela acima (as capturas de tela já estão
+   na pasta; falta só a arte de compartilhamento).
 
 ## Ver localmente
 
