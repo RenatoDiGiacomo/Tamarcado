@@ -515,17 +515,70 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 }
 .passo p { margin: 0; color: hsl(var(--muted-foreground)); }
 
-/* ── Para quem é ─────────────────────────────────────────────────────────── */
-.publicos { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1rem; }
-@media (min-width: 48rem) { .publicos { grid-template-columns: repeat(2, 1fr); } }
-.publicos li {
-  padding: 1.125rem 1.25rem;
-  border-left: 3px solid hsl(var(--primary));
-  background: hsl(var(--muted) / 0.6);
-  border-radius: 0 var(--radius) var(--radius) 0;
+/* ── Para quem é ─────────────────────────────────────────────────────────
+   Dez nichos. Em vez de dez blocos de texto (uma parede que ninguém lê), cada
+   um vira um card pequeno de ÍCONE + NOME: a pessoa varre a grade e acha o
+   próprio negócio num relance. A dor específica de cada nicho continua na
+   página, num parágrafo abaixo da grade — texto real e indexável, não
+   escondido em atributo. */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.nichos {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  /* Duas colunas no celular, quatro no computador.
+     `minmax(0, 1fr)` e não `1fr`: o mínimo automático de uma coluna de grid é o
+     tamanho do CONTEÚDO, então "Personal trainer e estúdio de treino" empurrava
+     a coluna e a página inteira ganhava rolagem lateral em telas de 320px. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
-.publicos strong { display: block; }
-.publicos span { color: hsl(var(--muted-foreground)); font-size: 0.9375rem; }
+@media (min-width: 48rem) { .nichos { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
+@media (min-width: 62rem) { .nichos { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.nicho {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.3;
+  /* Nomes de tamanhos diferentes ("Piercing" x "Personal trainer e estúdio de
+     treino") não podem deixar a grade irregular. */
+  min-height: 3.75rem;
+}
+/* Nome longo em coluna estreita quebra dentro do card, nunca para fora dele. */
+.nicho span { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.nicho__icone {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  color: hsl(var(--primary-texto));
+  /* Os ícones do lucide são desenhados com traço, não preenchimento. */
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (min-width: 48rem) {
+  .nicho { font-size: 0.9375rem; padding: 1rem 1.125rem; }
+  .nicho__icone { width: 1.5rem; height: 1.5rem; }
+}
+
+.nichos__fecho {
+  margin-top: 1.75rem;
+  max-width: 52rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+.nichos__fecho strong { color: hsl(var(--foreground)); font-weight: 600; }
 
 /* ── Perguntas frequentes ────────────────────────────────────────────────── */
 .faq { margin-top: 2rem; display: grid; gap: 0.75rem; }

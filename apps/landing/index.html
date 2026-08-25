@@ -7,8 +7,8 @@
 <!-- ═══ SEO: título e descrição da página ═══════════════════════════════════
      O tráfego é orgânico. O título carrega o termo que o público busca
      ("sistema de agendamento para salão"), não o nome da marca sozinho. -->
-<title>Tamarcado — sistema de agendamento para salão de beleza, manicure e barbearia</title>
-<meta name="description" content="Agenda online, link de agendamento para as clientes marcarem sozinhas, cadastro de clientes, controle financeiro e painel no celular. Organize o seu salão sem papel e sem caderno." />
+<title>Tamarcado — sistema de agendamento para salão, barbearia, estética e negócios de hora marcada</title>
+<meta name="description" content="Agenda online para salão, barbearia, estética, tatuagem, spa e qualquer negócio de hora marcada. Link de agendamento para o cliente marcar sozinho, cadastro de clientes, controle financeiro e painel no celular." />
 <link rel="canonical" href="https://tamarcado.tec.br/" />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <meta name="theme-color" content="#6C63FF" />
@@ -113,7 +113,7 @@
       "operatingSystem": "Web (navegador), Android, iOS",
       "url": "https://tamarcado.tec.br/",
       "inLanguage": "pt-BR",
-      "description": "Sistema de agendamento para salão de beleza, manicure, barbearia e estética: agenda por profissional, link público de agendamento, cadastro de clientes, controle financeiro e painel no celular.",
+      "description": "Sistema de agendamento online para negócios de hora marcada: salão de beleza, manicure e nail designer, barbearia, estética e sobrancelhas, spa e massoterapia, estúdio de tatuagem, piercing, depilação, podologia e personal trainer. Agenda por profissional, link público de agendamento, cadastro de clientes, controle financeiro e painel no celular.",
       "featureList": [
         "Agenda por dia e por semana",
         "Link público de agendamento para as clientes",
@@ -155,8 +155,8 @@
         },
         {
           "@type": "Question",
-          "name": "Serve para manicure, barbearia e estética?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Sim. Você cadastra os seus serviços com duração e preço, e os horários de atendimento de cada profissional. O sistema se adapta ao que você faz." }
+          "name": "Serve para manicure, barbearia, tatuagem, spa e outros?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sim. Serve para qualquer negócio de hora marcada — manicure, barbearia, estética, spa e massoterapia, tatuagem, piercing, depilação, podologia, personal trainer. Você cadastra os seus serviços com duração e preço e os horários de cada profissional; o sistema se adapta ao que você faz." }
         },
         {
           "@type": "Question",
@@ -182,6 +182,27 @@
 
 <body>
 <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- ═══ Ícones ══════════════════════════════════════════════════════════════
+     Traçados extraídos do lucide-react JÁ INSTALADO no painel (o mesmo
+     conjunto do design system, licença ISC) e colados aqui como sprite. Sem
+     biblioteca nova e sem requisição extra: cada card referencia um <symbol>
+     por <use>. Para trocar um ícone, pegue o traçado em
+     node_modules/lucide-react/dist/esm/icons/<nome>.mjs. -->
+<svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0">
+  <defs>
+    <symbol id="i-spray-can" viewBox="0 0 24 24"><path d="M3 3h.01"/><path d="M7 5h.01"/><path d="M11 7h.01"/><path d="M3 7h.01"/><path d="M7 9h.01"/><path d="M3 11h.01"/><rect width="4" height="4" x="15" y="5"/><path d="m19 9 2 2v10c0 .6-.4 1-1 1h-6c-.6 0-1-.4-1-1V11l2-2"/><path d="m13 14 8-2"/><path d="m13 19 8-2"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-flower-2" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1"/><circle cx="12" cy="8" r="2"/><path d="M12 10v12"/><path d="M12 22c4.2 0 7-1.667 7-5-4.2 0-7 1.667-7 5Z"/><path d="M12 22c-4.2 0-7-1.667-7-5 4.2 0 7 1.667 7 5Z"/></symbol>
+    <symbol id="i-pen-tool" viewBox="0 0 24 24"><path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/><path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/><path d="m2.3 2.3 7.286 7.286"/><circle cx="11" cy="11" r="2"/></symbol>
+    <symbol id="i-gem" viewBox="0 0 24 24"><path d="M10.5 3 8 9l4 13 4-13-2.5-6"/><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z"/><path d="M2 9h20"/></symbol>
+    <symbol id="i-feather" viewBox="0 0 24 24"><path d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/></symbol>
+    <symbol id="i-footprints" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></symbol>
+    <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z"/><path d="m2.5 21.5 1.4-1.4"/><path d="m20.1 3.9 1.4-1.4"/><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z"/><path d="m9.6 14.4 4.8-4.8"/></symbol>
+  </defs>
+</svg>
 
 <header class="topo" id="topo">
   <div class="wrap topo__linha">
@@ -405,15 +426,69 @@
       <p class="secao__chapeu">Para quem é</p>
       <h2 id="t-para-quem">Feito para quem atende com hora marcada</h2>
       <p class="secao__intro">
-        O Tamarcado foi desenhado com donas de salão, não em cima de um sistema genérico de
-        empresa. Ele serve para qualquer negócio que trabalhe por horário:
+        O Tamarcado nasceu dentro de salões de beleza, ao lado de quem atende. Mas o problema
+        que ele resolve é o mesmo em qualquer negócio de <strong>hora marcada</strong>:
+        serviço com duração e preço, horário que não pode dobrar e cliente que volta.
       </p>
-      <ul class="publicos">
-        <li><strong>Salão de beleza</strong><span>cabelo, escova, coloração, com várias profissionais na mesma agenda</span></li>
-        <li><strong>Manicure e nail designer</strong><span>atendimento individual, agenda cheia e cliente que volta sempre</span></li>
-        <li><strong>Barbearia</strong><span>corte e barba com hora marcada, vários barbeiros no mesmo dia</span></li>
-        <li><strong>Estética e sobrancelhas</strong><span>procedimentos de duração diferente, com histórico do que já foi feito</span></li>
+
+      <!-- Cards de reconhecimento: ícone + nome, para a pessoa achar o nicho
+           dela num relance. A dor específica de cada um está no parágrafo
+           abaixo da grade — em texto de verdade, visível e indexável, em vez de
+           dez descrições empilhadas que ninguém lê. -->
+      <ul class="nichos">
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-spray-can" /></svg>
+          <span>Salão de beleza</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-hand" /></svg>
+          <span>Manicure e nail designer</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-scissors" /></svg>
+          <span>Barbearia</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-eye" /></svg>
+          <span>Estética e sobrancelhas</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-flower-2" /></svg>
+          <span>Spa e massoterapia</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-pen-tool" /></svg>
+          <span>Estúdio de tatuagem</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-gem" /></svg>
+          <span>Piercing</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-feather" /></svg>
+          <span>Depilação</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-footprints" /></svg>
+          <span>Podologia</span>
+        </li>
+        <li class="nicho">
+          <svg class="nicho__icone" aria-hidden="true" focusable="false"><use href="#i-dumbbell" /></svg>
+          <span>Personal trainer e estúdio de treino</span>
+        </li>
       </ul>
+
+      <p class="nichos__fecho">
+        Cada um com a sua rotina: o <strong>salão de beleza</strong> com várias profissionais na
+        mesma agenda; a <strong>manicure</strong> e a <strong>depilação</strong> com a cliente que
+        volta a cada três ou quatro semanas; a <strong>barbearia</strong> com vários barbeiros no
+        mesmo dia; a <strong>estética</strong> e as <strong>sobrancelhas</strong> com procedimentos
+        de durações diferentes; o <strong>estúdio de tatuagem</strong> com a sessão que toma o dia
+        e o retoque semanas depois; o <strong>piercing</strong> com o atendimento rápido entre dois
+        horários; o <strong>spa</strong> e a <strong>massoterapia</strong> com a sala ocupada por
+        uma hora ou mais; a <strong>podologia</strong> com retorno programado; o
+        <strong>personal trainer</strong> com horário fixo por aluno.
+      </p>
     </div>
   </section>
 
@@ -435,9 +510,11 @@
             serviço e o horário pelo próprio celular. O pedido chega no seu painel para você confirmar.</p>
         </details>
         <details class="faq__item">
-          <summary>Serve para manicure, barbearia e estética?</summary>
-          <p>Sim. Você cadastra os seus serviços com duração e preço, e os horários de atendimento
-            de cada profissional. O sistema se adapta ao que você faz.</p>
+          <summary>Serve para manicure, barbearia, tatuagem, spa e outros?</summary>
+          <p>Sim. Serve para qualquer negócio de hora marcada — manicure, barbearia, estética,
+            spa e massoterapia, tatuagem, piercing, depilação, podologia, personal trainer. Você
+            cadastra os seus serviços com duração e preço e os horários de cada profissional; o
+            sistema se adapta ao que você faz.</p>
         </details>
         <details class="faq__item">
           <summary>Trabalho com mais gente no salão. Cada uma tem a própria agenda?</summary>
@@ -477,7 +554,7 @@
   <div class="wrap rodape__grade">
     <div>
       <img src="/assets/logo-horizontal-claro.svg" alt="Tamarcado" width="644" height="203" class="rodape__marca" />
-      <p class="rodape__frase">Sistema de agendamento para salão de beleza, manicure, barbearia e estética.</p>
+      <p class="rodape__frase">Sistema de agendamento para salão de beleza, manicure, barbearia, estética, spa, tatuagem, depilação, podologia e qualquer negócio de hora marcada.</p>
     </div>
     <nav aria-label="Navegação do rodapé">
       <h2 class="rodape__titulo">Navegar</h2>

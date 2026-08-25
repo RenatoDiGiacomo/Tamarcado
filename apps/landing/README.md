@@ -96,6 +96,19 @@ python -m http.server 8080     # ou: npx serve -l 8080 .
 # abre em http://localhost:8080
 ```
 
+## Ícones
+
+Os ícones da seção "Para quem é" são um **sprite SVG** no topo do `<body>`
+(`<symbol id="i-…">`), referenciado por `<use href="#i-…">`. Os traçados vieram
+do **lucide-react já instalado no painel** — o mesmo conjunto do design system,
+licença ISC. Não há biblioteca de ícones na landing page, nem requisição extra.
+
+Para trocar ou acrescentar um ícone, copie o traçado de
+`node_modules/.pnpm/lucide-react@*/node_modules/lucide-react/dist/esm/icons/<nome>.mjs`
+(o arquivo exporta `__iconNode`, uma lista de `["tag", { atributos }]`) e monte
+o `<symbol>` no mesmo formato dos que já estão lá. O estilo de traço
+(`fill: none`, `stroke: currentColor`, `stroke-width: 2`) está no `.nicho__icone`.
+
 ## Ao editar o conteúdo
 
 - **Uma `<h1>` por página** — a do hero. Seções são `<h2>`, itens dentro delas `<h3>`.
