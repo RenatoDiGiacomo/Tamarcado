@@ -458,7 +458,9 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 }
 .rodape__grade { display: grid; gap: 2rem; }
 @media (min-width: 48rem) { .rodape__grade { grid-template-columns: 2fr 1fr 1fr; gap: 3rem; } }
-.rodape__marca { height: 1.75rem; width: auto; }
+/* Maior que no cabeçalho de propósito: no rodapé ele é a assinatura da marca,
+   e a 1.75rem (a altura do topo) ficava menor que o texto ao lado e sumia. */
+.rodape__marca { height: 2.75rem; width: auto; }
 .rodape__frase { margin-top: 1rem; max-width: 26rem; font-size: 0.9375rem; }
 .rodape__titulo { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); margin-bottom: 0.75rem; }
 .rodape ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
@@ -472,6 +474,37 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   color: hsl(var(--muted-foreground));
 }
 .rodape__base p { margin: 0; }
+
+/* ── Animação de entrada das seções ──────────────────────────────────────────
+   Discreta: aparecer subindo 12px, meio segundo, uma vez só. Vale apenas com
+   `js-anima` no <html> (ligada pelo script do <head>) — sem JavaScript, nada
+   aqui se aplica e a página fica estática, com todo o conteúdo visível.
+   O deslocamento usa `translate3d` para a animação rodar na GPU e não forçar
+   recálculo de layout durante a rolagem. */
+.js-anima .anima {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition:
+    opacity 0.5s ease-out var(--atraso, 0ms),
+    transform 0.5s ease-out var(--atraso, 0ms);
+}
+.js-anima .anima.esta-visivel {
+  opacity: 1;
+  transform: none;
+}
+
+/* Quem pediu menos movimento no sistema não vê NADA se mexendo: o conteúdo
+   simplesmente já está lá. (A regra global de reduced-motion mais acima zera a
+   duração das transições; esta garante que o estado inicial também não exista —
+   senão o conteúdo ficaria invisível para essas pessoas.) */
+@media (prefers-reduced-motion: reduce) {
+  .js-anima .anima,
+  .js-anima .anima.esta-visivel {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 
 /* ── Botão flutuante do WhatsApp ─────────────────────────────────────────── */
 .zap {

@@ -63,4 +63,50 @@
   /* ── Ano do rodapé ─────────────────────────────────────────────────────── */
   var ano = document.getElementById("ano");
   if (ano) ano.textContent = String(new Date().getFullYear());
+
+  /* ── Entrada das seções conforme a rolagem ───────────────────────────────
+     O estado inicial (invisível, 12px abaixo) vive no CSS e só existe sob a
+     classe `js-anima`, ligada no <head>. Aqui só marcamos o que já entrou na
+     tela. Regras que valem a pena manter:
+
+     - O HERO fica de fora: é a primeira coisa que a pessoa vê, não pode chegar
+       animando.
+     - `unobserve` depois de aparecer: cada bloco anima UMA vez; ninguém quer o
+       texto piscando de novo ao rolar para cima.
+     - Sem IntersectionObserver (navegador antigo), a classe é removida e a
+       página aparece inteira — nunca conteúdo preso invisível.
+     - O atraso em cascata é curto (60ms, no máximo três degraus): dá ritmo sem
+       fazer a pessoa esperar para ler. */
+  var raiz = document.documentElement;
+
+  if (!("IntersectionObserver" in window)) {
+    raiz.classList.remove("js-anima");
+    return;
+  }
+
+  var alvos = document.querySelectorAll(".secao .wrap > *, .cta__caixa > *");
+
+  if (!alvos.length) {
+    raiz.classList.remove("js-anima");
+    return;
+  }
+
+  var observador = new IntersectionObserver(
+    function (entradas) {
+      entradas.forEach(function (entrada) {
+        if (!entrada.isIntersecting) return;
+        entrada.target.classList.add("esta-visivel");
+        observador.unobserve(entrada.target);
+      });
+    },
+    // Dispara um pouco antes de o bloco chegar ao fim da tela: quando a pessoa
+    // termina de rolar, o conteúdo já está firme, não aparecendo na cara dela.
+    { rootMargin: "0px 0px -8% 0px", threshold: 0.05 },
+  );
+
+  Array.prototype.forEach.call(alvos, function (el, i) {
+    el.classList.add("anima");
+    el.style.setProperty("--atraso", Math.min(i % 4, 3) * 60 + "ms");
+    observador.observe(el);
+  });
 })();

@@ -40,6 +40,22 @@
         nomes.forEach(function (nome) { caches.delete(nome); });
       }).catch(function () { /* idem */ });
     }
+
+    /* ── Animação de entrada das seções ──────────────────────────────────
+       A classe é ligada AQUI (e não no main.js, que é `defer`) para o CSS já
+       valer na primeira pintura — senão o conteúdo apareceria, sumiria e
+       voltaria. Sem JavaScript, a classe nunca entra e a página é estática:
+       o conteúdo está todo no HTML, nada depende da animação para existir.
+
+       Rede de segurança: se o main.js não carregar (404, bloqueio, erro), nada
+       marcaria as seções como visíveis e a página ficaria em branco. Este
+       timeout desliga a animação se em 2,5s nada tiver aparecido. */
+    document.documentElement.classList.add("js-anima");
+    setTimeout(function () {
+      if (!document.querySelector(".anima.esta-visivel")) {
+        document.documentElement.classList.remove("js-anima");
+      }
+    }, 2500);
   })();
 </script>
 
@@ -462,8 +478,10 @@
 <!-- Botão flutuante: acompanha a rolagem em toda a página. -->
 <a class="zap" href="https://wa.me/5511998325320?text=Ol%C3%A1%21%20Vi%20o%20site%20do%20Tamarcado%20e%20quero%20saber%20mais."
    rel="noopener" aria-label="Falar com o Tamarcado no WhatsApp">
-  <svg class="zap__icone" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
-    <path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.67c2.2 0 4.27.86 5.83 2.42a8.2 8.2 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.25 8.24a8.23 8.23 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24m-4.53 4.4c-.21 0-.55.08-.84.39s-1.1 1.08-1.1 2.62 1.13 3.04 1.29 3.25c.16.21 2.22 3.39 5.38 4.62 2.63 1.04 3.17.83 3.74.78.57-.05 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.29-.21-.6-.36-.31-.16-1.83-.9-2.11-1.01-.29-.1-.5-.16-.7.16-.21.31-.8 1.01-.98 1.22-.18.21-.36.24-.67.08-.31-.16-1.31-.48-2.5-1.54-.92-.82-1.55-1.84-1.73-2.15-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.69-1.7-.95-2.32-.25-.61-.5-.53-.69-.54h-.6Z"/>
+  <!-- Ícone oficial da marca WhatsApp (viewBox 24×24, traçado único). Desenhado
+       em `currentColor` para herdar o branco do botão. -->
+  <svg class="zap__icone" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
   </svg>
   <span class="zap__texto">Fale conosco</span>
 </a>
