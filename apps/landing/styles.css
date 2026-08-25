@@ -38,23 +38,10 @@
   --sombra-forte: 0 2px 8px hsl(0 0% 0% / 0.1), 0 24px 48px hsl(0 0% 0% / 0.14);
 }
 
-/* Tema escuro do produto (globals.css [data-theme="dark"]), aplicado aqui pela
-   preferência do sistema — a LP não tem interruptor de tema. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 223 15% 10%;
-    --foreground: 0 0% 91%;
-    --card: 222 13% 15%;
-    --primary: 244 100% 72%;
-    /* No escuro a primária já contrasta com o fundo (~7:1): texto usa a mesma. */
-    --primary-texto: 244 100% 72%;
-    --muted: 220 13% 20%;
-    --muted-foreground: 218 8% 64%;
-    --border: 218 13% 23%;
-    --sombra: 0 1px 2px hsl(0 0% 0% / 0.4), 0 8px 24px hsl(0 0% 0% / 0.35);
-    --sombra-forte: 0 2px 8px hsl(0 0% 0% / 0.5), 0 24px 48px hsl(0 0% 0% / 0.45);
-  }
-}
+/* SEM tema escuro. A LP é SEMPRE clara — fundo claro, texto escuro, roxo só
+   nos acentos —, do mesmo jeito que o painel se apresenta. Seguir a preferência
+   do sistema fazia a página abrir escura para quem usa o celular no modo noturno
+   e criava a sensação de "mudei de lugar" ao entrar no sistema. */
 
 *,
 *::before,
@@ -151,7 +138,7 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 }
 .btn--fantasma:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary-texto)); }
 
-.btn--claro { background: #fff; color: hsl(243 60% 30%); }
+.btn--claro { background: #fff; color: hsl(var(--primary-texto)); }
 .btn--claro:hover { background: hsl(0 0% 96%); }
 
 /* ── Cabeçalho ───────────────────────────────────────────────────────────── */
@@ -172,13 +159,8 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 }
 .topo__marca { display: inline-flex; align-items: center; }
 .marca { width: auto; height: 1.75rem; }
-/* O logo tem versão para fundo claro e para fundo escuro: mostro a certa
-   conforme o tema, em vez de recolorir com filtro. */
-.marca--escuro { display: none; }
-@media (prefers-color-scheme: dark) {
-  .marca--claro { display: none; }
-  .marca--escuro { display: block; }
-}
+/* Como o fundo é sempre claro, só a versão do logo para fundo claro é usada
+   (o arquivo do logo para fundo escuro segue em assets/, sem uso na página). */
 
 .topo__menu-btn {
   display: inline-flex;
@@ -254,8 +236,9 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 .hero {
   padding: 3rem 0 2.5rem;
   background:
-    radial-gradient(60rem 30rem at 80% -10%, hsl(var(--primary) / 0.16), transparent 60%),
-    radial-gradient(40rem 24rem at 0% 0%, hsl(var(--primary) / 0.08), transparent 55%);
+    radial-gradient(60rem 30rem at 80% -10%, hsl(var(--primary) / 0.12), transparent 60%),
+    radial-gradient(40rem 24rem at 0% 0%, hsl(var(--primary) / 0.06), transparent 55%);
+  border-bottom: 1px solid hsl(var(--border));
 }
 .hero__grade { display: grid; gap: 2.5rem; }
 .hero__linha-fina {
@@ -347,7 +330,14 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 
 /* ── Seções ──────────────────────────────────────────────────────────────── */
 .secao { padding: 3.5rem 0; }
-.secao--alt { background: hsl(var(--muted) / 0.55); }
+/* No claro, `muted` a 55% quase não se distingue do branco: a faixa vira a
+   superfície cheia do token, com as bordas do design system marcando onde uma
+   seção termina e a outra começa. */
+.secao--alt {
+  background: hsl(var(--muted));
+  border-top: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+}
 .secao__chapeu {
   margin: 0 0 0.5rem;
   font-size: 0.8125rem;
@@ -444,8 +434,10 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   text-align: center;
   padding: 3rem 1.5rem;
   border-radius: calc(var(--radius) + 6px);
-  /* Fundo sólido escuro o bastante para o texto branco passar em contraste. */
-  background: linear-gradient(135deg, hsl(243 62% 46%), hsl(252 58% 38%));
+  /* Bloco de destaque: roxo sólido no tom mais escuro (--primary-texto). A
+     primária pura daria 4.29:1 com o texto branco — reprova. Este tom passa
+     (~7:1) e é o MESMO token já usado nos textos de acento, sem cor nova. */
+  background: hsl(var(--primary-texto));
   color: #fff;
 }
 .cta__caixa h2 { color: #fff; }
@@ -454,8 +446,12 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 
 /* ── Rodapé ──────────────────────────────────────────────────────────────── */
 .rodape {
-  background: hsl(0 0% 8%);
-  color: hsl(0 0% 78%);
+  /* Rodapé CLARO, na superfície `muted` do design system — um bloco preto no
+     fim reintroduziria o tema escuro que a página não usa. A borda superior é
+     o que separa o rodapé do conteúdo. */
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-top: 1px solid hsl(var(--border));
   padding-top: 3rem;
   /* Espaço extra embaixo para o botão flutuante não cobrir os links. */
   padding-bottom: 5.5rem;
@@ -464,16 +460,16 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 @media (min-width: 48rem) { .rodape__grade { grid-template-columns: 2fr 1fr 1fr; gap: 3rem; } }
 .rodape__marca { height: 1.75rem; width: auto; }
 .rodape__frase { margin-top: 1rem; max-width: 26rem; font-size: 0.9375rem; }
-.rodape__titulo { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(0 0% 60%); margin-bottom: 0.75rem; }
+.rodape__titulo { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); margin-bottom: 0.75rem; }
 .rodape ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-.rodape a { color: hsl(0 0% 88%); text-decoration: none; }
-.rodape a:hover { color: #fff; text-decoration: underline; }
+.rodape a { color: hsl(var(--foreground)); text-decoration: none; }
+.rodape a:hover { color: hsl(var(--primary-texto)); text-decoration: underline; }
 .rodape__base {
   margin-top: 2.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid hsl(0 0% 18%);
+  border-top: 1px solid hsl(var(--border));
   font-size: 0.875rem;
-  color: hsl(0 0% 58%);
+  color: hsl(var(--muted-foreground));
 }
 .rodape__base p { margin: 0; }
 
