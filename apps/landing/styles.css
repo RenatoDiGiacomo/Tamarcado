@@ -348,8 +348,7 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
    sobreposta no canto. */
 .hero__imagem .shot--desktop { display: none; }
 .hero__imagem .shot--mobile {
-  width: 68%;
-  max-width: 14rem;
+  width: min(14rem, 68%);
   margin-inline: auto;
 }
 
@@ -397,7 +396,13 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 
 /* A do celular é estreita por natureza: no telefone ela não pode ocupar a
    largura toda, senão fica desproporcional ao lado das telas de computador. */
-.quadro--celular .moldura { max-width: 17rem; margin-inline: auto; }
+.quadro--celular .moldura {
+  /* Fluida: `min()` faz a moldura encolher junto com a coluna em vez de manter
+     uma largura fixa em rem — que, num aparelho estreito (320px) ou com a fonte
+     do sistema aumentada, encostava nas bordas e parecia transbordar. */
+  width: min(17rem, 88%);
+  margin-inline: auto;
+}
 
 /* ── No CELULAR ──────────────────────────────────────────────────────────
    Uma tela de computador (1920px) espremida em 350px não se lê — vira o
@@ -425,7 +430,11 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   }
   .quadro--destaque .shot__img,
   .quadro--secundario .shot__img {
-    width: 52rem;
+    /* Larga o bastante para o texto da tela ser legível, mas proporcional à
+       largura disponível: 240% da coluna, com teto para não virar um arrasto
+       interminável em tablet. A rolagem acontece DENTRO da moldura — nunca na
+       página (é o `min-width: 0` do .quadro que segura isso). */
+    width: min(52rem, 240%);
     max-width: none;
   }
 }
