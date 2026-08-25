@@ -1,0 +1,9 @@
+# app.tamarcado.tec.br — PAINEL. Nada aqui deve entrar no índice do Google.
+# Quem faz SEO é a landing page (tamarcado.tec.br), que tem o próprio robots.
+#
+# O link público de agendamento (/agendar/{slug}) também fica fora do índice:
+# é a página de um cliente nosso, e publicá-la na busca é decisão dele, não
+# nossa (a página é neutra por decisão — DL-048). Para liberar um dia, troque
+# por: Disallow: /  +  Allow: /agendar/
+User-agent: *
+Disallow: /

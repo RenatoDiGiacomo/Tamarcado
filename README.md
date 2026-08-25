@@ -9,6 +9,7 @@ Monorepo (pnpm + Turborepo) com API NestJS, painel web React e app mobile.
 apps/
   api/      # NestJS — monolito modular (porta 3000)
   web/      # React + Vite — painel web (porta 5173)
+  landing/  # landing page estática (HTML/CSS/JS, sem build) — tamarcado.tec.br
   mobile/   # React Native + Expo — placeholder (Épico 5)
 packages/
   shared-types/   # types/DTOs compartilhados

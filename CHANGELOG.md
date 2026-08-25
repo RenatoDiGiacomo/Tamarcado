@@ -8,6 +8,23 @@ As versões seguem **X.Y.Z** (SemVer), decididas no PR `dev → main` — ver
 **DL-063**. Durante o beta, a interface exibe **"v1.0…b"** (o "b" some quando o
 sistema sair do beta).
 
+## Não lançado
+
+> Entra na próxima versão. O número sai no PR `dev → main` (DL-063).
+
+- **O sistema mudou de endereço:** o painel agora abre em
+  **app.tamarcado.tec.br** (antes era tamarcado.tec.br, que passou a ser o site
+  do Tamarcado). Os links antigos continuam funcionando — quem abrir o endereço
+  velho é levado automaticamente para o novo.
+- **Quem usa o sistema pelo ícone no celular precisa instalar de novo:**
+  desinstale o ícone antigo e adicione o sistema à tela inicial abrindo
+  **app.tamarcado.tec.br**. O endereço antigo agora mostra o site, não o sistema.
+- **O link de agendamento das suas clientes também mudou de endereço**
+  (app.tamarcado.tec.br/agendar/…). O link antigo redireciona sozinho, mas vale
+  atualizar onde ele estiver publicado — bio do Instagram, por exemplo.
+- **Novo site do Tamarcado** em tamarcado.tec.br, para quem ainda não é cliente
+  conhecer o sistema.
+
 ## v1.1.0b — 2026-08-20
 
 - **Financeiro:** registre o pagamento recebido de cada atendimento (pago ou
