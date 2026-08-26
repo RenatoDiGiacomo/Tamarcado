@@ -550,3 +550,57 @@ app instalado):
 > instalado: desinstale e repita. Se o ícone novo abrir **com** barra de
 > endereço, o manifest não foi lido — confira `https://app.tamarcado.tec.br/manifest.webmanifest`
 > (deve responder 200) antes de investigar qualquer outra coisa.
+
+---
+
+## 13. CI — cota de minutos do GitHub Actions
+
+**O repositório é privado**, e repositório privado **consome minutos** da cota
+mensal da conta em cada job que roda. Quando a cota acaba — ou quando um
+pagamento falha, ou o *spending limit* está em zero — o GitHub **para de iniciar
+os jobs**.
+
+### Como o sintoma aparece
+
+Não é teste quebrado. É isto:
+
+- **todos** os jobs falham em **3 a 5 segundos**;
+- nenhum passo aparece no job (`steps: []`);
+- falha também em branches sem relação com a mudança — inclusive um push direto
+  em `dev`;
+- a anotação do run diz:
+
+```
+The job was not started because recent account payments have failed or your
+spending limit needs to be increased. Please check the 'Billing & plans'
+section in your settings
+```
+
+Para confirmar em um comando:
+
+```bash
+gh run view <run-id>          # a anotação aparece em ANNOTATIONS
+gh run list --limit 10        # se TUDO falhou a partir de um horário, é cota
+```
+
+> **Regra de bolso:** suíte que falha em segundos, sem log de teste nenhum, e em
+> mais de uma branch ao mesmo tempo, é **cota** — não código. Procurar bug aí é
+> perder a tarde.
+
+### Onde resolver
+
+*Settings → Billing & plans* da conta dona do repositório: conferir se há
+pagamento recusado e se o limite de gastos de Actions comporta o mês.
+
+### O que o projeto faz para gastar menos
+
+- **Gatilho sem duplicar** (2026-08-26): antes, `push` em `"**"` **mais**
+  `pull_request` faziam cada commit de uma branch com PR aberto rodar a suíte
+  **duas vezes**. Agora `pull_request` cobre o trabalho (é o check que vale antes
+  do merge) e `push` roda só em `main` e `dev`, para cobrir o resultado do merge.
+- **`concurrency` com `cancel-in-progress`**: três commits seguidos na mesma
+  branch não rodam três suítes até o fim — só a do commit mais novo.
+- **Trade-off consciente do e2e:** o e2e roda em **3 shards paralelos**. Isso
+  derruba o tempo de parede (~4,5 min → ~1,5 min), mas **cada shard é um job** e
+  os minutos contam por job. Se a cota voltar a apertar, reduzir os shards é o
+  primeiro lugar a mexer — custa tempo de espera, não cobertura.

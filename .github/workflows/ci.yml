@@ -1,13 +1,28 @@
 name: CI
 
+# GATILHO SEM DUPLICAR (2026-08-26). Antes: `push` em "**" MAIS `pull_request`
+# — cada commit numa branch com PR aberto rodava a suíte DUAS vezes e consumia
+# o dobro de minutos. Repositório privado tem cota mensal; quando ela acaba, o
+# CI para de rodar (RUNBOOK §13).
+#
+# Agora:
+# - `pull_request`: é o que dá o check antes do merge, e é onde o trabalho vive.
+#   PRs de trabalho miram `dev`; o PR de implantação mira `main` (DL-059).
+#   (`staging` não existe como branch: o staging do projeto é LOCAL — ADR-010.)
+# - `push`: só em `main` e `dev`, para cobrir o resultado DO MERGE — que pode
+#   diferir do que o PR testou quando outra coisa entrou na base no meio.
 on:
   push:
-    branches: ["**"]
-  # PRs de trabalho miram `dev`; o PR de implantação mira `main` (DL-059).
-  # `staging` saiu: não há branch/deploy de staging — o staging do projeto é
-  # LOCAL (ADR-010), não um branch no GitHub.
+    branches: [main, dev]
   pull_request:
     branches: [main, dev]
+
+# Push em sequência na mesma branch cancela o run anterior: quem paga a conta é
+# o commit mais novo, e o resultado do run velho não interessa a ninguém. Sem
+# isto, três commits seguidos rodam a suíte três vezes até o fim.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Checks rápidos SEM banco: build, lint, typecheck, testes de front (vitest) e
