@@ -359,28 +359,103 @@ No Actions: `pnpm install` → **build** (web com `VITE_API_URL=https://api.tama
 
 ---
 
-## 11. DNS / e-mail — SPF ÚNICO (atenção na fase de e-mail transacional)
+## 11. E-mail transacional (Brevo) — DNS e configuração
 
-DNS gerido na **Cloudflare**. O **Email Routing** (grátis, `contato@` → caixa do Renato) publica
-um registro **SPF** próprio (`include:_spf.mx.cloudflare.net`).
+O canal de e-mail entrega **recuperação de senha** e **convite de equipe**
+(DL-070). Envio pela **API HTTP** do Brevo — não SMTP (o porquê está no
+`mail.service.ts`; em resumo: sem dependência nova, sem depender de porta de
+saída, erro legível).
 
-⚠️ **Quando entrar o e-mail transacional (Brevo ou Resend — roadmap item 2, DL-060):** o SPF do
-provedor **NÃO** pode virar um segundo registro TXT. Um domínio com **dois registros SPF separados
-INVALIDA os dois** (RFC 7208). É preciso **um único registro TXT** `v=spf1 …` combinando os dois
-`include:`. Exemplo (ajustar ao provedor escolhido):
+**Estado do DNS em 2026-08-26** (consultado, não suposto):
+
+| Registro | Valor hoje |
+|---|---|
+| SPF (TXT na raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
+| DMARC (TXT em `_dmarc`) | `v=DMARC1; p=reject;` |
+| MX | `route1/2/3.mx.cloudflare.net` (Email Routing) |
+
+### 11.1 O que fazer no painel do Brevo
+
+1. **Criar a conta** em brevo.com (o plano gratuito envia 300 e-mails/dia — bem
+   acima do nosso volume: reset de senha e convite são eventos raros).
+2. **Senders, Domains & Dedicated IPs → Domains → Add a domain** e informar
+   `tamarcado.tec.br`. Escolher **"I own this domain"** e autenticar.
+3. O Brevo mostra os registros DKIM/Brevo-code. **Copiar os valores exatos** —
+   os nomes abaixo são os padrões dele, mas confirme na tela, porque o seletor
+   DKIM muda de conta para conta.
+4. **Senders → Add a sender**: `contato@tamarcado.tec.br`, nome `Tamarcado`.
+   Como o domínio está autenticado, não é preciso confirmar por e-mail.
+5. **SMTP & API → API Keys → Generate a new API key**. Guardar no gerenciador de
+   senhas e colocar em `/etc/tamarcado/api.env` como `BREVO_API_KEY`.
+   Depois: `pm2 restart tamarcado-api --update-env`.
+
+### 11.2 Registros para colar na Cloudflare
+
+⚠️ **Todos com a nuvem CINZA (DNS only).** Registro de e-mail proxied não
+funciona.
+
+**1. SPF — EDITAR o registro existente, NUNCA criar um segundo.**
 
 ```
-tamarcado.tec.br  TXT  "v=spf1 include:_spf.mx.cloudflare.net include:<spf-do-brevo-ou-resend> ~all"
+Tipo: TXT   Nome: @   (ou tamarcado.tec.br)
+Valor: v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com ~all
 ```
 
-- **Brevo:** `include:spf.sendinbrevo.com` (confirmar no painel do Brevo na hora).
-- **Resend:** usa domínio/subdomínio próprio + `include:` indicado pelo painel (confirmar).
-- Além do SPF, o provedor exige **DKIM** (registros CNAME/TXT próprios — esses SIM são separados,
-  sem conflito) e opcionalmente **DMARC**. Só o **SPF** é que precisa ser registro único.
-- Registros de e-mail (MX/TXT do Email Routing, DKIM) ficam **DNS only**; não afetam o Certbot.
+> **Dois registros SPF separados INVALIDAM os dois** (RFC 7208) — e aí cai em
+> spam até o e-mail que hoje funciona. É **um** TXT com os dois `include:`.
+> Confirme o domínio do include na tela do Brevo (costuma ser `spf.brevo.com`;
+> contas antigas usam `spf.sendinblue.com`).
 
+**2. DKIM — registros PRÓPRIOS, sem conflito com nada.** Os valores saem da tela
+do Brevo; a forma é esta:
 
----
+```
+Tipo: TXT   Nome: mail._domainkey     Valor: k=rsa; p=<chave pública do Brevo>
+Tipo: TXT   Nome: <código>._domainkey Valor: <valor que o Brevo mostrar>
+```
+
+**3. Verificação do domínio** — o Brevo pede um TXT `brevo-code`:
+
+```
+Tipo: TXT   Nome: @   Valor: brevo-code:<código da sua conta>
+```
+
+> Este é um TXT normal e **não** conflita com o SPF: a regra de registro único
+> vale só para valores que começam com `v=spf1`.
+
+### 11.3 DMARC em `p=reject` — por que passa mesmo assim
+
+A política do domínio é a mais rígida que existe: e-mail que falha na validação
+é **rejeitado no destino**, não vai para spam. O que faz o envio pelo Brevo
+passar é o **DKIM alinhado**.
+
+- O Brevo assina cada mensagem com DKIM usando **`d=tamarcado.tec.br`** (é o que
+  a autenticação de domínio do §11.1 configura). DKIM alinhado com o `From:` já
+  **satisfaz o DMARC sozinho** — a especificação exige SPF **ou** DKIM, não os dois.
+- O SPF provavelmente **não** vai alinhar, e isso é normal: o envelope-from (o
+  `Return-Path`, usado para bounce) é de um domínio do Brevo, não do nosso. Por
+  isso o `include:spf.brevo.com` ajuda na reputação, mas **quem carrega o DMARC
+  aqui é o DKIM**.
+- **Consequência prática:** se a autenticação de domínio no Brevo não for
+  concluída (DKIM ausente ou não verificado), com `p=reject` o e-mail **não
+  chega** — nem para o spam. Concluir o §11.1 é obrigatório antes de contar com
+  o canal.
+
+**Conferir depois de configurar** (antes de confiar no fluxo real):
+
+```bash
+dig +short TXT tamarcado.tec.br        # UM registro v=spf1, com os dois include
+dig +short TXT _dmarc.tamarcado.tec.br
+dig +short TXT mail._domainkey.tamarcado.tec.br
+```
+
+Na mensagem recebida, abrir "mostrar original" (Gmail) e conferir:
+`DKIM: 'PASS' with domain tamarcado.tec.br` e `DMARC: 'PASS'`.
+
+**Melhoria opcional:** hoje o DMARC não tem `rua`, então não recebemos relatório
+de quem está falhando. Vale acrescentar
+`v=DMARC1; p=reject; rua=mailto:contato@tamarcado.tec.br;` para enxergar
+problemas antes de o cliente reclamar.
 
 ## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
 
