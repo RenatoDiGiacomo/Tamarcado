@@ -389,59 +389,112 @@ painel vai para **`app.tamarcado.tec.br`**. Feita **antes de existir cliente com
 link divulgado** — depois, mudar quebraria link em bio de Instagram e material
 impresso de terceiros.
 
-**Estado em 2026-08-25:** o código e as configs estão no repositório; os passos
-abaixo **ainda não foram executados** (`app.tamarcado.tec.br` responde
-`NXDOMAIN` — o registro DNS nunca chegou a ser criado, apesar de a fase 2 tê-lo
-dado como reservado). Nada aqui roda pelo CD: exige DNS, `sudo` e Certbot.
+**Estado: ✅ NO AR (2026-08-25).** `tamarcado.tec.br` serve a landing page,
+`app.tamarcado.tec.br` serve o painel, ambos com HTTPS. A ordem abaixo é a que
+funcionou — **três passos não estavam previstos na primeira versão deste
+runbook e quebraram o deploy**; estão marcados com ⚠️.
 
-### 12.1 Ordem de execução (não pular etapa)
+### 12.1 Ordem de execução em servidor NOVO (não pular etapa)
 
-1. **DNS na Cloudflare** — criar `A  app  →  179.198.123.87`, **DNS only**
-   (nuvem cinza). Proxied quebra o Certbot. Conferir antes de seguir:
+1. **DNS na Cloudflare** — `A  app  →  179.198.123.87`, **DNS only** (nuvem
+   cinza; proxied quebra o Certbot). Confirmar antes de seguir:
    ```bash
    dig +short app.tamarcado.tec.br      # tem de devolver 179.198.123.87
    ```
 
-2. **Nginx — publicar os dois server blocks** (como `deploy`, sudo pede senha):
+2. ⚠️ **Criar os diretórios do Nginx COM DONO, antes do deploy.** `/var/www`
+   pertence ao root: sem isto o deploy morre no passo "publicar web" com
+   `mkdir: cannot create directory '/var/www/tamarcado-lp': Permission denied`
+   — e já depois de ter rodado backup e migrations.
    ```bash
-   sudo cp /caminho/do/repo/infra/nginx/app.tamarcado.tec.br.conf /etc/nginx/sites-available/
-   sudo cp /caminho/do/repo/infra/nginx/tamarcado.tec.br.conf     /etc/nginx/sites-available/
+   sudo mkdir -p /var/www/tamarcado /var/www/tamarcado-lp
+   sudo chown -R deploy:deploy /var/www/tamarcado /var/www/tamarcado-lp
+   ```
+   > O `deploy-remote.sh` hoje **checa isso no começo** e falha com esta
+   > instrução na tela, antes de tocar no banco. A preparação continua manual.
+
+3. **Deploy** (`workflow_dispatch` do `deploy.yml`) — publica o painel em
+   `/var/www/tamarcado` e a landing page em `/var/www/tamarcado-lp`. Fazer
+   **antes** de trocar as confs: assim, quando o Nginx passar a apontar para a
+   LP, o conteúdo já está lá (senão a raiz responde 404).
+
+4. ⚠️ **Copiar as DUAS confs — a do `app` E a da RAIZ.** Copiar só a do `app`
+   deixa a raiz com a conf antiga (de 11/08), que ainda serve o **painel**: o
+   site não aparece e `tamarcado.tec.br/login` não redireciona.
+   ```bash
+   # do seu PC, com a branch que tem as confs:
+   scp -i ~/.ssh/id_ed25519 infra/nginx/app.tamarcado.tec.br.conf        infra/nginx/tamarcado.tec.br.conf deploy@179.198.123.87:/tmp/
+
+   # no servidor:
+   sudo cp /tmp/app.tamarcado.tec.br.conf /tmp/tamarcado.tec.br.conf /etc/nginx/sites-available/
    sudo ln -sfn /etc/nginx/sites-available/app.tamarcado.tec.br.conf /etc/nginx/sites-enabled/
-   sudo mkdir -p /var/www/tamarcado-lp        # LP ainda vazia neste ponto
+   sudo ln -sfn /etc/nginx/sites-available/tamarcado.tec.br.conf     /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    ```
-   > As confs vivem no repo, mas **não** são copiadas pelo CD (o pacote de
-   > deploy não leva `infra/`). Copiar à mão é o esperado — igual à fase 2.
+   > As confs vivem no repo mas **não** são copiadas pelo CD: o pacote de deploy
+   > é uma lista de inclusão e **não leva `infra/`** (§7.1). Cópia manual é o
+   > esperado — e é fácil esquecer metade.
 
-3. **Certificado do `app.`** (a raiz e a `api.` já têm):
+5. ⚠️ **Certbot para os DOIS nomes, com `--redirect`.** As confs do repo têm só
+   `listen 80`; o bloco 443 é o Certbot que escreve. Sem isso, o HTTPS do nome
+   cai no `default_server` — foi assim que `https://tamarcado.tec.br` chegou a
+   responder `{"message":"Cannot GET /"}`, que é a **API** atendendo por engano.
    ```bash
-   sudo certbot --nginx -d app.tamarcado.tec.br
-   sudo certbot renew --dry-run          # confirmar a renovação automática
+   sudo certbot --nginx -d app.tamarcado.tec.br --redirect
+   sudo certbot --nginx -d tamarcado.tec.br     --redirect
+   sudo certbot renew --dry-run
    ```
-   O Certbot adiciona o bloco 443 e o redirect 80→443 no arquivo do `app.`.
+   **Se o certificado já existe** (emitido antes, instalação falhou), use
+   `install` em vez de emitir de novo — não gasta rate limit:
+   ```bash
+   sudo certbot install --nginx --cert-name app.tamarcado.tec.br
+   ```
 
-4. **Env de produção** — em `/etc/tamarcado/api.env` (§5):
+6. **Env de produção** — em `/etc/tamarcado/api.env` (§5):
    ```
    CORS_ORIGIN=https://app.tamarcado.tec.br
    WEB_BASE_URL=https://app.tamarcado.tec.br
    ```
-   Depois: `pm2 restart tamarcado-api --update-env` (o env é lido do `.env` da
-   release; o CD recopia a cada deploy, então **mudar o arquivo canônico basta**).
+   Depois: `pm2 restart tamarcado-api --update-env`.
 
-5. **Deploy** (`workflow_dispatch` do `deploy.yml`) — publica o painel em
-   `/var/www/tamarcado` (como sempre) **e** a landing page em
-   `/var/www/tamarcado-lp`. Só depois deste deploy a raiz para de servir o
-   painel: até aqui, `/var/www/tamarcado-lp` está vazio e a raiz devolve 404.
-
-6. **Validar** (nesta ordem):
+7. **Validar:**
    ```bash
    curl -I https://app.tamarcado.tec.br/login     # 200, cert válido
    curl -I https://tamarcado.tec.br/              # 200, landing page
    curl -I https://tamarcado.tec.br/login         # 301 -> app.tamarcado.tec.br/login
    curl -I https://tamarcado.tec.br/sw.js         # 404 (proposital, §12.2)
+   curl -sI https://tamarcado.tec.br/README.md    # 403 — nota interna não vai para a web
+   curl -s  https://tamarcado.tec.br/google<hash>.html   # verificação do Search Console
    ```
-   Pela UI: entrar no painel por `app.`, e provisionar/consultar uma empresa
-   para conferir que `painelUrl` e `publicUrl` saem com `app.` (§5.1, túnel SSH).
+   Pela UI: entrar no painel por `app.`, e provisionar/consultar uma empresa para
+   conferir que `painelUrl` e `publicUrl` saem com `app.` (§5.1, túnel SSH).
+
+### 12.1.1 Certificados duplicados — atenção na renovação
+
+Rodar `certbot --nginx -d tamarcado.tec.br` quando **já existia** um certificado
+para esse nome faz o Certbot criar um **segundo** lineage,
+`tamarcado.tec.br-0001`, em vez de reaproveitar o primeiro. Foi o que aconteceu
+em 2026-08-25. Funciona, mas os dois passam a renovar sozinhos, dobrando as
+chamadas à Let's Encrypt para o mesmo domínio.
+
+```bash
+sudo certbot certificates      # ver os lineages, os DOMÍNIOS de cada um e qual está instalado
+```
+
+⚠️ **Antes de apagar qualquer um, confira a lista de domínios.** O certificado
+original da fase 2 pode ser um **SAN cobrindo `tamarcado.tec.br` E
+`api.tamarcado.tec.br`** — apagá-lo derrubaria o HTTPS da API. Só remova o
+lineage que (a) não está referenciado por nenhum `ssl_certificate` em
+`/etc/nginx` e (b) não cobre nenhum outro nome em uso:
+
+```bash
+grep -rn "ssl_certificate" /etc/nginx/sites-enabled/     # quem usa o quê
+sudo certbot delete --cert-name <lineage-orfão>
+sudo certbot renew --dry-run
+```
+
+**Para não repetir:** emitir com `--cert-name` explícito, ou usar
+`certbot install` quando o certificado já existe.
 
 ### 12.2 PWA — quem já instalou precisa reinstalar
 

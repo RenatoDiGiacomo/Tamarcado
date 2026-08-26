@@ -8,6 +8,11 @@ framework, sem dependência.** É servido direto pelo Nginx a partir de
 > ser lida pelo Google. Um SPA React entregaria a mesma página com bem mais peso
 > e com o conteúdo montado por JavaScript. Aqui o HTML já vem pronto na resposta.
 
+> **Esta pasta é a raiz do site.** Tudo que estiver aqui fica acessível em
+> `tamarcado.tec.br/<arquivo>`. Este README é a exceção: o deploy remove os
+> `.md` do pacote e o Nginx nega `.md` — foi encontrado aberto ao público em
+> 2026-08-25 e fechado no mesmo dia.
+
 ## Endereços (decisão DL-069)
 
 | Endereço | O que serve |
@@ -25,6 +30,7 @@ apps/landing/
   main.js         menu do celular, fallback das capturas, ano do rodapé
   robots.txt      libera a indexação e aponta o sitemap
   sitemap.xml     uma URL hoje; acrescente uma <url> por página nova
+  google*.html    verificação do Search Console — VERSIONADO, não apague
   assets/
     logo-*.svg            logos (cópia de apps/web/src/logos)
     favicon-192.png       ícone da aba
@@ -80,9 +86,12 @@ do arquivo que falta, e volta ao normal quando o PNG é reposto.
 1. **Google Analytics (GA4)** — no `index.html`, procure
    `PONTO DE INSERÇÃO — Google Analytics`, troque `G-XXXXXXXXXX` pelo ID da
    propriedade e **descomente** o bloco.
-2. **Search Console** — na mesma região do arquivo, cole a meta
-   `google-site-verification`. Depois, no Search Console, envie
-   `https://tamarcado.tec.br/sitemap.xml`.
+2. **Search Console** — a verificação é feita pelo arquivo `google*.html` desta
+   pasta, que **precisa continuar versionado**: a pasta inteira é publicada com
+   `rsync --delete`, então um arquivo que exista só no servidor é **apagado no
+   deploy seguinte** e a propriedade cai. (Há também o ponto de inserção da meta
+   `google-site-verification` no `index.html`, se um dia preferir esse método.)
+   Depois de verificado, envie `https://tamarcado.tec.br/sitemap.xml`.
 3. **`og-image.png`** — conforme a tabela acima (as capturas de tela já estão
    na pasta; falta só a arte de compartilhamento).
 
