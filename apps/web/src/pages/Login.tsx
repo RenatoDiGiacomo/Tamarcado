@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth, type CompanyChoice } from "../auth/AuthContext";
 import { ApiConnectionError, CONNECTION_ERROR_MESSAGE } from "../lib/api";
@@ -194,6 +194,14 @@ export function Login() {
             <Button type="submit" disabled={submitting} className="mt-1 w-full">
               {submitting ? "Entrando..." : "Entrar"}
             </Button>
+            {/* Recuperação por e-mail: o link chega na caixa da pessoa e leva
+                para /definir-senha (mecanismo da 1.9.01). */}
+            <Link
+              to="/esqueci-senha"
+              className="self-center text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              Esqueci minha senha
+            </Link>
           </form>
           )}
           {/* Versão discreta no canto inferior direito do card (lida do

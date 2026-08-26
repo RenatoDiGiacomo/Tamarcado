@@ -4,8 +4,11 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Company } from "../../database/entities/company.entity";
 import { UsersModule } from "../users/users.module";
 import { TokenModule } from "../token/token.module";
+import { MailModule } from "../mail/mail.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { ForgotPasswordRateLimitService } from "./forgot-password-rate-limit.service";
+import { PasswordRecoveryService } from "./password-recovery.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 
 @Module({
@@ -16,8 +19,14 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     PassportModule,
     TypeOrmModule.forFeature([Company]),
     TokenModule,
+    MailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    PasswordRecoveryService,
+    ForgotPasswordRateLimitService,
+  ],
 })
 export class AuthModule {}
