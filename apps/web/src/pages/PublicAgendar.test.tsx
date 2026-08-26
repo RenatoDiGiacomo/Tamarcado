@@ -126,4 +126,121 @@ describe("PublicAgendar (link público)", () => {
 
     expect(await screen.findByText(/solicitação recente/i)).toBeInTheDocument();
   });
+
+  // ── Ordem do fluxo: serviço → profissional → data → horário ──────────────
+  // Antes, Profissional vinha DEPOIS de Horário: escolher a profissional
+  // recarregava os horários e a seleção era descartada em silêncio.
+
+  /** Router com duas profissionais e disponibilidade DIFERENTE para cada uma. */
+  function routeComProfissionais() {
+    return (path?: string, opts?: { method?: string }) => {
+      if (opts?.method === "POST") return Promise.resolve(jsonRes({ id: "1", status: "pending" }));
+      if (path === "/public/salao-a/installation")
+        return Promise.resolve(jsonRes({ name: "Salão A", logoUrl: null, primaryColor: "#B85C38" }));
+      if (path === "/public/salao-a/services")
+        return Promise.resolve(
+          jsonRes({ services: [{ id: "3", name: "Corte", durationMinutes: 60, price: "50.00" }] }),
+        );
+      if (path === "/public/salao-a/professionals")
+        return Promise.resolve(
+          jsonRes({ professionals: [{ id: "p1", name: "Ana Souza" }, { id: "p2", name: "Bia Melo" }] }),
+        );
+      if (path && path.startsWith("/public/salao-a/availability")) {
+        // Ana atende 10:00 e 11:00; Bia só 11:00. Sem preferência: as duas.
+        if (path.includes("professionalId=p1"))
+          return Promise.resolve(jsonRes({ slots: [{ time: "10:00" }, { time: "11:00" }] }));
+        if (path.includes("professionalId=p2"))
+          return Promise.resolve(jsonRes({ slots: [{ time: "11:00" }] }));
+        return Promise.resolve(jsonRes({ slots: [{ time: "10:00" }, { time: "11:00" }] }));
+      }
+      return Promise.resolve(jsonRes({}));
+    };
+  }
+
+  async function escolherServico() {
+    fireEvent.click(await screen.findByText("Corte"));
+  }
+
+  it("Profissional aparece ANTES de Data e Horário", async () => {
+    apiMock.mockImplementation(routeComProfissionais());
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    const rotulos = await screen.findAllByText(/^(Serviço|Profissional \(opcional\)|Data|Horário)$/);
+    expect(rotulos.map((e) => e.textContent)).toEqual([
+      "Serviço",
+      "Profissional (opcional)",
+      "Data",
+      "Horário",
+    ]);
+  });
+
+  it("escolher a profissional DEPOIS do horário mantém o horário, se continuar livre", async () => {
+    apiMock.mockImplementation(routeComProfissionais());
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    fireEvent.click(await screen.findByRole("button", { name: "11:00" }));
+    expect(screen.getByRole("button", { name: "11:00" })).toHaveClass("bg-primary");
+
+    // Bia também atende 11:00 → a seleção sobrevive.
+    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "11:00" })).toHaveClass("bg-primary"),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("se o horário não existir para a profissional nova, AVISA em vez de apagar em silêncio", async () => {
+    apiMock.mockImplementation(routeComProfissionais());
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    // Bia não atende 10:00.
+    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+
+    const aviso = await screen.findByRole("status");
+    expect(aviso).toHaveTextContent("10:00");
+    expect(aviso).toHaveTextContent("Bia Melo");
+    // E o horário some da seleção, porque de fato não está disponível.
+    expect(screen.queryByRole("button", { name: "10:00" })).not.toBeInTheDocument();
+  });
+
+  it("escolher um horário novo limpa o aviso", async () => {
+    apiMock.mockImplementation(routeComProfissionais());
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+    await screen.findByRole("status");
+
+    fireEvent.click(screen.getByRole("button", { name: "11:00" }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("trocar a DATA com horário que some avisa citando a data, não a profissional", async () => {
+    apiMock.mockImplementation((path?: string, opts?: { method?: string }) => {
+      if (path && path.startsWith("/public/salao-a/availability")) {
+        // Data de amanhã não tem 10:00.
+        if (path.includes("date=2030-01-02"))
+          return Promise.resolve(jsonRes({ slots: [{ time: "15:00" }] }));
+        return Promise.resolve(jsonRes({ slots: [{ time: "10:00" }, { time: "11:00" }] }));
+      }
+      return routeComProfissionais()(path, opts);
+    });
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    fireEvent.change(screen.getByDisplayValue(/^\d{4}-\d{2}-\d{2}$/), {
+      target: { value: "2030-01-02" },
+    });
+
+    const aviso = await screen.findByRole("status");
+    expect(aviso).toHaveTextContent(/nesta data/i);
+    expect(aviso).not.toHaveTextContent(/Ana|Bia/);
+  });
 });

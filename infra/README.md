@@ -52,7 +52,7 @@ Layout no servidor (detalhe completo no RUNBOOK §3):
 
 ## CI/CD
 
-- **`ci.yml`** — push em qualquer branch + PR para `main`/`staging`. Roda lint → typecheck → test → build de todos os pacotes. Provisiona services MySQL 8 e Redis 7 para os testes e2e da API.
+- **`ci.yml`** — **PR** para `main`/`dev` (o check que vale antes do merge) e **push** só em `main`/`dev` (cobre o resultado do merge). O gatilho **não duplica**: antes, push em qualquer branch + PR rodavam a suíte duas vezes por commit e dobravam o consumo de minutos (RUNBOOK §13). Roda build → lint → typecheck → test; o e2e vai em 3 shards paralelos, cada um com o próprio MySQL. `concurrency` cancela o run anterior da mesma branch.
 - **`deploy.yml`** — push em `main`. Build + deploy SSH (migrations, `pm2 restart`, cópia do `web/dist` para o Nginx).
 
 ## Passos manuais do Renato (não automatizáveis pelo código)
@@ -68,7 +68,7 @@ Estes passos precisam ser feitos uma vez, fora deste repositório:
    - `PROD_VPS_HOST` — IP do VPS
    - `PROD_SSH_KEY` — chave privada SSH do usuário `deploy`
    - (`PROD_DATABASE_URL` fica no `.env.production` do VPS, **não** no Actions)
-3. **Branch protection** em `main`: exigir o check `validate` (do `ci.yml`) verde antes do merge — garante "deploy só com CI verde" (architecture.md §9.2).
+3. **Branch protection** em `main`: exigir o check `checks` (do `ci.yml`) verde antes do merge — garante "deploy só com CI verde" (architecture.md §9.2).
 4. **Provisionar o VPS**: instalar Docker/Node 20/pnpm 9, PM2, Nginx, Certbot; criar usuário `deploy`; clonar o repo em `/opt/tamarcado`; copiar `infra/nginx/tamarcado.conf` para `/etc/nginx/sites-enabled/`; criar `/opt/tamarcado/.env.production`.
 
 ## Scripts
