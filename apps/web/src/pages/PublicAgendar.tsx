@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CalendarClock, CheckCircle2, Clock } from "lucide-react";
 import { apiRequest } from "../lib/api";
@@ -62,12 +62,22 @@ export function PublicAgendar() {
   const [inst, setInst] = useState<PublicInstallation | null>(null);
   const [services, setServices] = useState<PublicService[]>([]);
   const [professionals, setProfessionals] = useState<PublicProfessional[]>([]);
+  /** id → nome, para a mensagem de aviso citar quem foi escolhido. */
+  const profNomeRef = useRef(new Map<string, string>());
+  profNomeRef.current = new Map(professionals.map((p) => [p.id, p.name]));
 
   const [serviceId, setServiceId] = useState("");
   const [date, setDate] = useState(todayIso());
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [time, setTime] = useState("");
+  /** Espelho do horário escolhido, para o efeito de disponibilidade consultar
+   *  SEM entrar nas dependências — senão escolher um horário recarregaria os
+   *  horários, que é justamente o que se quer evitar. */
+  const timeRef = useRef("");
+  timeRef.current = time;
+  /** Aviso (não erro) quando o horário escolhido deixa de estar disponível. */
+  const [slotAviso, setSlotAviso] = useState<string | null>(null);
   const [professionalId, setProfessionalId] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -132,8 +142,28 @@ export function PublicAgendar() {
       if (professionalId) q.set("professionalId", professionalId);
       const res = await apiRequest(`/public/${slug}/availability?${q.toString()}`);
       if (!active) return;
-      setSlots(res.ok ? ((await res.json()) as { slots: Slot[] }).slots : []);
-      setTime("");
+      const novos = res.ok ? ((await res.json()) as { slots: Slot[] }).slots : [];
+      setSlots(novos);
+
+      // A seleção de horário NÃO é descartada por padrão. Antes, qualquer
+      // mudança (inclusive escolher a profissional) zerava o horário e a
+      // cliente tinha de escolher de novo, sem entender por quê.
+      const escolhido = timeRef.current;
+      if (escolhido && !novos.some((s) => s.time === escolhido)) {
+        // Sumiu de verdade: avisa, com o motivo, em vez de apagar em silêncio.
+        const comQuem = professionalId
+          ? profNomeRef.current.get(professionalId)
+          : null;
+        setSlotAviso(
+          comQuem
+            ? `O horário das ${escolhido} não está livre com ${comQuem}. Escolha outro abaixo.`
+            : `O horário das ${escolhido} não está livre nesta data. Escolha outro abaixo.`,
+        );
+        setTime("");
+      } else if (escolhido) {
+        // Continua livre: mantém a escolha e limpa qualquer aviso antigo.
+        setSlotAviso(null);
+      }
       setLoadingSlots(false);
     })();
     return () => {
@@ -259,6 +289,31 @@ export function PublicAgendar() {
 
           {serviceId && (
             <>
+              {/* PROFISSIONAL vem ANTES de data e horário: cada profissional tem
+                  disponibilidade própria, então escolher depois obrigava a
+                  recarregar os horários. Escolhendo aqui, a lista de horários
+                  já nasce filtrada por quem vai atender. */}
+              {professionals.length > 0 && (
+                <Field label="Profissional (opcional)">
+                  <select
+                    aria-label="Profissional"
+                    value={professionalId}
+                    onChange={(e) => setProfessionalId(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">Sem preferência</option>
+                    {professionals.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sem preferência: mostramos os horários de quem estiver livre.
+                  </p>
+                </Field>
+              )}
+
               <Field label="Data">
                 <input
                   type="date"
@@ -278,7 +333,10 @@ export function PublicAgendar() {
                       <button
                         key={s.time}
                         type="button"
-                        onClick={() => setTime(s.time)}
+                        onClick={() => {
+                          setTime(s.time);
+                          setSlotAviso(null);
+                        }}
                         className={cn(
                           "rounded-md border px-2 py-2 text-sm tabular-nums transition-colors",
                           time === s.time
@@ -295,24 +353,16 @@ export function PublicAgendar() {
                     Sem horários livres neste dia. Tente outra data.
                   </p>
                 )}
+                {slotAviso && (
+                  <p
+                    role="status"
+                    className="mt-2 rounded-md bg-status-pending/10 px-3 py-2 text-sm text-foreground"
+                  >
+                    {slotAviso}
+                  </p>
+                )}
               </Field>
 
-              {professionals.length > 0 && (
-                <Field label="Profissional (opcional)">
-                  <select
-                    value={professionalId}
-                    onChange={(e) => setProfessionalId(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Sem preferência</option>
-                    {professionals.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
 
               <Field label="Seu nome">
                 <input

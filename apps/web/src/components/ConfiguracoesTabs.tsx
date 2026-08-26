@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { NavLink } from "react-router-dom";
-import { Clock, Link2, Palette, Scissors } from "lucide-react";
+import { Clock, Link2, MonitorDown, Palette, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,6 +22,7 @@ const TABS: Tab[] = [
   { label: "Horários", to: "/configuracoes/horarios", Icon: Clock },
   { label: "Identidade visual", short: "Identidade", to: "/configuracoes/identidade", Icon: Palette },
   { label: "Link", to: "/configuracoes/link", Icon: Link2 },
+  { label: "Aplicativo", short: "App", to: "/configuracoes/aplicativo", Icon: MonitorDown },
 ];
 
 export function ConfiguracoesTabs() {

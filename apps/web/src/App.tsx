@@ -15,6 +15,7 @@ import { ConfiguracoesServicos } from "./pages/ConfiguracoesServicos";
 import { ConfiguracoesHorarios } from "./pages/ConfiguracoesHorarios";
 import { Equipe } from "./pages/Equipe";
 import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
+import { ConfiguracoesAplicativo } from "./pages/ConfiguracoesAplicativo";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { DefinirSenha } from "./pages/DefinirSenha";
 import { EsqueciSenha } from "./pages/EsqueciSenha";
@@ -148,6 +149,8 @@ export function App() {
           {/* Equipe saiu de Configurações (5.9) — redireciona links antigos. */}
           <Route path="equipe" element={<Navigate to="/equipe" replace />} />
           <Route path="link" element={<ConfiguracoesLinkPublico />} />
+          {/* Instalar o app — no computador também, não só no celular. */}
+          <Route path="aplicativo" element={<ConfiguracoesAplicativo />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

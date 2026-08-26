@@ -366,13 +366,30 @@ O canal de e-mail entrega **recuperação de senha** e **convite de equipe**
 `mail.service.ts`; em resumo: sem dependência nova, sem depender de porta de
 saída, erro legível).
 
-**Estado do DNS em 2026-08-26** (consultado, não suposto):
+> **✅ NO AR desde 2026-08-26.** Testado em produção de ponta a ponta: pedido
+> pela tela de login → e-mail recebido (remetente `contato@tamarcado.tec.br`) →
+> link aberto → senha redefinida. **Fecha a pendência "recuperação de senha por
+> e-mail" que era bloqueador antes de vender** (epics.md, Story 1.2.03).
 
-| Registro | Valor hoje |
+**Configuração de DNS APLICADA** (consultada, não suposta):
+
+| Registro | Estado |
 |---|---|
-| SPF (TXT na raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
-| DMARC (TXT em `_dmarc`) | `v=DMARC1; p=reject;` |
+| TXT raiz (verificação Brevo) | `brevo-code:5f47b5821f6a1da8886cbef0850f4f54` ✅ |
+| CNAME `brevo1._domainkey` | → `b1.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| CNAME `brevo2._domainkey` | → `b2.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| SPF (TXT raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` — **NÃO alterado** |
+| DMARC (TXT `_dmarc`) | `v=DMARC1; p=reject;` — **NÃO alterado** |
 | MX | `route1/2/3.mx.cloudflare.net` (Email Routing) |
+
+Todos em **DNS only** (nuvem cinza).
+
+> **Por que não mexer no SPF nem no DMARC foi o certo:** o Brevo não pediu SPF
+> porque o envelope-from das mensagens é de um domínio **dele** — o nosso SPF
+> nem entra na avaliação. E o `p=none` que o Brevo sugere é **mais permissivo**
+> que o nosso `p=reject`: baixar a política seria piorar a proteção do domínio
+> sem ganho nenhum. **Quem sustenta a entrega é o DKIM alinhado** (§11.3), que
+> os dois CNAME acima habilitam.
 
 ### 11.1 O que fazer no painel do Brevo
 
@@ -388,6 +405,8 @@ saída, erro legível).
 5. **SMTP & API → API Keys → Generate a new API key**. Guardar no gerenciador de
    senhas e colocar em `/etc/tamarcado/api.env` como `BREVO_API_KEY`.
    Depois: `pm2 restart tamarcado-api --update-env`.
+6. ⚠️ **AUTORIZAR OS IPs DO SERVIDOR** — passo obrigatório, e o que mais custou
+   tempo no primeiro setup. Ver **§11.5**.
 
 ### 11.2 Registros para colar na Cloudflare
 
@@ -456,6 +475,117 @@ Na mensagem recebida, abrir "mostrar original" (Gmail) e conferir:
 de quem está falhando. Vale acrescentar
 `v=DMARC1; p=reject; rua=mailto:contato@tamarcado.tec.br;` para enxergar
 problemas antes de o cliente reclamar.
+
+### 11.4 ⚠️ A chave da API do Brevo EXPIRA — inclusive por falta de uso
+
+Duas validades, e a segunda é a perigosa:
+
+| Prazo | O que acontece |
+|---|---|
+| **1 ano** | validade normal da chave |
+| **90 dias sem NENHUMA chamada** | a chave é **desativada por inatividade** |
+
+**Por que isso é risco real aqui:** recuperação de senha e convite de equipe são
+eventos **raros** — no começo, podem passar meses sem um único envio. A chave
+morre sozinha, ninguém percebe, e o próximo pedido de senha falha em silêncio
+para quem está do outro lado.
+
+**A prevenção e a detecção são a mesma coisa: tocar a API de vez em quando.**
+Uma chamada qualquer conta como uso. O endpoint `/v3/account` serve: é leve,
+**não envia e-mail** e responde 200 quando a chave está viva.
+
+Instalar como cron **mensal** no servidor (como `deploy`):
+
+```bash
+sudo tee /usr/local/bin/tamarcado-brevo-keepalive.sh >/dev/null <<'EOF'
+#!/usr/bin/env bash
+# Mantém a chave do Brevo viva (expira com 90 dias de inatividade) E avisa se
+# ela já morreu. NÃO envia e-mail: só consulta a conta.
+set -uo pipefail
+KEY="$(grep -E '^BREVO_API_KEY=' /etc/tamarcado/api.env | cut -d= -f2-)"
+[ -n "$KEY" ] || { logger -t tamarcado-brevo "SEM BREVO_API_KEY no api.env"; exit 1; }
+STATUS="$(curl -s -o /dev/null -w '%{http_code}' -m 15   -H "api-key: $KEY" -H 'accept: application/json'   https://api.brevo.com/v3/account)"
+if [ "$STATUS" = "200" ]; then
+  logger -t tamarcado-brevo "chave OK (200)"
+else
+  logger -t tamarcado-brevo "ATENÇÃO: chave do Brevo respondeu $STATUS — envio de e-mail provavelmente PARADO"
+fi
+EOF
+sudo chmod 750 /usr/local/bin/tamarcado-brevo-keepalive.sh
+# dia 1 de cada mês, 04:10
+( sudo crontab -l 2>/dev/null; echo "10 4 1 * * /usr/local/bin/tamarcado-brevo-keepalive.sh" ) | sudo crontab -
+```
+
+Conferir depois:
+
+```bash
+sudo /usr/local/bin/tamarcado-brevo-keepalive.sh   # rodar na mão uma vez
+journalctl -t tamarcado-brevo -n 5                 # ver o resultado
+```
+
+**A falha nunca é silenciosa no app.** O `MailService` registra o motivo com o
+destinatário sempre que o envio não sai (ver `mail.service.ts`). Chave morta
+aparece assim no log da API:
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"code":"unauthorized",...}
+  -> a chave expirou, foi revogada ou está errada: gerar outra no painel do
+     Brevo, atualizar /etc/tamarcado/api.env e `pm2 restart tamarcado-api --update-env`
+```
+
+Para procurar depois de uma reclamação de "não recebi o e-mail":
+
+```bash
+pm2 logs tamarcado-api --lines 500 --nostream | grep -iE "Brevo recusou|falha ao enviar|e-mail NÃO enviado"
+```
+
+> **Não confie no aviso do provedor.** O Brevo pode ou não avisar antes de
+> desativar por inatividade, e o e-mail dele cairia na caixa do Renato entre
+> outros — o cron acima não depende disso.
+
+### 11.5 ⚠️ IPs autorizados no Brevo — o 401 que parece chave errada
+
+O Brevo **bloqueia chamadas de IP não autorizado**. Isso apareceu no primeiro
+setup como um **401** — o mesmo código de chave inválida — com a mensagem:
+
+```
+"unrecognised IP address"
+```
+
+E o endereço reclamado era o **IPv6** do servidor (`2a02:4780:6e:7be8::1`), não
+o IPv4. **Cadastrar só o IPv4 não resolve:** o Node escolhe a família do
+endereço na resolução DNS e, num servidor com IPv6 ativo, a saída para
+`api.brevo.com` costuma ir por IPv6.
+
+**Autorizar OS DOIS**, em `app.brevo.com/security/authorised_ips`:
+
+| Família | Endereço |
+|---|---|
+| IPv4 | `179.198.123.87` |
+| IPv6 | `2a02:4780:6e:7be8::1` |
+
+**Como descobrir os endereços de saída num servidor novo** (é o que o Brevo vê,
+não o que está na interface de rede):
+
+```bash
+curl -4 -s https://api.ipify.org   ; echo    # IPv4 de saída
+curl -6 -s https://api64.ipify.org ; echo    # IPv6 de saída
+```
+
+**Como o sintoma aparece no log da API:**
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"message":"unrecognised IP address","code":"unauthorized"}
+```
+
+> **Cuidado com o diagnóstico:** 401 aqui tem **duas causas possíveis** — chave
+> expirada/errada (§11.4) e IP não autorizado (esta seção). **Leia o `corpo=` do
+> log**: `"unrecognised IP address"` é IP; qualquer outra coisa é a chave. Sem
+> ler o corpo, é fácil gerar chave nova atrás de chave nova sem resolver nada.
+>
+> Vale revisar a lista de IPs autorizados **sempre que o servidor mudar de IP**
+> (troca de VPS, migração, IPv6 dinâmico do provedor) — o envio para no mesmo
+> instante, com o mesmo 401.
 
 ## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
 
@@ -730,3 +860,54 @@ rollback continua disponível.
 - **Não substitui o CD.** Assim que o Actions voltar, use o `Deploy Production`
   (`workflow_dispatch`): ele carimba a release com o SHA, guarda o log e não
   depende da sua máquina estar do jeito certo.
+## 13. CI — cota de minutos do GitHub Actions
+
+**O repositório é privado**, e repositório privado **consome minutos** da cota
+mensal da conta em cada job que roda. Quando a cota acaba — ou quando um
+pagamento falha, ou o *spending limit* está em zero — o GitHub **para de iniciar
+os jobs**.
+
+### Como o sintoma aparece
+
+Não é teste quebrado. É isto:
+
+- **todos** os jobs falham em **3 a 5 segundos**;
+- nenhum passo aparece no job (`steps: []`);
+- falha também em branches sem relação com a mudança — inclusive um push direto
+  em `dev`;
+- a anotação do run diz:
+
+```
+The job was not started because recent account payments have failed or your
+spending limit needs to be increased. Please check the 'Billing & plans'
+section in your settings
+```
+
+Para confirmar em um comando:
+
+```bash
+gh run view <run-id>          # a anotação aparece em ANNOTATIONS
+gh run list --limit 10        # se TUDO falhou a partir de um horário, é cota
+```
+
+> **Regra de bolso:** suíte que falha em segundos, sem log de teste nenhum, e em
+> mais de uma branch ao mesmo tempo, é **cota** — não código. Procurar bug aí é
+> perder a tarde.
+
+### Onde resolver
+
+*Settings → Billing & plans* da conta dona do repositório: conferir se há
+pagamento recusado e se o limite de gastos de Actions comporta o mês.
+
+### O que o projeto faz para gastar menos
+
+- **Gatilho sem duplicar** (2026-08-26): antes, `push` em `"**"` **mais**
+  `pull_request` faziam cada commit de uma branch com PR aberto rodar a suíte
+  **duas vezes**. Agora `pull_request` cobre o trabalho (é o check que vale antes
+  do merge) e `push` roda só em `main` e `dev`, para cobrir o resultado do merge.
+- **`concurrency` com `cancel-in-progress`**: três commits seguidos na mesma
+  branch não rodam três suítes até o fim — só a do commit mais novo.
+- **Trade-off consciente do e2e:** o e2e roda em **3 shards paralelos**. Isso
+  derruba o tempo de parede (~4,5 min → ~1,5 min), mas **cada shard é um job** e
+  os minutos contam por job. Se a cota voltar a apertar, reduzir os shards é o
+  primeiro lugar a mexer — custa tempo de espera, não cobertura.
