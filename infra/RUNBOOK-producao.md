@@ -600,7 +600,70 @@ pagamento recusado e se o limite de gastos de Actions comporta o mês.
   do merge) e `push` roda só em `main` e `dev`, para cobrir o resultado do merge.
 - **`concurrency` com `cancel-in-progress`**: três commits seguidos na mesma
   branch não rodam três suítes até o fim — só a do commit mais novo.
-- **Trade-off consciente do e2e:** o e2e roda em **3 shards paralelos**. Isso
-  derruba o tempo de parede (~4,5 min → ~1,5 min), mas **cada shard é um job** e
-  os minutos contam por job. Se a cota voltar a apertar, reduzir os shards é o
-  primeiro lugar a mexer — custa tempo de espera, não cobertura.
+- **e2e em UM job, e só onde protege produção** (2026-08-26, ver §13.1).
+
+### 13.1 Consumo medido e o que foi cortado
+
+Medido nos runs reais de agosto. **Cada job é arredondado para o minuto cheio** —
+é assim que a cota conta, então quatro jobs de 2min20 custam 12 minutos, não 9.
+
+| job | duração média | minutos faturados |
+|---|---|---|
+| `checks` | 139 s | 3 |
+| `e2e` × 3 shards | ~150 s cada | 9 |
+| **total por run** | | **12** |
+
+Com ~200 runs/mês (17 dias ativos em agosto) e o gatilho duplicado, dava
+**~2.400 min/mês** — acima dos 2.000 do plano Free. Foi o que estourou a cota.
+
+| medida | min/run | mês estimado |
+|---|---|---|
+| antes | 24 (dois runs por commit) | ~2.400 |
+| gatilho sem duplicar | 12 | ~1.200 |
+| **+ e2e em 1 shard** | 9 | ~900 |
+| **+ e2e só no merge e no release** | 3 no PR de trabalho | **~450–500** |
+
+O e2e sozinho respondia por **9 dos 12 minutos** de cada run — por isso é ele
+que decide a conta.
+
+**Onde o e2e roda hoje** (`if:` no job): `push` em `main`/`dev` — ou seja, a cada
+**merge** — e `pull_request` com base `main`, o PR de implantação. PR de trabalho
+(base `dev`) roda só `checks`.
+
+> **Por que no push de `dev`, e não apenas no PR de release:** o PR `dev → main`
+> junta várias stories. Se o e2e quebrasse só ali, ninguém saberia qual delas
+> quebrou — e a investigação cairia justamente na hora de subir para produção.
+> Rodando a cada merge, a quebra aponta a story que a causou. Custa ~6 min por
+> merge, e mantém o consumo em ~20% da cota.
+
+### 13.2 Como REVERTER quando a cota permitir
+
+Duas mudanças, independentes, em `.github/workflows/ci.yml`:
+
+**1. e2e em todo PR** — apagar a linha do job `e2e`:
+
+```yaml
+    if: github.event_name == 'push' || github.base_ref == 'main'
+```
+
+Volta a rodar em qualquer PR. Custo: +6 min por PR de trabalho.
+
+**2. e2e em 3 shards de novo** — devolver a matriz ao job `e2e`:
+
+```yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
+```
+
+e a flag no último passo:
+
+```yaml
+      - run: pnpm --filter api exec jest --config ./test/jest-e2e.json --runInBand --shard=${{ matrix.shard }}
+```
+
+Cada shard tem o **próprio MySQL**, então não há colisão de schema entre eles —
+`--runInBand` continua necessário **dentro** do shard, porque cada arquivo dropa
+e recria o schema no `beforeAll`. Ganho: o e2e cai de ~4,5 min para ~1,5 min de
+espera. Custo: +6 min faturados por run.

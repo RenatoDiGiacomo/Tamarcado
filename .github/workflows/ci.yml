@@ -48,16 +48,22 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run test
 
-  # e2e da API em paralelo, shardado (jest --shard). Cada shard é um job próprio
-  # com seu PRÓPRIO MySQL — sem colisão de schema entre shards, então mantém
-  # `--runInBand` dentro do shard (cada arquivo reseta o schema no beforeAll).
-  # 3 shards derrubam o e2e de ~4,5 min (serial) para ~1,5 min (wall-clock).
+  # ── e2e: ONDE e COM QUANTOS JOBS (economia de cota — RUNBOOK §13) ─────────
+  # Cada job custa minutos, arredondados para cima ao minuto cheio. O e2e era
+  # 3 shards (3 jobs = 9 min) rodando em TODO PR; sozinho, respondia por 9 dos
+  # 12 minutos de cada run.
+  #
+  # Agora roda em UM job e SÓ onde protege o que vai para produção:
+  # - `push` (main e dev): a cada MERGE. Assim uma quebra de integração aponta
+  #   a story que a causou, em vez de aparecer só no PR de release com várias
+  #   stories juntas.
+  # - `pull_request` com base `main`: o PR de implantação (DL-059).
+  #
+  # PR de trabalho (base `dev`) fica com `checks` — build, lint, typecheck e
+  # unit. Como reverter quando a cota permitir: RUNBOOK §13.
   e2e:
+    if: github.event_name == 'push' || github.base_ref == 'main'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ["1/3", "2/3", "3/3"]
 
     services:
       mysql:
@@ -102,7 +108,9 @@ jobs:
       # para o src em RUNTIME, mas o ts-jest CHECA TIPOS e precisa dos .d.ts do
       # dist/ (TS2307 sem eles). Não builda api/web — o job segue enxuto.
       - run: pnpm exec turbo run build --filter=@tamarcado/shared-types --filter=@tamarcado/shared-utils
-      # `exec` (não `run … --`): passar --shard via `pnpm run` injeta um `--`
-      # extra e o jest trata "--shard=1/3" como filtro de caminho ("No tests
-      # found"). Com `exec`, a flag chega ao jest como opção.
-      - run: pnpm --filter api exec jest --config ./test/jest-e2e.json --runInBand --shard=${{ matrix.shard }}
+      # `exec` (não `run … --`): flags via `pnpm run` ganham um `--` extra e o
+      # jest as trata como filtro de caminho ("No tests found"). Com `exec`, a
+      # flag chega ao jest como opção.
+      # Sem `--shard`: a suíte inteira num job só (~4,5 min em vez de ~1,5 em
+      # paralelo). Custa espera, não cobertura — todos os arquivos rodam.
+      - run: pnpm --filter api exec jest --config ./test/jest-e2e.json --runInBand
