@@ -13,7 +13,10 @@ import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
 import type { AccessLevel, UserTheme } from "../../database/entities/user.entity";
 import { UserInvite } from "../../database/entities/user-invite.entity";
+import { Company } from "../../database/entities/company.entity";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
+import { MailService } from "../mail/mail.service";
+import { emailConviteEquipe } from "../mail/mail.templates";
 import { UsersRepository } from "./users.repository";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -39,6 +42,10 @@ export class UsersService {
     private readonly tenantUsers: UsersRepository,
     private readonly tenantContext: TenantContextService,
     private readonly config: ConfigService,
+    // Convite por e-mail: o nome do estabelecimento entra na mensagem.
+    @InjectRepository(Company)
+    private readonly companies: Repository<Company>,
+    private readonly mail: MailService,
   ) {}
 
   /** Login (pré-tenant): lookup explícito por (company_id, email). */
@@ -145,8 +152,9 @@ export class UsersService {
     dto: InviteUserDto,
     invitedBy: string,
   ): Promise<{ invite: UserInvite; link: string }> {
-    return this.createInviteForCompany(
-      this.tenantContext.getCompanyId(),
+    const companyId = this.tenantContext.getCompanyId();
+    const criado = await this.createInviteForCompany(
+      companyId,
       {
         name: dto.name,
         email: dto.email,
@@ -154,6 +162,38 @@ export class UsersService {
         attends_clients: dto.attends_clients,
       },
       invitedBy,
+    );
+
+    await this.enviarConvitePorEmail(companyId, criado.invite, criado.link);
+    return criado;
+  }
+
+  /**
+   * Manda o convite por e-mail. **Best-effort**: se o envio falhar, o convite
+   * continua válido e o link segue na resposta — o dono copia e manda pelo
+   * WhatsApp, como fazia antes. Por isso nada aqui lança.
+   *
+   * O link também continua sendo devolvido pela API de propósito: parte da
+   * equipe não tem e-mail que confira, e mandar o link na mão continua sendo
+   * um caminho legítimo.
+   */
+  private async enviarConvitePorEmail(
+    companyId: string,
+    invite: UserInvite,
+    link: string,
+  ): Promise<void> {
+    const company = await this.companies.findOne({ where: { id: companyId } });
+    const enviado = await this.mail.send(
+      emailConviteEquipe({
+        para: invite.email,
+        nome: invite.name,
+        estabelecimento: company?.name ?? "seu estabelecimento",
+        link,
+        diasParaExpirar: Math.round(INVITE_TTL_MS / (24 * 60 * 60 * 1000)),
+      }),
+    );
+    this.logger.log(
+      `convite de equipe: invite=${invite.id} company=${companyId} entregue=${enviado}`,
     );
   }
 

@@ -269,7 +269,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - **CD por SSH acionado manualmente** — **não** automático a cada merge.
 - **Backup antes de cada deploy** + **migrations no deploy** + **caminho de rollback** documentado.
 
-**2. E-mail transacional.** Destrava a **recuperação de senha** (hoje bloqueador; mitigada pela 1.9.01). **Serviço externo** (Brevo/Resend), **não** caixa de e-mail comum.
+**2. E-mail transacional — CÓDIGO PRONTO (DL-070), falta a conta no Brevo e o DNS.** Destrava a **recuperação de senha** (era bloqueador; mitigada pela 1.9.01). **Brevo pela API HTTP**, não SMTP nem caixa de e-mail comum. Entregue: `MailService`, "esqueci minha senha" na tela de login (resposta uniforme + rate limit por IP e por e-mail) e o **convite de equipe** saindo por e-mail. O **mecanismo de token não mudou** — é o da 1.9.01; só o canal de entrega. **Depende do Renato:** criar a conta no Brevo, autenticar o domínio (DKIM), colar os registros de DNS e pôr a `BREVO_API_KEY` no `/etc/tamarcado/api.env` — passo a passo no **RUNBOOK §11**. ⚠️ Com o domínio em **`p=reject`**, sem o DKIM concluído o e-mail **não chega** (é rejeitado, não vai para spam).
 
 **3. Financeiro + Dashboard + Equipe + Permissões** *(bloco novo, DUAS LEVAS — DL-061/DL-062; **sobe para antes do Épico 6**):*
 > **Correção DL-061 (2026-08-18): o Financeiro é a CENTRAL de ENTRADAS e SAÍDAS** — "quanto entrou, quanto saiu, quanto sobrou" num lugar só. Entradas na 1ª leva; **saídas (pagamento à equipe) na 2ª leva, mas registradas NO Financeiro**. Equipe é cadastro/previsão; Dashboard só exibe.

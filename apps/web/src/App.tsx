@@ -17,6 +17,7 @@ import { Equipe } from "./pages/Equipe";
 import { ConfiguracoesLinkPublico } from "./pages/ConfiguracoesLinkPublico";
 import { AceitarConvite } from "./pages/AceitarConvite";
 import { DefinirSenha } from "./pages/DefinirSenha";
+import { EsqueciSenha } from "./pages/EsqueciSenha";
 import { PublicAgendar } from "./pages/PublicAgendar";
 import { Pendentes } from "./pages/Pendentes";
 import { DesignSystemDemo } from "./pages/DesignSystemDemo";
@@ -94,6 +95,8 @@ export function App() {
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
       {/* Definir nova senha por link de reset (1.9.01): pública, uso único/1h. */}
       <Route path="/definir-senha" element={<DefinirSenha />} />
+      {/* Pedir o link de reset por e-mail: pública, resposta uniforme. */}
+      <Route path="/esqueci-senha" element={<EsqueciSenha />} />
       {/* Agendamento público por link (Story 5B.1): pública, sem login, por slug. */}
       <Route path="/agendar/:slug" element={<PublicAgendar />} />
       {/* Demo pública do Design System (Story 2.1) — para revisão visual. */}
