@@ -89,6 +89,18 @@ export class MailService {
         this.logger.error(
           `Brevo recusou o envio: status=${resposta.status} to=${email.to} corpo=${corpo.slice(0, 300)}`,
         );
+        // 401 merece explicação: a chave do Brevo expira com 1 ano de validade
+        // OU com 90 dias SEM NENHUMA chamada. Como recuperação de senha e
+        // convite são eventos raros, a expiração por inatividade é o caso mais
+        // provável — e sem esta linha alguém perderia tempo procurando bug de
+        // código. (Prevenção: cron mensal do RUNBOOK §11.4.)
+        if (resposta.status === 401) {
+          this.logger.error(
+            "A chave do Brevo foi recusada (401): expirada, revogada ou errada. " +
+              "Gere outra no painel, atualize BREVO_API_KEY em /etc/tamarcado/api.env " +
+              "e rode `pm2 restart tamarcado-api --update-env`. Ver RUNBOOK §11.4.",
+          );
+        }
         return false;
       }
 

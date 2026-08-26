@@ -457,6 +457,73 @@ de quem está falhando. Vale acrescentar
 `v=DMARC1; p=reject; rua=mailto:contato@tamarcado.tec.br;` para enxergar
 problemas antes de o cliente reclamar.
 
+### 11.4 ⚠️ A chave da API do Brevo EXPIRA — inclusive por falta de uso
+
+Duas validades, e a segunda é a perigosa:
+
+| Prazo | O que acontece |
+|---|---|
+| **1 ano** | validade normal da chave |
+| **90 dias sem NENHUMA chamada** | a chave é **desativada por inatividade** |
+
+**Por que isso é risco real aqui:** recuperação de senha e convite de equipe são
+eventos **raros** — no começo, podem passar meses sem um único envio. A chave
+morre sozinha, ninguém percebe, e o próximo pedido de senha falha em silêncio
+para quem está do outro lado.
+
+**A prevenção e a detecção são a mesma coisa: tocar a API de vez em quando.**
+Uma chamada qualquer conta como uso. O endpoint `/v3/account` serve: é leve,
+**não envia e-mail** e responde 200 quando a chave está viva.
+
+Instalar como cron **mensal** no servidor (como `deploy`):
+
+```bash
+sudo tee /usr/local/bin/tamarcado-brevo-keepalive.sh >/dev/null <<'EOF'
+#!/usr/bin/env bash
+# Mantém a chave do Brevo viva (expira com 90 dias de inatividade) E avisa se
+# ela já morreu. NÃO envia e-mail: só consulta a conta.
+set -uo pipefail
+KEY="$(grep -E '^BREVO_API_KEY=' /etc/tamarcado/api.env | cut -d= -f2-)"
+[ -n "$KEY" ] || { logger -t tamarcado-brevo "SEM BREVO_API_KEY no api.env"; exit 1; }
+STATUS="$(curl -s -o /dev/null -w '%{http_code}' -m 15   -H "api-key: $KEY" -H 'accept: application/json'   https://api.brevo.com/v3/account)"
+if [ "$STATUS" = "200" ]; then
+  logger -t tamarcado-brevo "chave OK (200)"
+else
+  logger -t tamarcado-brevo "ATENÇÃO: chave do Brevo respondeu $STATUS — envio de e-mail provavelmente PARADO"
+fi
+EOF
+sudo chmod 750 /usr/local/bin/tamarcado-brevo-keepalive.sh
+# dia 1 de cada mês, 04:10
+( sudo crontab -l 2>/dev/null; echo "10 4 1 * * /usr/local/bin/tamarcado-brevo-keepalive.sh" ) | sudo crontab -
+```
+
+Conferir depois:
+
+```bash
+sudo /usr/local/bin/tamarcado-brevo-keepalive.sh   # rodar na mão uma vez
+journalctl -t tamarcado-brevo -n 5                 # ver o resultado
+```
+
+**A falha nunca é silenciosa no app.** O `MailService` registra o motivo com o
+destinatário sempre que o envio não sai (ver `mail.service.ts`). Chave morta
+aparece assim no log da API:
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"code":"unauthorized",...}
+  -> a chave expirou, foi revogada ou está errada: gerar outra no painel do
+     Brevo, atualizar /etc/tamarcado/api.env e `pm2 restart tamarcado-api --update-env`
+```
+
+Para procurar depois de uma reclamação de "não recebi o e-mail":
+
+```bash
+pm2 logs tamarcado-api --lines 500 --nostream | grep -iE "Brevo recusou|falha ao enviar|e-mail NÃO enviado"
+```
+
+> **Não confie no aviso do provedor.** O Brevo pode ou não avisar antes de
+> desativar por inatividade, e o e-mail dele cairia na caixa do Renato entre
+> outros — o cron acima não depende disso.
+
 ## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
 
 Migração da raiz: `tamarcado.tec.br` passa a servir a **landing page** e o
