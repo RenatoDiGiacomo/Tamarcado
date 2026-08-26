@@ -366,13 +366,30 @@ O canal de e-mail entrega **recuperação de senha** e **convite de equipe**
 `mail.service.ts`; em resumo: sem dependência nova, sem depender de porta de
 saída, erro legível).
 
-**Estado do DNS em 2026-08-26** (consultado, não suposto):
+> **✅ NO AR desde 2026-08-26.** Testado em produção de ponta a ponta: pedido
+> pela tela de login → e-mail recebido (remetente `contato@tamarcado.tec.br`) →
+> link aberto → senha redefinida. **Fecha a pendência "recuperação de senha por
+> e-mail" que era bloqueador antes de vender** (epics.md, Story 1.2.03).
 
-| Registro | Valor hoje |
+**Configuração de DNS APLICADA** (consultada, não suposta):
+
+| Registro | Estado |
 |---|---|
-| SPF (TXT na raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
-| DMARC (TXT em `_dmarc`) | `v=DMARC1; p=reject;` |
+| TXT raiz (verificação Brevo) | `brevo-code:5f47b5821f6a1da8886cbef0850f4f54` ✅ |
+| CNAME `brevo1._domainkey` | → `b1.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| CNAME `brevo2._domainkey` | → `b2.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| SPF (TXT raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` — **NÃO alterado** |
+| DMARC (TXT `_dmarc`) | `v=DMARC1; p=reject;` — **NÃO alterado** |
 | MX | `route1/2/3.mx.cloudflare.net` (Email Routing) |
+
+Todos em **DNS only** (nuvem cinza).
+
+> **Por que não mexer no SPF nem no DMARC foi o certo:** o Brevo não pediu SPF
+> porque o envelope-from das mensagens é de um domínio **dele** — o nosso SPF
+> nem entra na avaliação. E o `p=none` que o Brevo sugere é **mais permissivo**
+> que o nosso `p=reject`: baixar a política seria piorar a proteção do domínio
+> sem ganho nenhum. **Quem sustenta a entrega é o DKIM alinhado** (§11.3), que
+> os dois CNAME acima habilitam.
 
 ### 11.1 O que fazer no painel do Brevo
 
@@ -388,6 +405,8 @@ saída, erro legível).
 5. **SMTP & API → API Keys → Generate a new API key**. Guardar no gerenciador de
    senhas e colocar em `/etc/tamarcado/api.env` como `BREVO_API_KEY`.
    Depois: `pm2 restart tamarcado-api --update-env`.
+6. ⚠️ **AUTORIZAR OS IPs DO SERVIDOR** — passo obrigatório, e o que mais custou
+   tempo no primeiro setup. Ver **§11.5**.
 
 ### 11.2 Registros para colar na Cloudflare
 
@@ -457,6 +476,117 @@ de quem está falhando. Vale acrescentar
 `v=DMARC1; p=reject; rua=mailto:contato@tamarcado.tec.br;` para enxergar
 problemas antes de o cliente reclamar.
 
+### 11.4 ⚠️ A chave da API do Brevo EXPIRA — inclusive por falta de uso
+
+Duas validades, e a segunda é a perigosa:
+
+| Prazo | O que acontece |
+|---|---|
+| **1 ano** | validade normal da chave |
+| **90 dias sem NENHUMA chamada** | a chave é **desativada por inatividade** |
+
+**Por que isso é risco real aqui:** recuperação de senha e convite de equipe são
+eventos **raros** — no começo, podem passar meses sem um único envio. A chave
+morre sozinha, ninguém percebe, e o próximo pedido de senha falha em silêncio
+para quem está do outro lado.
+
+**A prevenção e a detecção são a mesma coisa: tocar a API de vez em quando.**
+Uma chamada qualquer conta como uso. O endpoint `/v3/account` serve: é leve,
+**não envia e-mail** e responde 200 quando a chave está viva.
+
+Instalar como cron **mensal** no servidor (como `deploy`):
+
+```bash
+sudo tee /usr/local/bin/tamarcado-brevo-keepalive.sh >/dev/null <<'EOF'
+#!/usr/bin/env bash
+# Mantém a chave do Brevo viva (expira com 90 dias de inatividade) E avisa se
+# ela já morreu. NÃO envia e-mail: só consulta a conta.
+set -uo pipefail
+KEY="$(grep -E '^BREVO_API_KEY=' /etc/tamarcado/api.env | cut -d= -f2-)"
+[ -n "$KEY" ] || { logger -t tamarcado-brevo "SEM BREVO_API_KEY no api.env"; exit 1; }
+STATUS="$(curl -s -o /dev/null -w '%{http_code}' -m 15   -H "api-key: $KEY" -H 'accept: application/json'   https://api.brevo.com/v3/account)"
+if [ "$STATUS" = "200" ]; then
+  logger -t tamarcado-brevo "chave OK (200)"
+else
+  logger -t tamarcado-brevo "ATENÇÃO: chave do Brevo respondeu $STATUS — envio de e-mail provavelmente PARADO"
+fi
+EOF
+sudo chmod 750 /usr/local/bin/tamarcado-brevo-keepalive.sh
+# dia 1 de cada mês, 04:10
+( sudo crontab -l 2>/dev/null; echo "10 4 1 * * /usr/local/bin/tamarcado-brevo-keepalive.sh" ) | sudo crontab -
+```
+
+Conferir depois:
+
+```bash
+sudo /usr/local/bin/tamarcado-brevo-keepalive.sh   # rodar na mão uma vez
+journalctl -t tamarcado-brevo -n 5                 # ver o resultado
+```
+
+**A falha nunca é silenciosa no app.** O `MailService` registra o motivo com o
+destinatário sempre que o envio não sai (ver `mail.service.ts`). Chave morta
+aparece assim no log da API:
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"code":"unauthorized",...}
+  -> a chave expirou, foi revogada ou está errada: gerar outra no painel do
+     Brevo, atualizar /etc/tamarcado/api.env e `pm2 restart tamarcado-api --update-env`
+```
+
+Para procurar depois de uma reclamação de "não recebi o e-mail":
+
+```bash
+pm2 logs tamarcado-api --lines 500 --nostream | grep -iE "Brevo recusou|falha ao enviar|e-mail NÃO enviado"
+```
+
+> **Não confie no aviso do provedor.** O Brevo pode ou não avisar antes de
+> desativar por inatividade, e o e-mail dele cairia na caixa do Renato entre
+> outros — o cron acima não depende disso.
+
+### 11.5 ⚠️ IPs autorizados no Brevo — o 401 que parece chave errada
+
+O Brevo **bloqueia chamadas de IP não autorizado**. Isso apareceu no primeiro
+setup como um **401** — o mesmo código de chave inválida — com a mensagem:
+
+```
+"unrecognised IP address"
+```
+
+E o endereço reclamado era o **IPv6** do servidor (`2a02:4780:6e:7be8::1`), não
+o IPv4. **Cadastrar só o IPv4 não resolve:** o Node escolhe a família do
+endereço na resolução DNS e, num servidor com IPv6 ativo, a saída para
+`api.brevo.com` costuma ir por IPv6.
+
+**Autorizar OS DOIS**, em `app.brevo.com/security/authorised_ips`:
+
+| Família | Endereço |
+|---|---|
+| IPv4 | `179.198.123.87` |
+| IPv6 | `2a02:4780:6e:7be8::1` |
+
+**Como descobrir os endereços de saída num servidor novo** (é o que o Brevo vê,
+não o que está na interface de rede):
+
+```bash
+curl -4 -s https://api.ipify.org   ; echo    # IPv4 de saída
+curl -6 -s https://api64.ipify.org ; echo    # IPv6 de saída
+```
+
+**Como o sintoma aparece no log da API:**
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"message":"unrecognised IP address","code":"unauthorized"}
+```
+
+> **Cuidado com o diagnóstico:** 401 aqui tem **duas causas possíveis** — chave
+> expirada/errada (§11.4) e IP não autorizado (esta seção). **Leia o `corpo=` do
+> log**: `"unrecognised IP address"` é IP; qualquer outra coisa é a chave. Sem
+> ler o corpo, é fácil gerar chave nova atrás de chave nova sem resolver nada.
+>
+> Vale revisar a lista de IPs autorizados **sempre que o servidor mudar de IP**
+> (troca de VPS, migração, IPv6 dinâmico do provedor) — o envio para no mesmo
+> instante, com o mesmo 401.
+
 ## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
 
 Migração da raiz: `tamarcado.tec.br` passa a servir a **landing page** e o
@@ -464,59 +594,112 @@ painel vai para **`app.tamarcado.tec.br`**. Feita **antes de existir cliente com
 link divulgado** — depois, mudar quebraria link em bio de Instagram e material
 impresso de terceiros.
 
-**Estado em 2026-08-25:** o código e as configs estão no repositório; os passos
-abaixo **ainda não foram executados** (`app.tamarcado.tec.br` responde
-`NXDOMAIN` — o registro DNS nunca chegou a ser criado, apesar de a fase 2 tê-lo
-dado como reservado). Nada aqui roda pelo CD: exige DNS, `sudo` e Certbot.
+**Estado: ✅ NO AR (2026-08-25).** `tamarcado.tec.br` serve a landing page,
+`app.tamarcado.tec.br` serve o painel, ambos com HTTPS. A ordem abaixo é a que
+funcionou — **três passos não estavam previstos na primeira versão deste
+runbook e quebraram o deploy**; estão marcados com ⚠️.
 
-### 12.1 Ordem de execução (não pular etapa)
+### 12.1 Ordem de execução em servidor NOVO (não pular etapa)
 
-1. **DNS na Cloudflare** — criar `A  app  →  179.198.123.87`, **DNS only**
-   (nuvem cinza). Proxied quebra o Certbot. Conferir antes de seguir:
+1. **DNS na Cloudflare** — `A  app  →  179.198.123.87`, **DNS only** (nuvem
+   cinza; proxied quebra o Certbot). Confirmar antes de seguir:
    ```bash
    dig +short app.tamarcado.tec.br      # tem de devolver 179.198.123.87
    ```
 
-2. **Nginx — publicar os dois server blocks** (como `deploy`, sudo pede senha):
+2. ⚠️ **Criar os diretórios do Nginx COM DONO, antes do deploy.** `/var/www`
+   pertence ao root: sem isto o deploy morre no passo "publicar web" com
+   `mkdir: cannot create directory '/var/www/tamarcado-lp': Permission denied`
+   — e já depois de ter rodado backup e migrations.
    ```bash
-   sudo cp /caminho/do/repo/infra/nginx/app.tamarcado.tec.br.conf /etc/nginx/sites-available/
-   sudo cp /caminho/do/repo/infra/nginx/tamarcado.tec.br.conf     /etc/nginx/sites-available/
+   sudo mkdir -p /var/www/tamarcado /var/www/tamarcado-lp
+   sudo chown -R deploy:deploy /var/www/tamarcado /var/www/tamarcado-lp
+   ```
+   > O `deploy-remote.sh` hoje **checa isso no começo** e falha com esta
+   > instrução na tela, antes de tocar no banco. A preparação continua manual.
+
+3. **Deploy** (`workflow_dispatch` do `deploy.yml`) — publica o painel em
+   `/var/www/tamarcado` e a landing page em `/var/www/tamarcado-lp`. Fazer
+   **antes** de trocar as confs: assim, quando o Nginx passar a apontar para a
+   LP, o conteúdo já está lá (senão a raiz responde 404).
+
+4. ⚠️ **Copiar as DUAS confs — a do `app` E a da RAIZ.** Copiar só a do `app`
+   deixa a raiz com a conf antiga (de 11/08), que ainda serve o **painel**: o
+   site não aparece e `tamarcado.tec.br/login` não redireciona.
+   ```bash
+   # do seu PC, com a branch que tem as confs:
+   scp -i ~/.ssh/id_ed25519 infra/nginx/app.tamarcado.tec.br.conf        infra/nginx/tamarcado.tec.br.conf deploy@179.198.123.87:/tmp/
+
+   # no servidor:
+   sudo cp /tmp/app.tamarcado.tec.br.conf /tmp/tamarcado.tec.br.conf /etc/nginx/sites-available/
    sudo ln -sfn /etc/nginx/sites-available/app.tamarcado.tec.br.conf /etc/nginx/sites-enabled/
-   sudo mkdir -p /var/www/tamarcado-lp        # LP ainda vazia neste ponto
+   sudo ln -sfn /etc/nginx/sites-available/tamarcado.tec.br.conf     /etc/nginx/sites-enabled/
    sudo nginx -t && sudo systemctl reload nginx
    ```
-   > As confs vivem no repo, mas **não** são copiadas pelo CD (o pacote de
-   > deploy não leva `infra/`). Copiar à mão é o esperado — igual à fase 2.
+   > As confs vivem no repo mas **não** são copiadas pelo CD: o pacote de deploy
+   > é uma lista de inclusão e **não leva `infra/`** (§7.1). Cópia manual é o
+   > esperado — e é fácil esquecer metade.
 
-3. **Certificado do `app.`** (a raiz e a `api.` já têm):
+5. ⚠️ **Certbot para os DOIS nomes, com `--redirect`.** As confs do repo têm só
+   `listen 80`; o bloco 443 é o Certbot que escreve. Sem isso, o HTTPS do nome
+   cai no `default_server` — foi assim que `https://tamarcado.tec.br` chegou a
+   responder `{"message":"Cannot GET /"}`, que é a **API** atendendo por engano.
    ```bash
-   sudo certbot --nginx -d app.tamarcado.tec.br
-   sudo certbot renew --dry-run          # confirmar a renovação automática
+   sudo certbot --nginx -d app.tamarcado.tec.br --redirect
+   sudo certbot --nginx -d tamarcado.tec.br     --redirect
+   sudo certbot renew --dry-run
    ```
-   O Certbot adiciona o bloco 443 e o redirect 80→443 no arquivo do `app.`.
+   **Se o certificado já existe** (emitido antes, instalação falhou), use
+   `install` em vez de emitir de novo — não gasta rate limit:
+   ```bash
+   sudo certbot install --nginx --cert-name app.tamarcado.tec.br
+   ```
 
-4. **Env de produção** — em `/etc/tamarcado/api.env` (§5):
+6. **Env de produção** — em `/etc/tamarcado/api.env` (§5):
    ```
    CORS_ORIGIN=https://app.tamarcado.tec.br
    WEB_BASE_URL=https://app.tamarcado.tec.br
    ```
-   Depois: `pm2 restart tamarcado-api --update-env` (o env é lido do `.env` da
-   release; o CD recopia a cada deploy, então **mudar o arquivo canônico basta**).
+   Depois: `pm2 restart tamarcado-api --update-env`.
 
-5. **Deploy** (`workflow_dispatch` do `deploy.yml`) — publica o painel em
-   `/var/www/tamarcado` (como sempre) **e** a landing page em
-   `/var/www/tamarcado-lp`. Só depois deste deploy a raiz para de servir o
-   painel: até aqui, `/var/www/tamarcado-lp` está vazio e a raiz devolve 404.
-
-6. **Validar** (nesta ordem):
+7. **Validar:**
    ```bash
    curl -I https://app.tamarcado.tec.br/login     # 200, cert válido
    curl -I https://tamarcado.tec.br/              # 200, landing page
    curl -I https://tamarcado.tec.br/login         # 301 -> app.tamarcado.tec.br/login
    curl -I https://tamarcado.tec.br/sw.js         # 404 (proposital, §12.2)
+   curl -sI https://tamarcado.tec.br/README.md    # 403 — nota interna não vai para a web
+   curl -s  https://tamarcado.tec.br/google<hash>.html   # verificação do Search Console
    ```
-   Pela UI: entrar no painel por `app.`, e provisionar/consultar uma empresa
-   para conferir que `painelUrl` e `publicUrl` saem com `app.` (§5.1, túnel SSH).
+   Pela UI: entrar no painel por `app.`, e provisionar/consultar uma empresa para
+   conferir que `painelUrl` e `publicUrl` saem com `app.` (§5.1, túnel SSH).
+
+### 12.1.1 Certificados duplicados — atenção na renovação
+
+Rodar `certbot --nginx -d tamarcado.tec.br` quando **já existia** um certificado
+para esse nome faz o Certbot criar um **segundo** lineage,
+`tamarcado.tec.br-0001`, em vez de reaproveitar o primeiro. Foi o que aconteceu
+em 2026-08-25. Funciona, mas os dois passam a renovar sozinhos, dobrando as
+chamadas à Let's Encrypt para o mesmo domínio.
+
+```bash
+sudo certbot certificates      # ver os lineages, os DOMÍNIOS de cada um e qual está instalado
+```
+
+⚠️ **Antes de apagar qualquer um, confira a lista de domínios.** O certificado
+original da fase 2 pode ser um **SAN cobrindo `tamarcado.tec.br` E
+`api.tamarcado.tec.br`** — apagá-lo derrubaria o HTTPS da API. Só remova o
+lineage que (a) não está referenciado por nenhum `ssl_certificate` em
+`/etc/nginx` e (b) não cobre nenhum outro nome em uso:
+
+```bash
+grep -rn "ssl_certificate" /etc/nginx/sites-enabled/     # quem usa o quê
+sudo certbot delete --cert-name <lineage-orfão>
+sudo certbot renew --dry-run
+```
+
+**Para não repetir:** emitir com `--cert-name` explícito, ou usar
+`certbot install` quando o certificado já existe.
 
 ### 12.2 PWA — quem já instalou precisa reinstalar
 
