@@ -643,6 +643,40 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
    e a 1.75rem (a altura do topo) ficava menor que o texto ao lado e sumia. */
 .rodape__marca { height: 2.75rem; width: auto; }
 .rodape__frase { margin-top: 1rem; max-width: 26rem; font-size: 0.9375rem; }
+
+/* ── Perfis (Instagram, Facebook) ────────────────────────────────────────
+   Ícone sem texto: o link inteiro tem 44x44 para o dedo acertar no celular
+   (WCAG 2.5.5), com o desenho menor dentro. */
+/* `.rodape ul` (mais adiante) põe as listas do rodapé em grid de uma coluna e
+   tem especificidade maior que `.social` sozinha — daí o seletor com o pai:
+   sem isso, os dois ícones ficam um embaixo do outro. */
+.rodape .social {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  padding: 0;
+  list-style: none;
+}
+.social__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.social__link:hover {
+  color: hsl(var(--primary-texto));
+  background: hsl(var(--primary) / 0.1);
+}
+.social__icone {
+  width: 1.375rem;
+  height: 1.375rem;
+  /* Logos de marca são desenhados preenchidos, ao contrário dos do lucide. */
+  fill: currentColor;
+}
 .rodape__titulo { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); margin-bottom: 0.75rem; }
 .rodape ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .rodape a { color: hsl(var(--foreground)); text-decoration: none; }
