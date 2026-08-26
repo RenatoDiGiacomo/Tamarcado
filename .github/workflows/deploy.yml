@@ -57,6 +57,10 @@ jobs:
           # /var/www/tamarcado-lp. Segue o mesmo release do app para que uma
           # troca de endereço nunca fique metade nova, metade velha.
           mkdir -p "$PKG/landing" && cp -r apps/landing/. "$PKG/landing/"
+          # O README da LP é nota interna (decisões, pendências, crítica às
+          # capturas) e a pasta inteira vira raiz de site: sem isto ele fica
+          # legível em tamarcado.tec.br/README.md.
+          find "$PKG/landing" -name "*.md" -delete
           echo "conteúdo do pacote:"; ls -1 "$PKG"
 
       - name: Identificar release

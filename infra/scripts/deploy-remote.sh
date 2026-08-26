@@ -15,6 +15,26 @@ LP=/var/www/tamarcado-lp          # landing page (DL-069)
 ENVSRC=/etc/tamarcado/api.env
 
 [ -d "$RELDIR" ] || { echo "ERRO: release $RELDIR não existe (rsync falhou?)"; exit 1; }
+
+# ── 0/6 PRÉ-CHECAGEM: os diretórios do Nginx são graváveis? ────────────────
+# /var/www pertence ao root: sem preparo, o passo de publicar o estático morre
+# com um "mkdir: Permission denied" cru — e, pior, DEPOIS de já ter rodado o
+# backup e as migrations. Falhar aqui deixa o banco intocado e diz o que fazer.
+for dir in "$WEB" "$LP"; do
+  if [ -d "$dir" ]; then
+    [ -w "$dir" ] || {
+      echo "!! ERRO: $(whoami) não pode escrever em $dir."
+      echo "!! Rode UMA VEZ, como root:  sudo chown -R deploy:deploy $dir"
+      exit 1
+    }
+  elif ! mkdir -p "$dir" 2>/dev/null; then
+    echo "!! ERRO: $(whoami) não pode criar $dir (/var/www é do root)."
+    echo "!! Rode UMA VEZ, como root:"
+    echo "!!   sudo mkdir -p $dir && sudo chown -R deploy:deploy $dir"
+    exit 1
+  fi
+done
+
 PREV="$(readlink -f "$ROOT/current" 2>/dev/null || true)"
 
 echo "==> 1/6 backup do banco (ANTES de tudo)"
@@ -31,14 +51,12 @@ ln -sfn "$RELDIR" "$ROOT/current"
 ( cd "$ROOT/current" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save )
 
 echo "==> 5/6 publicar web e landing page no Nginx"
-mkdir -p "$WEB"
 rsync -a --delete "$RELDIR/web/" "$WEB/"
 # A LP tem release própria no pacote, mas é publicada junto: o --delete some
 # com arquivo que saiu do repo. As capturas de tela vivem DENTRO de
 # apps/landing/assets/screens (versionadas), então não há estado só-no-servidor
 # para preservar aqui.
 if [ -d "$RELDIR/landing" ]; then
-  mkdir -p "$LP"
   rsync -a --delete "$RELDIR/landing/" "$LP/"
 fi
 
