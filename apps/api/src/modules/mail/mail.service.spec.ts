@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { MailService } from "./mail.service";
 
@@ -68,6 +69,23 @@ describe("MailService", () => {
     const service = new MailService(config({ BREVO_API_KEY: "chave-errada" }));
 
     await expect(service.send(email)).resolves.toBe(false);
+  });
+
+  it("401 de IP não autorizado é distinguido de 401 de chave inválida", async () => {
+    // As duas causas devolvem 401; só o corpo diferencia. Confundi-las leva a
+    // gerar chave nova atrás de chave nova sem resolver nada (RUNBOOK §11.5).
+    const erro = jest.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => '{"message":"unrecognised IP address","code":"unauthorized"}',
+    }) as unknown as typeof fetch;
+
+    await new MailService(config({ BREVO_API_KEY: "chave" })).send(email);
+
+    const mensagens = erro.mock.calls.map((c) => String(c[0])).join(" | ");
+    expect(mensagens).toMatch(/IP de saída/i);
+    expect(mensagens).not.toMatch(/expirada, revogada/i);
   });
 
   it("falha de rede NÃO lança — devolve false", async () => {

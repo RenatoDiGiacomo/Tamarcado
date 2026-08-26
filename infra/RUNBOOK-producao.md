@@ -366,13 +366,30 @@ O canal de e-mail entrega **recuperação de senha** e **convite de equipe**
 `mail.service.ts`; em resumo: sem dependência nova, sem depender de porta de
 saída, erro legível).
 
-**Estado do DNS em 2026-08-26** (consultado, não suposto):
+> **✅ NO AR desde 2026-08-26.** Testado em produção de ponta a ponta: pedido
+> pela tela de login → e-mail recebido (remetente `contato@tamarcado.tec.br`) →
+> link aberto → senha redefinida. **Fecha a pendência "recuperação de senha por
+> e-mail" que era bloqueador antes de vender** (epics.md, Story 1.2.03).
 
-| Registro | Valor hoje |
+**Configuração de DNS APLICADA** (consultada, não suposta):
+
+| Registro | Estado |
 |---|---|
-| SPF (TXT na raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
-| DMARC (TXT em `_dmarc`) | `v=DMARC1; p=reject;` |
+| TXT raiz (verificação Brevo) | `brevo-code:5f47b5821f6a1da8886cbef0850f4f54` ✅ |
+| CNAME `brevo1._domainkey` | → `b1.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| CNAME `brevo2._domainkey` | → `b2.tamarcado-tec-br.dkim.brevo.com` ✅ |
+| SPF (TXT raiz) | `v=spf1 include:_spf.mx.cloudflare.net ~all` — **NÃO alterado** |
+| DMARC (TXT `_dmarc`) | `v=DMARC1; p=reject;` — **NÃO alterado** |
 | MX | `route1/2/3.mx.cloudflare.net` (Email Routing) |
+
+Todos em **DNS only** (nuvem cinza).
+
+> **Por que não mexer no SPF nem no DMARC foi o certo:** o Brevo não pediu SPF
+> porque o envelope-from das mensagens é de um domínio **dele** — o nosso SPF
+> nem entra na avaliação. E o `p=none` que o Brevo sugere é **mais permissivo**
+> que o nosso `p=reject`: baixar a política seria piorar a proteção do domínio
+> sem ganho nenhum. **Quem sustenta a entrega é o DKIM alinhado** (§11.3), que
+> os dois CNAME acima habilitam.
 
 ### 11.1 O que fazer no painel do Brevo
 
@@ -388,6 +405,8 @@ saída, erro legível).
 5. **SMTP & API → API Keys → Generate a new API key**. Guardar no gerenciador de
    senhas e colocar em `/etc/tamarcado/api.env` como `BREVO_API_KEY`.
    Depois: `pm2 restart tamarcado-api --update-env`.
+6. ⚠️ **AUTORIZAR OS IPs DO SERVIDOR** — passo obrigatório, e o que mais custou
+   tempo no primeiro setup. Ver **§11.5**.
 
 ### 11.2 Registros para colar na Cloudflare
 
@@ -523,6 +542,50 @@ pm2 logs tamarcado-api --lines 500 --nostream | grep -iE "Brevo recusou|falha ao
 > **Não confie no aviso do provedor.** O Brevo pode ou não avisar antes de
 > desativar por inatividade, e o e-mail dele cairia na caixa do Renato entre
 > outros — o cron acima não depende disso.
+
+### 11.5 ⚠️ IPs autorizados no Brevo — o 401 que parece chave errada
+
+O Brevo **bloqueia chamadas de IP não autorizado**. Isso apareceu no primeiro
+setup como um **401** — o mesmo código de chave inválida — com a mensagem:
+
+```
+"unrecognised IP address"
+```
+
+E o endereço reclamado era o **IPv6** do servidor (`2a02:4780:6e:7be8::1`), não
+o IPv4. **Cadastrar só o IPv4 não resolve:** o Node escolhe a família do
+endereço na resolução DNS e, num servidor com IPv6 ativo, a saída para
+`api.brevo.com` costuma ir por IPv6.
+
+**Autorizar OS DOIS**, em `app.brevo.com/security/authorised_ips`:
+
+| Família | Endereço |
+|---|---|
+| IPv4 | `179.198.123.87` |
+| IPv6 | `2a02:4780:6e:7be8::1` |
+
+**Como descobrir os endereços de saída num servidor novo** (é o que o Brevo vê,
+não o que está na interface de rede):
+
+```bash
+curl -4 -s https://api.ipify.org   ; echo    # IPv4 de saída
+curl -6 -s https://api64.ipify.org ; echo    # IPv6 de saída
+```
+
+**Como o sintoma aparece no log da API:**
+
+```
+Brevo recusou o envio: status=401 to=... corpo={"message":"unrecognised IP address","code":"unauthorized"}
+```
+
+> **Cuidado com o diagnóstico:** 401 aqui tem **duas causas possíveis** — chave
+> expirada/errada (§11.4) e IP não autorizado (esta seção). **Leia o `corpo=` do
+> log**: `"unrecognised IP address"` é IP; qualquer outra coisa é a chave. Sem
+> ler o corpo, é fácil gerar chave nova atrás de chave nova sem resolver nada.
+>
+> Vale revisar a lista de IPs autorizados **sempre que o servidor mudar de IP**
+> (troca de VPS, migração, IPv6 dinâmico do provedor) — o envio para no mesmo
+> instante, com o mesmo 401.
 
 ## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
 

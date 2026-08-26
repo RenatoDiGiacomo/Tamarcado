@@ -89,17 +89,26 @@ export class MailService {
         this.logger.error(
           `Brevo recusou o envio: status=${resposta.status} to=${email.to} corpo=${corpo.slice(0, 300)}`,
         );
-        // 401 merece explicação: a chave do Brevo expira com 1 ano de validade
-        // OU com 90 dias SEM NENHUMA chamada. Como recuperação de senha e
-        // convite são eventos raros, a expiração por inatividade é o caso mais
-        // provável — e sem esta linha alguém perderia tempo procurando bug de
-        // código. (Prevenção: cron mensal do RUNBOOK §11.4.)
+        // 401 no Brevo tem DUAS causas, e confundi-las custa tempo: IP não
+        // autorizado responde o mesmo 401 de chave inválida. A diferença está
+        // no corpo — foi assim no primeiro setup, com o IPv6 do servidor.
         if (resposta.status === 401) {
-          this.logger.error(
-            "A chave do Brevo foi recusada (401): expirada, revogada ou errada. " +
-              "Gere outra no painel, atualize BREVO_API_KEY em /etc/tamarcado/api.env " +
-              "e rode `pm2 restart tamarcado-api --update-env`. Ver RUNBOOK §11.4.",
-          );
+          if (/unrecognised ip|unrecognized ip/i.test(corpo)) {
+            this.logger.error(
+              "O Brevo recusou o IP de saída deste servidor (401 'unrecognised IP address'). " +
+                "Autorize os endereços em app.brevo.com/security/authorised_ips — " +
+                "IPv4 E IPv6, porque a saída costuma ir por IPv6. Ver RUNBOOK §11.5.",
+            );
+          } else {
+            // A chave expira com 1 ano de validade OU com 90 dias SEM NENHUMA
+            // chamada. Como recuperação de senha e convite são eventos raros, a
+            // expiração por inatividade é o caso mais provável.
+            this.logger.error(
+              "A chave do Brevo foi recusada (401): expirada, revogada ou errada. " +
+                "Gere outra no painel, atualize BREVO_API_KEY em /etc/tamarcado/api.env " +
+                "e rode `pm2 restart tamarcado-api --update-env`. Ver RUNBOOK §11.4.",
+            );
+          }
         }
         return false;
       }
