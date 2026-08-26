@@ -1,6 +1,7 @@
 # Redesenho da página pública de agendamento — `/agendar/{slug}`
 
-**Status:** especificação para validação (Sally, 2026-08-26).
+**Status:** ✅ **aprovada** (2026-08-26), com as três decisões fechadas no fim do
+documento e o ajuste do endereço já aplicado no protótipo.
 **Protótipo navegável:** publicado como artifact (link no PR).
 **Referência olhada:** `agendin.com.br` — entrega uma página que parece catálogo;
 a nossa hoje parece um formulário.
@@ -25,8 +26,8 @@ Instagram, no celular, decide em segundos — e a página não dá nada para dec
 
 ```
 ┌─────────────────────────────┐
-│ logo · nome                 │  capa: identidade e prova
-│ endereço curto              │
+│ logo · nome                 │  capa: identidade, onde fica e prova
+│ endereço · Como chegar      │  ← uma vez só, e ANTES de escolher
 │ [Instagram] [WhatsApp]      │
 ├─────────────────────────────┤
 │ 1 Escolha o serviço         │  card com FOTO, nome, DESCRIÇÃO, duração, preço
@@ -35,7 +36,7 @@ Instagram, no celular, decide em segundos — e a página não dá nada para dec
 │ 4 Escolha o horário         │  agrupado em manhã / tarde / noite
 │ 5 Seus dados                │  resumo do que foi escolhido + nome + WhatsApp
 ├─────────────────────────────┤
-│ Onde fica · [Como chegar]   │  endereço completo + link do mapa
+│ assinatura discreta         │  o endereço NÃO se repete aqui
 └─────────────────────────────┘
 ```
 
@@ -62,8 +63,10 @@ corrido. Sugestão de limite: **280 caracteres**.
 
 ### 3. Endereço e como chegar
 
-- **Na capa:** uma linha curta (rua, bairro, cidade) — para reconhecer o lugar.
-- **No rodapé:** endereço completo + botão **"Como chegar"**, que abre o mapa.
+**Só na capa, uma vez:** o endereço e o **"Como chegar"** juntos, logo abaixo do
+nome. Quem vai pela primeira vez procura isso **antes** de escolher o serviço —
+repetir no rodapé só empurrava a decisão para o fim da página. O rodapé fica com
+uma assinatura discreta.
 
 Sem geocoding e sem mapa embutido: o link abre o app de mapas do aparelho, que é
 o que a pessoa vai usar de qualquer forma. Guardamos a **URL do mapa** que o
@@ -98,12 +101,12 @@ não escondida num campo opcional.
 | Tabela | Campo | Tipo | Para quê |
 |---|---|---|---|
 | `salon_services` | `description` | `varchar(280) NULL` | descrição curta |
-| `salon_services` | `image_url` | `varchar(500) NULL` | foto do serviço |
+| `salon_services` | `image_url` | `varchar(500) NULL` | foto do serviço — **leva 2** |
 | `companies` | `address` | `varchar(200) NULL` | endereço |
 | `companies` | `maps_url` | `varchar(500) NULL` | link do mapa |
 | `companies` | `instagram_url` | `varchar(200) NULL` | perfil |
 | `companies` | `whatsapp_phone` | `varchar(20) NULL` | contato |
-| `users` | `avatar_url` | `varchar(500) NULL` | foto da profissional |
+| `users` | `avatar_url` | `varchar(500) NULL` | foto da profissional — **leva 2** |
 
 Além da migration: expor nos endpoints públicos
 (`/public/{slug}/installation`, `/services`, `/professionals`) e acrescentar os
@@ -146,11 +149,23 @@ dias, agrupamento por período, resumo. Migration pequena + formulários + front
 
 **Leva 2 — imagens:** upload, foto no serviço e avatar da profissional.
 
-## Decisões que preciso de você
+## Decisões — FECHADAS (2026-08-26)
 
-1. **Upload no VPS ou storage externo?** A recomendação acima é o VPS, mas se a
-   ideia é ter mais de um servidor um dia, o externo evita retrabalho.
-2. **Endereço em um campo ou em campos separados** (rua, número, bairro, cidade,
-   CEP)? Um campo é mais rápido; separado permite formatar e validar depois.
-3. **A foto do serviço é obrigatória para o card grande?** A alternativa é o card
-   compacto quando não houver foto — foi o desenhado no protótipo.
+1. **Upload no próprio VPS**, fora de qualquer caminho tocado pelo
+   `rsync --delete`. Confirma o diretório `/var/lib/tamarcado/uploads/{company}/`
+   servido por `location /uploads/` no Nginx — **nunca** `/var/www/tamarcado`,
+   que o deploy limpa a cada release. Entra no backup.
+2. **Endereço em UM campo só** (`companies.address`, `varchar(200)`), com o link
+   do mapa ao lado. Sem rua/número/bairro separados.
+3. **Card compacto quando não houver foto**, como está no protótipo: bloco neutro
+   com a inicial, sem espaço vazio nem imagem quebrada.
+
+## Levas — confirmadas
+
+**Leva 1 — sem upload.** Faixa de dias, agrupamento por período, cards de
+profissional (iniciais), resumo, e os campos de texto: `description`, `address`,
+`maps_url`, `instagram_url`, `whatsapp_phone`. Migration aditiva + formulários de
+Configurações + endpoints públicos + front.
+
+**Leva 2 — imagens.** Upload no VPS, `salon_services.image_url` e
+`users.avatar_url`, com redimensionamento no envio e limpeza de órfãos.
