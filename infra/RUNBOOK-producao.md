@@ -22,13 +22,16 @@ servidor do zero sem depender de memória**. Referência de arquitetura: ADR-009
 | Usuário de app | `deploy` (não-root, sudo) |
 | App (API) | PM2 `tamarcado-api`, porta interna `3000` |
 
-**Endereços (quando o DNS resolver — decisão de 2026-08-11, só 2 nomes):**
+**Endereços (revisto em 2026-08-25 — DL-069; o "se um dia houver site institucional na raiz" aconteceu):**
 
-| Nome | Uso |
-|---|---|
-| `tamarcado.tec.br` | painel (`/login`) **e** link público (`/agendar/{slug}`) — mesmo SPA |
-| `api.tamarcado.tec.br` | API (proxy para `127.0.0.1:3000`) |
-| `app.tamarcado.tec.br` | **reservado, sem uso** (DNS criado; painel migra pra cá se um dia houver site institucional na raiz) |
+| Nome | Uso | Raiz no servidor |
+|---|---|---|
+| `tamarcado.tec.br` | **landing page** (site institucional, estático) | `/var/www/tamarcado-lp` |
+| `app.tamarcado.tec.br` | painel (`/login`) **e** link público (`/agendar/{slug}`) — mesmo SPA | `/var/www/tamarcado` |
+| `api.tamarcado.tec.br` | API (proxy para `127.0.0.1:3000`) | — (PM2) |
+
+> Até 2026-08-25 o painel respondia na **raiz**. A migração (DNS, certificado,
+> env, PWA) está no **§12** — enquanto ela não for executada, `app.` não existe.
 
 ---
 
@@ -73,7 +76,8 @@ release nova (pacote de inclusão do §7.1) e move o symlink `current`.
     web/                   #   estático do front (copiado para /var/www a cada deploy)
     .env                   #   cópia de /etc/tamarcado/api.env (a API lê ../.env do dist)
   current -> releases/<id> # symlink para a release ATIVA. Rollback = apontar para outra.
-/var/www/tamarcado/        # estático servido pelo Nginx (cópia de current/web)
+/var/www/tamarcado/        # painel: estático servido pelo Nginx (cópia de current/web)
+/var/www/tamarcado-lp/     # landing page: estática (cópia de current/landing) — DL-069
 /etc/tamarcado/api.env     # ENV DE PRODUÇÃO canônico (root:deploy, 640) — fonte da verdade
 /var/backups/tamarcado/    # dumps diários do MySQL (700)
 /usr/local/bin/tamarcado-backup.sh    # backup (cron 03:30 + CD via sudo NOPASSWD)
@@ -171,8 +175,8 @@ Segredos gerados no servidor com `openssl rand -hex 32`. Nomes (valores NÃO est
 | `DATABASE_PASSWORD` | gerada no servidor (só no `.env` + usuário MySQL) |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | **novos**, ≠ dev |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | `900` / `604800` |
-| `CORS_ORIGIN` | `https://tamarcado.tec.br` (painel+público chamam a API cross-origin em `api.`) |
-| `WEB_BASE_URL` | `https://tamarcado.tec.br` (monta `painelUrl` e `publicUrl` — DL: base única, decisão 2026-08-11) |
+| `CORS_ORIGIN` | **`https://app.tamarcado.tec.br`** (DL-069 — quem chama a API é o painel; a landing page é estática e não fala com a API) |
+| `WEB_BASE_URL` | **`https://app.tamarcado.tec.br`** (DL-069 — monta `painelUrl`, `publicUrl` e os links de convite/senha por e-mail; apontar para a raiz mandaria a pessoa para o site institucional) |
 | `PLATFORM_KEY` | **nova**, gerada no servidor (`x-platform-key` do `/api/platform/*`) |
 
 **Aposentadas (não usar):** `AUTH_ALLOW_SINGLE_TENANT` (revogada por DL-052; confirmado que
@@ -375,3 +379,99 @@ tamarcado.tec.br  TXT  "v=spf1 include:_spf.mx.cloudflare.net include:<spf-do-br
   sem conflito) e opcionalmente **DMARC**. Só o **SPF** é que precisa ser registro único.
 - Registros de e-mail (MX/TXT do Email Routing, DKIM) ficam **DNS only**; não afetam o Certbot.
 
+
+---
+
+## 12. Landing page e separação de endereços (DL-069) — PROCEDIMENTO
+
+Migração da raiz: `tamarcado.tec.br` passa a servir a **landing page** e o
+painel vai para **`app.tamarcado.tec.br`**. Feita **antes de existir cliente com
+link divulgado** — depois, mudar quebraria link em bio de Instagram e material
+impresso de terceiros.
+
+**Estado em 2026-08-25:** o código e as configs estão no repositório; os passos
+abaixo **ainda não foram executados** (`app.tamarcado.tec.br` responde
+`NXDOMAIN` — o registro DNS nunca chegou a ser criado, apesar de a fase 2 tê-lo
+dado como reservado). Nada aqui roda pelo CD: exige DNS, `sudo` e Certbot.
+
+### 12.1 Ordem de execução (não pular etapa)
+
+1. **DNS na Cloudflare** — criar `A  app  →  179.198.123.87`, **DNS only**
+   (nuvem cinza). Proxied quebra o Certbot. Conferir antes de seguir:
+   ```bash
+   dig +short app.tamarcado.tec.br      # tem de devolver 179.198.123.87
+   ```
+
+2. **Nginx — publicar os dois server blocks** (como `deploy`, sudo pede senha):
+   ```bash
+   sudo cp /caminho/do/repo/infra/nginx/app.tamarcado.tec.br.conf /etc/nginx/sites-available/
+   sudo cp /caminho/do/repo/infra/nginx/tamarcado.tec.br.conf     /etc/nginx/sites-available/
+   sudo ln -sfn /etc/nginx/sites-available/app.tamarcado.tec.br.conf /etc/nginx/sites-enabled/
+   sudo mkdir -p /var/www/tamarcado-lp        # LP ainda vazia neste ponto
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+   > As confs vivem no repo, mas **não** são copiadas pelo CD (o pacote de
+   > deploy não leva `infra/`). Copiar à mão é o esperado — igual à fase 2.
+
+3. **Certificado do `app.`** (a raiz e a `api.` já têm):
+   ```bash
+   sudo certbot --nginx -d app.tamarcado.tec.br
+   sudo certbot renew --dry-run          # confirmar a renovação automática
+   ```
+   O Certbot adiciona o bloco 443 e o redirect 80→443 no arquivo do `app.`.
+
+4. **Env de produção** — em `/etc/tamarcado/api.env` (§5):
+   ```
+   CORS_ORIGIN=https://app.tamarcado.tec.br
+   WEB_BASE_URL=https://app.tamarcado.tec.br
+   ```
+   Depois: `pm2 restart tamarcado-api --update-env` (o env é lido do `.env` da
+   release; o CD recopia a cada deploy, então **mudar o arquivo canônico basta**).
+
+5. **Deploy** (`workflow_dispatch` do `deploy.yml`) — publica o painel em
+   `/var/www/tamarcado` (como sempre) **e** a landing page em
+   `/var/www/tamarcado-lp`. Só depois deste deploy a raiz para de servir o
+   painel: até aqui, `/var/www/tamarcado-lp` está vazio e a raiz devolve 404.
+
+6. **Validar** (nesta ordem):
+   ```bash
+   curl -I https://app.tamarcado.tec.br/login     # 200, cert válido
+   curl -I https://tamarcado.tec.br/              # 200, landing page
+   curl -I https://tamarcado.tec.br/login         # 301 -> app.tamarcado.tec.br/login
+   curl -I https://tamarcado.tec.br/sw.js         # 404 (proposital, §12.2)
+   ```
+   Pela UI: entrar no painel por `app.`, e provisionar/consultar uma empresa
+   para conferir que `painelUrl` e `publicUrl` saem com `app.` (§5.1, túnel SSH).
+
+### 12.2 PWA — quem já instalou precisa reinstalar
+
+**Origem diferente é outro aplicativo para o navegador. Não existe migração
+automática.** O PWA instalado hoje aponta para `tamarcado.tec.br`: depois da
+mudança, abrir pelo ícone cai na **landing page**, não no sistema.
+
+O que o código já faz por conta própria:
+
+- **A landing page desregistra o service worker antigo** da origem raiz e limpa
+  os caches (script inline no `<head>` do `index.html`) — senão o SW velho pode
+  interceptar requisições e servir pedaços do app por cima do site.
+- **O Nginx devolve 404** em `/sw.js`, `/registerSW.js` e `/manifest.webmanifest`
+  na raiz. O 404 é proposital: é o que faz o navegador **descartar** o registro
+  na próxima verificação.
+- **`start_url` e `scope` do manifest são relativos** (`/`), então o manifest, o
+  escopo do SW e os ícones passam a viver em `app.` sem alteração de build.
+
+O que **precisa ser feito à mão** (hoje só afeta o Renato — nenhum cliente tem o
+app instalado):
+
+1. **Desinstalar** o PWA antigo (Android: manter pressionado o ícone →
+   Desinstalar; iOS: manter pressionado → Remover app).
+2. Abrir **`https://app.tamarcado.tec.br`** no navegador do celular e instalar
+   de novo (Android/Chrome: menu → *Adicionar à tela inicial*; iOS/Safari:
+   Compartilhar → *Adicionar à Tela de Início*).
+3. **Conferir:** abrir pelo ícone e ver o **painel** (a tela de login), em modo
+   **standalone** — tela cheia, sem a barra de endereço do navegador.
+
+> Se o ícone antigo abrir a landing page, é porque o PWA velho continua
+> instalado: desinstale e repita. Se o ícone novo abrir **com** barra de
+> endereço, o manifest não foi lido — confira `https://app.tamarcado.tec.br/manifest.webmanifest`
+> (deve responder 200) antes de investigar qualquer outra coisa.

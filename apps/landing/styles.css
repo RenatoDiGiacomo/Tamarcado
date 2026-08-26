@@ -1,0 +1,715 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Landing page do Tamarcado — CSS único, sem framework e sem build.
+
+   Os tokens abaixo são os MESMOS do design system do produto
+   (apps/web/src/globals.css, DL-037): mesma primária, mesmos cinzas, mesmo
+   raio de canto, mesma família tipográfica (system-ui). A LP e o painel
+   precisam parecer a mesma coisa — quem clica em "Entrar" não pode sentir
+   que trocou de produto.
+
+   Mobile-first: as regras base valem para o celular (a maioria chega pelo
+   Instagram, no telefone); as media queries só ampliam.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Design system — tema claro (globals.css :root) */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --primary: 243 100% 69%;
+  --primary-foreground: 0 0% 100%;
+  /* A primária da marca (#6C63FF) sobre branco dá 4.29:1 — reprova em texto
+     pequeno (AA pede 4.5:1). Esta variante mais escura é usada SÓ em texto;
+     fundos, bordas e ícones continuam com a --primary original, que é a cor
+     da marca. Contraste sobre branco: ~7:1. */
+  --primary-texto: 243 65% 55%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  --border: 0 0% 87%;
+  --radius: 0.625rem;
+
+  /* Verde do WhatsApp — cor da marca deles, fora do design system nosso. */
+  --zap: 142 70% 39%;
+  --zap-escuro: 142 70% 32%;
+
+  --largura: 72rem;
+  --largura-estreita: 46rem;
+  --sombra: 0 1px 2px hsl(0 0% 0% / 0.06), 0 8px 24px hsl(0 0% 0% / 0.08);
+  --sombra-forte: 0 2px 8px hsl(0 0% 0% / 0.1), 0 24px 48px hsl(0 0% 0% / 0.14);
+}
+
+/* SEM tema escuro. A LP é SEMPRE clara — fundo claro, texto escuro, roxo só
+   nos acentos —, do mesmo jeito que o painel se apresenta. Seguir a preferência
+   do sistema fazia a página abrir escura para quem usa o celular no modo noturno
+   e criava a sensação de "mudei de lugar" ao entrar no sistema. */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  /* Compensa o cabeçalho fixo quando a navegação por âncora rola a página. */
+  scroll-padding-top: 5.5rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 0.5em; }
+h1 { font-size: clamp(2rem, 6vw, 3.25rem); font-weight: 800; }
+h2 { font-size: clamp(1.5rem, 4vw, 2.25rem); font-weight: 700; }
+h3 { font-size: 1.125rem; font-weight: 650; }
+p { margin: 0 0 1rem; }
+
+a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+/* Foco visível em TUDO que recebe teclado — nunca remover sem repor. */
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--largura);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+.wrap--estreito { max-width: var(--largura-estreita); }
+
+/* Atalho para quem navega por teclado ou leitor de tela. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+  border-radius: 0 0 var(--radius) 0;
+}
+.skip-link:focus { left: 0; }
+
+/* ── Botões ──────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  /* Alvo de toque confortável no celular (WCAG 2.5.5). */
+  min-height: 44px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn--grande { padding: 0.9rem 1.5rem; font-size: 1.0625rem; }
+
+.btn--primario { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.btn--primario:hover { background: hsl(var(--primary) / 0.9); }
+
+.btn--fantasma {
+  background: transparent;
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+.btn--fantasma:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary-texto)); }
+
+.btn--claro { background: #fff; color: hsl(var(--primary-texto)); }
+.btn--claro:hover { background: hsl(0 0% 96%); }
+
+/* ── Cabeçalho ───────────────────────────────────────────────────────────── */
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: hsl(var(--background) / 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid hsl(var(--border));
+}
+.topo__linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4rem;
+}
+.topo__marca { display: inline-flex; align-items: center; }
+.marca { width: auto; height: 1.75rem; }
+/* Como o fundo é sempre claro, só a versão do logo para fundo claro é usada
+   (o arquivo do logo para fundo escuro segue em assets/, sem uso na página). */
+
+.topo__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.topo__menu-icone,
+.topo__menu-icone::before,
+.topo__menu-icone::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: hsl(var(--foreground));
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.topo__menu-icone::before,
+.topo__menu-icone::after { content: ""; position: absolute; }
+.topo__menu-icone::before { transform: translateY(-6px); }
+.topo__menu-icone::after { transform: translateY(6px); }
+.topo__menu-btn[aria-expanded="true"] .topo__menu-icone { background: transparent; }
+.topo__menu-btn[aria-expanded="true"] .topo__menu-icone::before { transform: rotate(45deg); }
+.topo__menu-btn[aria-expanded="true"] .topo__menu-icone::after { transform: rotate(-45deg); }
+
+/* Menu no celular: escondido até o botão abrir. */
+.topo__nav {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  padding: 1rem 1.25rem 1.5rem;
+  background: hsl(var(--background));
+  border-bottom: 1px solid hsl(var(--border));
+  box-shadow: var(--sombra);
+}
+.topo__nav.esta-aberto { display: block; }
+.topo__lista { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.25rem; }
+.topo__lista a {
+  display: block;
+  padding: 0.625rem 0.25rem;
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  font-weight: 550;
+}
+.topo__lista a:hover { color: hsl(var(--primary-texto)); }
+.topo__acoes { display: grid; gap: 0.5rem; }
+
+@media (min-width: 62rem) {
+  .topo__menu-btn { display: none; }
+  .topo__nav {
+    display: flex;
+    position: static;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  .topo__lista { display: flex; gap: 1.25rem; margin: 0; }
+  .topo__acoes { display: flex; gap: 0.625rem; }
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.hero {
+  padding: 3rem 0 2.5rem;
+  background:
+    radial-gradient(60rem 30rem at 80% -10%, hsl(var(--primary) / 0.12), transparent 60%),
+    radial-gradient(40rem 24rem at 0% 0%, hsl(var(--primary) / 0.06), transparent 55%);
+  border-bottom: 1px solid hsl(var(--border));
+}
+.hero__grade { display: grid; gap: 2.5rem; }
+.hero__linha-fina {
+  font-size: 1.125rem;
+  color: hsl(var(--muted-foreground));
+  max-width: 34rem;
+}
+.hero__botoes { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+.hero__selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  font-size: 0.9375rem;
+  color: hsl(var(--muted-foreground));
+}
+.hero__selos li::before { content: "✓"; color: hsl(var(--primary)); font-weight: 700; margin-right: 0.375rem; }
+
+.hero__imagem { position: relative; }
+@media (min-width: 62rem) {
+  .hero { padding: 4.5rem 0 4rem; }
+  .hero__grade { grid-template-columns: 1fr 1fr; align-items: center; gap: 3rem; }
+}
+
+/* ── Capturas de tela e molduras ─────────────────────────────────────────
+   As capturas ganham moldura de dispositivo: barra de navegador para as telas
+   de computador, corpo de telefone para as de celular. Duas razões práticas —
+   dá contexto (a pessoa entende na hora "isso é o sistema aberto no
+   computador") e concilia proporções muito diferentes (2,43:1 contra 0,96:1)
+   num mesmo bloco, sem esticar imagem. Tudo em CSS: nenhuma imagem de moldura
+   para baixar. */
+.shot { position: relative; }
+.shot__img { display: block; width: 100%; height: auto; background: hsl(var(--card)); }
+
+.moldura {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: var(--sombra-forte);
+  overflow: hidden;
+}
+
+/* Navegador: barra com as bolinhas e o endereço da tela mostrada. */
+.moldura--navegador { border-radius: calc(var(--radius) + 4px); }
+.moldura__barra {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.moldura__bolinhas {
+  flex: none;
+  width: 2.75rem;
+  height: 0.5rem;
+  /* Três pontos desenhados em gradiente — sem três elementos vazios no HTML. */
+  background-image: radial-gradient(circle, hsl(var(--border)) 45%, transparent 47%);
+  background-size: 0.9375rem 100%;
+  background-repeat: repeat-x;
+}
+.moldura__url {
+  flex: 1;
+  min-width: 0;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Celular: borda grossa e cantos bem arredondados fazem o corpo do aparelho. */
+.moldura--celular {
+  border-width: 0.5rem;
+  border-radius: 1.75rem;
+}
+.moldura--celular .shot__img { border-radius: 1.25rem; }
+
+/* Enquanto uma captura não estiver na pasta, o bloco não pode quebrar o layout
+   nem mostrar ícone de imagem quebrada: main.js marca a moldura como
+   .shot--sem-arquivo e o espaço vira uma área com o nome do arquivo que falta.
+   Some sozinho quando o PNG é adicionado. */
+.shot--sem-arquivo .shot__img { display: none; }
+.shot--sem-arquivo .shot__falta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  aspect-ratio: var(--proporcao, 1920 / 790);
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8125rem;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+.moldura--celular.shot--sem-arquivo .shot__falta { --proporcao: 497 / 520; }
+
+/* Hero: no CELULAR mostro só a captura do celular — a tela de computador
+   reduzida a 390px de largura fica ilegível, e quem chega pelo Instagram está
+   no telefone. A partir do desktop as duas aparecem, com a do celular
+   sobreposta no canto. */
+.hero__imagem .shot--desktop { display: none; }
+.hero__imagem .shot--mobile {
+  width: min(14rem, 68%);
+  margin-inline: auto;
+}
+
+@media (min-width: 62rem) {
+  .hero__imagem .shot--desktop { display: block; }
+  .hero__imagem .shot--mobile {
+    width: 30%;
+    max-width: 9.5rem;
+    position: absolute;
+    /* Dentro da caixa: `right` negativo criava rolagem horizontal na página. */
+    right: 0;
+    bottom: -2rem;
+    margin-inline: 0;
+  }
+}
+
+/* ── Vitrine de telas ────────────────────────────────────────────────────
+   Celular: uma embaixo da outra. Computador: a tela em destaque ocupa a coluna
+   larga, com o celular ao lado atravessando as duas linhas — assim as alturas
+   fecham e não sobra buraco à direita. */
+.vitrine {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+/* Coluna com a legenda empurrada para o fim: quando dois quadros dividem a
+   mesma linha e têm alturas diferentes, as legendas ainda assim alinham
+   embaixo, em vez de flutuarem cada uma numa altura. */
+.quadro {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* Sem isto, um item de grid/flex cresce até o conteúdo (a imagem larga da
+     moldura arrastável) e empurra a página inteira para o lado. */
+  min-width: 0;
+}
+.quadro .moldura { min-width: 0; max-width: 100%; }
+.quadro figcaption {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+.quadro figcaption strong { color: hsl(var(--foreground)); font-weight: 650; }
+
+/* A do celular é estreita por natureza: no telefone ela não pode ocupar a
+   largura toda, senão fica desproporcional ao lado das telas de computador. */
+.quadro--celular .moldura {
+  /* Fluida: `min()` faz a moldura encolher junto com a coluna em vez de manter
+     uma largura fixa em rem — que, num aparelho estreito (320px) ou com a fonte
+     do sistema aumentada, encostava nas bordas e parecia transbordar. */
+  width: min(17rem, 88%);
+  margin-inline: auto;
+}
+
+/* ── No CELULAR ──────────────────────────────────────────────────────────
+   Uma tela de computador (1920px) espremida em 350px não se lê — vira o
+   "retângulo borrado". Duas medidas:
+
+   1. A captura DO CELULAR vem primeiro: é a tela que a pessoa consegue ler no
+      aparelho dela, e é a que mostra o que a cliente dela vê.
+   2. As telas de computador ficam em tamanho legível e ARRASTÁVEIS na
+      horizontal dentro da própria moldura. A pessoa desliza para ver o resto,
+      como faria com uma foto larga. A rolagem vertical da página não é
+      afetada, e no computador nada disso se aplica. */
+@media (max-width: 61.99rem) {
+  .quadro--celular { order: -1; }
+  .quadro--destaque .moldura,
+  .quadro--secundario .moldura {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .quadro--destaque .moldura__barra,
+  .quadro--secundario .moldura__barra {
+    /* A barra acompanha a largura da imagem para não "descolar" ao arrastar. */
+    position: sticky;
+    left: 0;
+  }
+  .quadro--destaque .shot__img,
+  .quadro--secundario .shot__img {
+    /* Larga o bastante para o texto da tela ser legível, mas proporcional à
+       largura disponível: 240% da coluna, com teto para não virar um arrasto
+       interminável em tablet. A rolagem acontece DENTRO da moldura — nunca na
+       página (é o `min-width: 0` do .quadro que segura isso). */
+    width: min(52rem, 240%);
+    max-width: none;
+  }
+}
+
+@media (min-width: 62rem) {
+  .vitrine {
+    grid-template-columns: 2fr 1fr;
+    gap: 2.5rem;
+    /* `stretch` (padrão) + a legenda no fim do quadro = legendas alinhadas. */
+    align-items: stretch;
+  }
+  /* A tela que precisa ser LIDA ocupa a largura inteira: é a que convence.
+     Embaixo, as duas menores dividem a linha — a de computador na coluna
+     larga, o celular na estreita, que é a proporção natural de cada uma. */
+  .quadro--destaque { grid-column: 1 / -1; }
+  .quadro--secundario { grid-column: 1; }
+  .quadro--celular { grid-column: 2; }
+  .quadro--celular .moldura { max-width: none; }
+  .quadro--destaque figcaption { font-size: 1.0625rem; }
+}
+
+/* ── Seções ──────────────────────────────────────────────────────────────── */
+.secao { padding: 3.5rem 0; }
+/* No claro, `muted` a 55% quase não se distingue do branco: a faixa vira a
+   superfície cheia do token, com as bordas do design system marcando onde uma
+   seção termina e a outra começa. */
+.secao--alt {
+  background: hsl(var(--muted));
+  border-top: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.secao__chapeu {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--primary-texto));
+}
+.secao__intro { max-width: 46rem; color: hsl(var(--muted-foreground)); font-size: 1.0625rem; }
+@media (min-width: 62rem) { .secao { padding: 5rem 0; } }
+
+/* ── Cartões de funcionalidade ───────────────────────────────────────────── */
+.cartoes {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 40rem) { .cartoes { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 62rem) { .cartoes { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; } }
+
+.cartao {
+  padding: 1.5rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--sombra);
+}
+.cartao__icone { font-size: 1.75rem; line-height: 1; display: block; margin-bottom: 0.75rem; }
+.cartao p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 0.9375rem; }
+
+/* ── Passos ──────────────────────────────────────────────────────────────── */
+.passos { list-style: none; margin: 2.5rem 0 0; padding: 0; display: grid; gap: 1.5rem; counter-reset: passo; }
+@media (min-width: 48rem) { .passos { grid-template-columns: repeat(3, 1fr); gap: 2rem; } }
+.passo__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 50%;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary-texto));
+  font-weight: 800;
+}
+.passo p { margin: 0; color: hsl(var(--muted-foreground)); }
+
+/* ── Para quem é ─────────────────────────────────────────────────────────
+   Dez nichos. Em vez de dez blocos de texto (uma parede que ninguém lê), cada
+   um vira um card pequeno de ÍCONE + NOME: a pessoa varre a grade e acha o
+   próprio negócio num relance. A dor específica de cada nicho continua na
+   página, num parágrafo abaixo da grade — texto real e indexável, não
+   escondido em atributo. */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.nichos {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  /* Duas colunas no celular, quatro no computador.
+     `minmax(0, 1fr)` e não `1fr`: o mínimo automático de uma coluna de grid é o
+     tamanho do CONTEÚDO, então "Personal trainer e estúdio de treino" empurrava
+     a coluna e a página inteira ganhava rolagem lateral em telas de 320px. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 48rem) { .nichos { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } }
+@media (min-width: 62rem) { .nichos { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.nicho {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.3;
+  /* Nomes de tamanhos diferentes ("Piercing" x "Personal trainer e estúdio de
+     treino") não podem deixar a grade irregular. */
+  min-height: 3.75rem;
+}
+/* Nome longo em coluna estreita quebra dentro do card, nunca para fora dele. */
+.nicho span { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.nicho__icone {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  color: hsl(var(--primary-texto));
+  /* Os ícones do lucide são desenhados com traço, não preenchimento. */
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (min-width: 48rem) {
+  .nicho { font-size: 0.9375rem; padding: 1rem 1.125rem; }
+  .nicho__icone { width: 1.5rem; height: 1.5rem; }
+}
+
+.nichos__fecho {
+  margin-top: 1.75rem;
+  max-width: 52rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+.nichos__fecho strong { color: hsl(var(--foreground)); font-weight: 600; }
+
+/* ── Perguntas frequentes ────────────────────────────────────────────────── */
+.faq { margin-top: 2rem; display: grid; gap: 0.75rem; }
+.faq__item {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 0 1.25rem;
+}
+.faq__item summary {
+  padding: 1rem 0;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary::after {
+  content: "+";
+  font-size: 1.375rem;
+  font-weight: 400;
+  color: hsl(var(--primary));
+  flex: none;
+}
+.faq__item[open] summary::after { content: "−"; }
+.faq__item p { margin: 0 0 1rem; color: hsl(var(--muted-foreground)); }
+
+/* ── Chamada final ───────────────────────────────────────────────────────── */
+.cta { padding: 3.5rem 0 4rem; }
+.cta__caixa {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border-radius: calc(var(--radius) + 6px);
+  /* Bloco de destaque: roxo sólido no tom mais escuro (--primary-texto). A
+     primária pura daria 4.29:1 com o texto branco — reprova. Este tom passa
+     (~7:1) e é o MESMO token já usado nos textos de acento, sem cor nova. */
+  background: hsl(var(--primary-texto));
+  color: #fff;
+}
+.cta__caixa h2 { color: #fff; }
+.cta__caixa p { max-width: 34rem; margin-inline: auto; color: hsl(0 0% 100% / 0.88); }
+.cta__caixa .btn { margin-top: 1.25rem; }
+
+/* ── Rodapé ──────────────────────────────────────────────────────────────── */
+.rodape {
+  /* Rodapé CLARO, na superfície `muted` do design system — um bloco preto no
+     fim reintroduziria o tema escuro que a página não usa. A borda superior é
+     o que separa o rodapé do conteúdo. */
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 3rem;
+  /* Espaço extra embaixo para o botão flutuante não cobrir os links. */
+  padding-bottom: 5.5rem;
+}
+.rodape__grade { display: grid; gap: 2rem; }
+@media (min-width: 48rem) { .rodape__grade { grid-template-columns: 2fr 1fr 1fr; gap: 3rem; } }
+/* Maior que no cabeçalho de propósito: no rodapé ele é a assinatura da marca,
+   e a 1.75rem (a altura do topo) ficava menor que o texto ao lado e sumia. */
+.rodape__marca { height: 2.75rem; width: auto; }
+.rodape__frase { margin-top: 1rem; max-width: 26rem; font-size: 0.9375rem; }
+.rodape__titulo { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; color: hsl(var(--muted-foreground)); margin-bottom: 0.75rem; }
+.rodape ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.rodape a { color: hsl(var(--foreground)); text-decoration: none; }
+.rodape a:hover { color: hsl(var(--primary-texto)); text-decoration: underline; }
+.rodape__base {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid hsl(var(--border));
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+.rodape__base p { margin: 0; }
+
+/* ── Animação de entrada das seções ──────────────────────────────────────────
+   Discreta: aparecer subindo 12px, meio segundo, uma vez só. Vale apenas com
+   `js-anima` no <html> (ligada pelo script do <head>) — sem JavaScript, nada
+   aqui se aplica e a página fica estática, com todo o conteúdo visível.
+   O deslocamento usa `translate3d` para a animação rodar na GPU e não forçar
+   recálculo de layout durante a rolagem. */
+.js-anima .anima {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition:
+    opacity 0.5s ease-out var(--atraso, 0ms),
+    transform 0.5s ease-out var(--atraso, 0ms);
+}
+.js-anima .anima.esta-visivel {
+  opacity: 1;
+  transform: none;
+}
+
+/* Quem pediu menos movimento no sistema não vê NADA se mexendo: o conteúdo
+   simplesmente já está lá. (A regra global de reduced-motion mais acima zera a
+   duração das transições; esta garante que o estado inicial também não exista —
+   senão o conteúdo ficaria invisível para essas pessoas.) */
+@media (prefers-reduced-motion: reduce) {
+  .js-anima .anima,
+  .js-anima .anima.esta-visivel {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── Botão flutuante do WhatsApp ─────────────────────────────────────────── */
+.zap {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  border-radius: 999px;
+  background: hsl(var(--zap));
+  color: #fff;
+  text-decoration: none;
+  font-weight: 650;
+  box-shadow: 0 6px 20px hsl(0 0% 0% / 0.28);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.zap:hover { background: hsl(var(--zap-escuro)); transform: translateY(-2px); }
+.zap__icone { flex: none; }
+/* No celular o botão é só o ícone (redondo); a partir do tablet ganha o texto. */
+.zap__texto { display: none; }
+@media (min-width: 48rem) {
+  .zap { right: 1.5rem; bottom: 1.5rem; padding: 0.875rem 1.25rem; }
+  .zap__texto { display: inline; }
+}

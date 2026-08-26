@@ -32,6 +32,13 @@ export default defineConfig({
         background_color: "#ffffff",
         display: "standalone",
         orientation: "portrait",
+        // start_url/scope RELATIVOS: valem sempre a origem que serve o app.
+        // Desde o DL-069 essa origem é https://app.tamarcado.tec.br (a raiz
+        // virou landing page), então o manifest, o escopo do service worker e
+        // os ícones passaram a viver lá — sem hardcode de domínio aqui.
+        // ATENÇÃO: origem nova = PWA novo para o navegador. Quem instalou pela
+        // raiz antes da mudança precisa DESINSTALAR e instalar de novo pelo
+        // endereço novo; não existe migração automática (RUNBOOK §12).
         start_url: "/",
         scope: "/",
         icons: [

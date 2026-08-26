@@ -245,7 +245,7 @@ A cliente agenda sozinha por um **link público** (`/agendar/{slug}`), **sem Wha
 **FRs cobertas:** FR-B1/B2/B4 · **NFRs:** NFR-A3, NFR-C1, NFR-S1/S2 · **UX-DRs:** UX-DR9
 
 ### Épico 6: Ciclo de Agendamento via WhatsApp (Bot) — o diferencial, depois da base
-Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` sobre a **WhatsApp Cloud API oficial (Meta)** (DL-054; Evolution só dev), a máquina de estados (`whatsapp_conversations`, **estado e jobs agendados no MySQL, sem Redis/BullMQ** — DL-056), o fluxo de agendamento via bot (**uma conversa = um serviço**; carrinho multi-serviço é fast-follow — DL-055), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6) e a resiliência do provider. **Gated por plano:** o WhatsApp só liga no plano **Pró** (DL-057). Consome a base do Épico 3 (não recria tabelas de agendamento). **Já entregues pelo 5B:** notificação ao salão + confirmar/recusar (antiga 6.4) e polling de pendentes (antiga 6.9). **Movido ao roadmap:** monitoramento/alertas (antiga 6.8, DL-058).
+Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` sobre a **WhatsApp Cloud API oficial (Meta)** (DL-054; Evolution só dev), a máquina de estados (`whatsapp_conversations`, **estado e jobs agendados no MySQL, sem Redis/BullMQ** — DL-056), o fluxo de agendamento via bot (**uma conversa = um serviço**; carrinho multi-serviço é fast-follow — DL-055), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6) e a resiliência do provider. **Gated por plano:** o WhatsApp só liga no plano **Pró** (DL-057). **Conexão multi-tenant (DL-068):** cada estabelecimento conecta o **próprio número** via **Embedded Signup**, com o Tamarcado atuando como **Tech Provider** da Meta — a conta e o número são **do cliente**, a conexão é **autoatendimento** e inclui tela de conectar/ver estado/desconectar + **tutorial em PDF** (Stories 6.12–6.14). Consome a base do Épico 3 (não recria tabelas de agendamento). **Já entregues pelo 5B:** notificação ao salão + confirmar/recusar (antiga 6.4) e polling de pendentes (antiga 6.9). **Movido ao roadmap:** monitoramento/alertas (antiga 6.8, DL-058).
 **FRs cobertas:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 migraram para o Épico 5B — pendentes pelo painel)*, FR-C1–C3, FR-C5, FR-C6, FR-J2
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
@@ -283,6 +283,9 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
   - **Modelo previsão → real:** a Equipe calcula a **previsão**; o **REGISTRO do pagamento efetivo à equipe (o "real") acontece no FINANCEIRO** — é **SAÍDA** de caixa. O Financeiro passa a mostrar entradas, saídas e resultado.
   - **Dashboard** exibe o **"quanto gastei com a equipe"** (consolidado, leitura) — operado no Financeiro.
   - *(Fora desta leva, evolução: **metas / faixas de comissão**.)*
+
+**3.5. Landing page + separação de endereços — NOVO (DL-069).** `tamarcado.tec.br` vira **landing page** (estática, servida pelo Nginx) e o painel migra para **`app.tamarcado.tec.br`** (com `/agendar/{slug}` junto); a API segue em `api.`. **Por que agora:** ainda **não há cliente com link divulgado** — depois, mudar quebra link em bio de Instagram e material impresso **de terceiros**. Inclui: `WEB_BASE_URL`/`CORS_ORIGIN` apontando para o `app.`, **301** das rotas antigas na raiz (salva os e-mails de convite/senha já enviados), **reinstalação do PWA** (origem nova = app novo para o navegador; a LP desregistra o service worker velho) e SEO da LP (o painel fica **fora** do índice). **Depende do Renato:** registro DNS do `app` (hoje **NXDOMAIN**), certificado via Certbot, capturas de tela reais e os IDs de GA4/Search Console. Procedimento no **RUNBOOK §12**.
+> *Numerado como **3.5** de propósito: os itens 4–6 abaixo **não** foram renumerados para não invalidar as referências a "roadmap item 2/4" espalhadas nos documentos e no runbook.*
 
 **4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev) — **começar em paralelo já**, pois é o gargalo.
 
@@ -1213,14 +1216,21 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > 5. **Monitoramento (6.8) → roadmap** (DL-058, com Financeiro/Dashboard); no épico fica só log msg in/out + estado da conexão.
 > 6. **Já entregues pelo 5B:** Story **6.4** e Story **6.9** (ver marcações abaixo).
 >
-> **Pré-requisito não-técnico (começa ANTES do código):** verificação de negócio na Meta, Business Manager e número dedicado — leva dias (DL-054).
+> **REVISADO (2026-08-25, DL-068) — conexão multi-tenant por Embedded Signup:**
+> 7. **Cada estabelecimento conecta o PRÓPRIO número.** O Tamarcado atua como **TECH PROVIDER** da Meta e oferece o **Embedded Signup** dentro do painel: o dono clica em "Conectar WhatsApp", abre uma **janela da Meta** no nosso sistema, ele faz login na conta Meta **dele**, informa o número, recebe o código e confirma; a Meta devolve os **identificadores da conta dele** + um **código**, que trocamos por um **token para operar em nome dele**. Consequências: **a conta e o número são do CLIENTE**; dados e modelos (templates) **isolados por cliente**; se ele sair da plataforma **leva o número** (argumento de venda); conexão é **AUTOATENDIMENTO** — não configuramos cliente a cliente. Isso **substitui** o modelo de cadastrar número a número na **nossa** conta, que **não escala** e concentraria em nós a responsabilidade por números de terceiros. **Novas Stories 6.12 (Embedded Signup), 6.13 (tela conectar/estado/desconectar) e 6.14 (tutorial em PDF)** — apesar da numeração, são as **primeiras do épico** (a 6.1 depende das credenciais que elas produzem; numeração mantida para não renumerar 6.1–6.11).
+>
+> **Pré-requisito não-técnico (começa ANTES do código):** **tornar-se Tech Provider na Meta** — o *"Torne-se um Provedor de Tecnologia"* do painel de desenvolvedor — com **cadastro + verificação de negócio** (Business Manager) — leva dias (DL-054, DL-068). **Não** é mais "número dedicado nosso": o número é do cliente.
+>
+> **Atrito conhecido (DL-068):** o dono precisa **ter ou criar conta Meta Business** durante o fluxo. Para quem só usa WhatsApp e Instagram, isso pode **travar** — daí o **tutorial em PDF** (6.14) e, no **futuro**, o **apoio remoto** (evolução registrada na 6.13, **evitar por ora**).
 > **Custos (Meta, ago/2026):** serviço (resposta ≤24h) **grátis**; utilidade (confirmação/lembrete) ≈ **R$ 0,04–0,05**; marketing não usado. Fluxo principal gratuito; ≈ **R$ 30/mês** por salão com 300 agendamentos.
 
 **FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C3, NFR-O3 *(NFR-C2 monitoramento → roadmap, DL-058)* · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
 ### Story 6.1: Abstração WhatsAppProvider e integração com a Cloud API oficial (Meta)
 
-> **Revisada (DL-054, 2026-08-10):** produção usa **exclusivamente a WhatsApp Cloud API oficial da Meta**. A Evolution API fica **só para desenvolvimento**, com número descartável — **nunca** produção (banimento de APIs não oficiais em 2026; o número em risco é o do cliente). A interface `WhatsAppProvider` **permanece** — é ela que torna a troca barata (NFR-O3). **Pré-requisito não-técnico:** verificação de negócio na Meta + Business Manager + número dedicado, iniciados **antes** desta story.
+> **Revisada (DL-054, 2026-08-10):** produção usa **exclusivamente a WhatsApp Cloud API oficial da Meta**. A Evolution API fica **só para desenvolvimento**, com número descartável — **nunca** produção (banimento de APIs não oficiais em 2026; o número em risco é o do cliente). A interface `WhatsAppProvider` **permanece** — é ela que torna a troca barata (NFR-O3). **Pré-requisito não-técnico:** **cadastro como Tech Provider na Meta** + verificação de negócio (Business Manager), iniciados **antes** desta story.
+>
+> **Revisada de novo (DL-068, 2026-08-25):** as **credenciais por tenant** (identificadores da conta WhatsApp do cliente + token para operar em nome dele) **não são cadastradas à mão por nós** — chegam do **Embedded Signup** (**Story 6.12**). Esta story consome o que a 6.12 grava; a factory por tenant e o roteamento do webhook **permanecem como estão**.
 
 As a operador da plataforma,
 I want enviar e receber mensagens de WhatsApp por uma interface abstrata, sobre a Cloud API oficial da Meta,
@@ -1516,6 +1526,90 @@ So that eu controle o canal sem conseguir habilitar o que não contratei.
 **Then** é **rejeitada** — o gating não depende do front
 
 > **Fora de escopo agora (DL-057):** cobrança, upgrade automático, autoatendimento de plano. Mudar de plano é **operação manual do Renato**.
+
+### Story 6.12: Embedded Signup — o estabelecimento conecta o próprio número (novo — DL-068)
+
+> **Pré-requisito não-técnico, começa ANTES do código:** o Tamarcado precisa estar **cadastrado e verificado como Tech Provider** na Meta (*"Torne-se um Provedor de Tecnologia"*). Sem isso o Embedded Signup **não existe**. **Ordem real:** esta story vem **antes da 6.1** (é ela que produz as credenciais por tenant); a numeração 6.12 é só para não renumerar 6.1–6.11.
+
+As a dono do estabelecimento,
+I want conectar o meu próprio número de WhatsApp pelo painel, sem depender de ninguém,
+So that o bot atenda pelo número do meu salão, na minha conta, sem eu ter que pedir configuração à plataforma.
+
+**Acceptance Criteria:**
+
+**Given** o Tamarcado cadastrado como **Tech Provider** e o dono no painel
+**When** ele clica em **"Conectar WhatsApp"**
+**Then** abre a **janela do Embedded Signup da Meta dentro do nosso sistema**, onde ele faz login na conta Meta **dele**, informa o número, recebe o código de verificação e confirma — **nenhum passo é executado por nós**
+
+**Given** o fluxo concluído com sucesso
+**When** a Meta devolve os **identificadores da conta WhatsApp do cliente** e o **código**
+**Then** o backend **troca o código pelo token** de operação em nome dele e **persiste as credenciais por tenant** (na `companies`, campos da Story 6.1 — identificador do número, identificador da conta e token), **isoladas por `company_id`**; o token **nunca** transita para o front nem aparece em log
+
+**Given** um tenant já conectado
+**When** o bot envia ou recebe mensagem (Story 6.1)
+**Then** usa **as credenciais daquele tenant** — a conta e o número são **do cliente**, e cada cliente gerencia os **próprios modelos (templates)**
+
+**Given** o gate por plano (DL-057, Story 6.11)
+**When** um tenant no plano **básico** ou com `whatsapp_enabled` desligado acessa a opção
+**Then** o Embedded Signup **não é oferecido** — bloqueio **também no backend**, não só na UI
+
+**Given** o fluxo interrompido (o dono fecha a janela, cancela ou a Meta retorna erro)
+**When** o painel recebe o retorno
+**Then** **nada é gravado pela metade** — o estabelecimento continua **desconectado**, com mensagem clara e a opção de tentar de novo
+
+> **Consequência de produto (registrar, é argumento de venda):** se o cliente sair da plataforma, **ele leva o número** — a conta é dele. Não é perda; é o que tira de nós a responsabilidade sobre número de terceiro.
+
+### Story 6.13: Tela de configuração do WhatsApp — conectar, estado e desconectar (novo — DL-068)
+
+As a dono do estabelecimento,
+I want uma tela em Configurações que mostre se o meu WhatsApp está conectado e me deixe conectar ou desconectar,
+So that eu saiba o estado do canal e resolva sozinho, sem abrir chamado.
+
+**Acceptance Criteria:**
+
+**Given** Configurações → WhatsApp, com o tenant **não conectado**
+**When** o dono abre a tela
+**Then** vê o estado **"não conectado"**, uma explicação curta do que vai acontecer e o botão **"Conectar WhatsApp"** (dispara a Story 6.12)
+
+**Given** o tenant **conectado**
+**When** o dono abre a tela
+**Then** vê o **estado da conexão** (conectado / com problema) e o **número conectado**, reaproveitando a visibilidade de conexão do provider (Story 6.8) — **sem** expor token nem identificadores técnicos
+
+**Given** o dono conectado
+**When** ele escolhe **desconectar**
+**Then** confirma a ação, as credenciais do tenant são **removidas/invalidadas**, o bot **para de operar** para aquele tenant e a tela volta ao estado "não conectado" — **o número continua sendo dele**, na conta dele
+
+**Given** o **tutorial em PDF** (Story 6.14)
+**When** a tela é exibida em qualquer estado
+**Then** há um **link visível para o tutorial**, na própria tela — não escondido em ajuda
+
+**Given** o plano **básico** (DL-057)
+**When** o dono abre a tela
+**Then** a conexão aparece **bloqueada** com *"disponível no plano Pró"*, coerente com a Story 6.11
+
+> **FUTURO — registrar como evolução e EVITAR por ora (DL-068):** uma **base de gerenciamento** que nos permita **conectar remotamente pelo cliente** quando ele travar no processo. Só faz sentido depois de medirmos quantos travam de fato; construir agora é assumir de volta o trabalho manual que o Embedded Signup elimina.
+
+### Story 6.14: Tutorial em PDF do passo a passo de conexão (novo — DL-068)
+
+> **Por que existe:** o público-alvo **não domina tecnologia** e as **telas da Meta não são simplificáveis por nós** — são dela, e não temos como reescrevê-las. O tutorial é o que cobre esse trecho do caminho.
+
+As a dono do estabelecimento,
+I want um passo a passo ilustrado do processo de conexão,
+So that eu consiga completar as telas da Meta sem travar.
+
+**Acceptance Criteria:**
+
+**Given** o tutorial
+**When** é produzido
+**Then** é um **PDF** com o passo a passo **em linguagem de dono de salão** (sem jargão), com **captura de cada tela** do fluxo — incluindo **o que fazer quando ele não tem conta Meta Business** (criar durante o processo), o **atrito mais provável**
+
+**Given** a tela de configuração do WhatsApp (Story 6.13)
+**When** o dono a acessa
+**Then** o **link para o PDF está na própria tela**, em qualquer estado da conexão
+
+**Given** mudanças nas telas da Meta
+**When** o fluxo mudar
+**Then** o PDF é **atualizado** — o material é de manutenção contínua, não entrega única
 
 ---
 

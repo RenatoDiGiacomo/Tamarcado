@@ -11,6 +11,7 @@ REL="${1:?uso: deploy-remote.sh <release-id>}"
 ROOT=/opt/tamarcado
 RELDIR="$ROOT/releases/$REL"
 WEB=/var/www/tamarcado
+LP=/var/www/tamarcado-lp          # landing page (DL-069)
 ENVSRC=/etc/tamarcado/api.env
 
 [ -d "$RELDIR" ] || { echo "ERRO: release $RELDIR não existe (rsync falhou?)"; exit 1; }
@@ -29,9 +30,17 @@ echo "==> 4/6 ativar release + PM2"
 ln -sfn "$RELDIR" "$ROOT/current"
 ( cd "$ROOT/current" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save )
 
-echo "==> 5/6 publicar web no Nginx"
+echo "==> 5/6 publicar web e landing page no Nginx"
 mkdir -p "$WEB"
 rsync -a --delete "$RELDIR/web/" "$WEB/"
+# A LP tem release própria no pacote, mas é publicada junto: o --delete some
+# com arquivo que saiu do repo. As capturas de tela vivem DENTRO de
+# apps/landing/assets/screens (versionadas), então não há estado só-no-servidor
+# para preservar aqui.
+if [ -d "$RELDIR/landing" ]; then
+  mkdir -p "$LP"
+  rsync -a --delete "$RELDIR/landing/" "$LP/"
+fi
 
 echo "==> 6/6 healthcheck"
 sleep 3
@@ -44,6 +53,7 @@ else
     ln -sfn "$PREV" "$ROOT/current"
     ( cd "$ROOT/current" && pm2 startOrReload ecosystem.config.js --update-env && pm2 save )
     rsync -a --delete "$PREV/web/" "$WEB/"
+    [ -d "$PREV/landing" ] && rsync -a --delete "$PREV/landing/" "$LP/"
     echo "!! produção restaurada na versão anterior. Release $REL NÃO foi ativada."
   else
     echo "!! sem release anterior — produção pode estar fora. Investigar já."
