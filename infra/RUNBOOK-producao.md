@@ -603,3 +603,130 @@ app instalado):
 > instalado: desinstale e repita. Se o ícone novo abrir **com** barra de
 > endereço, o manifest não foi lido — confira `https://app.tamarcado.tec.br/manifest.webmanifest`
 > (deve responder 200) antes de investigar qualquer outra coisa.
+
+---
+
+## 14. Deploy MANUAL (contingência) — quando o Actions não roda
+
+Use quando o **CD estiver indisponível** — cota de minutos estourada (§13),
+incidente do GitHub, ou qualquer motivo que impeça o `Deploy Production`.
+
+O procedimento **reproduz exatamente o que o CD faz**: o build acontece **na sua
+máquina** (o servidor não builda — §3) e o passo remoto é o **mesmo
+`deploy-remote.sh`** do CD, com backup → migrations → symlink → PM2 →
+healthcheck → **auto-rollback** se o healthcheck falhar.
+
+> **Este pacote pode ser montado no Windows.** Verificado: nenhuma dependência
+> de produção da API tem binário nativo (`.node`) — são todas JS puro, inclusive
+> `bcryptjs` e `mysql2`. O `node_modules` do pnpm vai como symlinks relativos, que
+> o `tar` preserva e o Linux resolve no destino.
+
+### 14.0 Antes: o código precisa estar no `main`
+
+Produção sai **só do `main`** (DL-059). Merge do PR de trabalho em `dev`, depois
+o PR `dev → main`.
+
+> ⚠️ Se a **branch protection** do `main` exige o check `checks` verde e o CI
+> está cortado, o merge fica bloqueado. Nesse caso, o merge precisa ser feito com
+> **override de administrador** — decisão consciente de subir sem CI. Rode a
+> suíte local antes (`pnpm run lint && pnpm run typecheck && pnpm run test`), que
+> é o mesmo que o job `checks` faria.
+
+### 14.1 Build e empacotamento (na sua máquina)
+
+```bash
+cd /c/Users/renat/Documents/AgendamentosServicos
+git checkout main && git pull
+
+# a suíte que o CI rodaria
+pnpm install --frozen-lockfile
+pnpm run lint && pnpm run typecheck && pnpm run test
+
+# build com a API pública embutida (o front chama api.tamarcado.tec.br)
+VITE_API_URL=https://api.tamarcado.tec.br pnpm -r build
+
+# pacote de produção — MESMA lista de inclusão do CD (§7.1)
+PKG=../tamarcado-pkg          # caminho RELATIVO: o pnpm no Windows resolve
+rm -rf "$PKG"                 # caminho absoluto estilo /c/... de forma errada
+pnpm --filter api deploy --prod "$PKG"
+cp ecosystem.config.js "$PKG/"
+mkdir -p "$PKG/web"     && cp -r apps/web/dist/. "$PKG/web/"
+mkdir -p "$PKG/landing" && cp -r apps/landing/. "$PKG/landing/"
+find "$PKG/landing" -name "*.md" -delete     # nota interna não vai para a web
+
+ls -1 "$PKG"     # deve listar: dist ecosystem.config.js landing node_modules package.json web
+ls "$PKG/dist/main.js"                        # a API compilada tem de estar aqui
+```
+
+> Avisos do pnpm sobre `Failed to create bin ... .EXE` no Windows são **normais**
+> e não afetam o pacote: são atalhos de linha de comando que produção não usa.
+
+### 14.2 Enviar para o servidor
+
+O CD usa `rsync`, que **não existe no Git Bash**. Aqui vai por `tar` + `ssh`, que
+já está instalado (o pacote comprime para ~21 MB):
+
+```bash
+REL="$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short=7 HEAD)"
+HOST=179.198.123.87
+echo "release: $REL"
+
+ssh -i ~/.ssh/id_ed25519 deploy@$HOST "mkdir -p /opt/tamarcado/releases/$REL"
+tar -czf - -C "$PKG" . \
+  | ssh -i ~/.ssh/id_ed25519 deploy@$HOST "tar -xzf - -C /opt/tamarcado/releases/$REL"
+
+# conferir que chegou inteiro
+ssh -i ~/.ssh/id_ed25519 deploy@$HOST "ls -1 /opt/tamarcado/releases/$REL"
+```
+
+### 14.3 Ativar a release (é o script do CD, sem alteração)
+
+```bash
+ssh -i ~/.ssh/id_ed25519 deploy@$HOST "bash -s -- $REL" < infra/scripts/deploy-remote.sh
+```
+
+O script faz, nesta ordem: **backup do banco** → copia o env de produção →
+**migrations** → troca o symlink `current` → `pm2 startOrReload` → **healthcheck**.
+Se o healthcheck falhar, ele **volta sozinho** para a release anterior e sai com
+erro. A saída mostra cada passo (`==> 1/6`, `2/6`, …).
+
+> O backup é o **mesmo** do CD (`tamarcado-backup.sh`, via `sudo` sem senha) e
+> roda **antes** de qualquer migration. Não pule este passo executando os
+> comandos à mão: a ordem é o que protege o banco.
+
+### 14.4 Validar
+
+```bash
+curl -fsS https://api.tamarcado.tec.br/health          # {"status":"ok"}
+curl -I  https://app.tamarcado.tec.br/login            # 200
+curl -I  https://tamarcado.tec.br/                     # 200 (landing page)
+```
+
+E a mudança em si, pela UI.
+
+### 14.5 Se algo falhar
+
+| Sintoma | O que fazer |
+|---|---|
+| Healthcheck falhou | O script **já reverteu** — leia a saída, corrija e repita o 14.1–14.3 |
+| Deu certo, mas a versão está ruim | `ssh deploy@$HOST tamarcado-rollback` (volta a release anterior num comando) |
+| Migration corrompeu dado | Restaurar o backup pré-deploy — §6. As migrations do projeto são **aditivas**, então o código anterior costuma rodar sobre o schema novo |
+| `Permission denied` em `/var/www` | §12.1 passo 2 — `sudo chown -R deploy:deploy` nos dois diretórios |
+
+### 14.6 Depois
+
+```bash
+rm -rf ../tamarcado-pkg     # o pacote local não serve para mais nada
+```
+
+O servidor mantém as **3 últimas releases** (o próprio script limpa), então o
+rollback continua disponível.
+
+### O que este procedimento NÃO cobre
+
+- **Não valida o que o CI validaria** além do que você rodar à mão no 14.1. O
+  `e2e` exige MySQL: se quiser rodá-lo local, `pnpm --filter api run test:e2e`
+  com a infra de dev no ar.
+- **Não substitui o CD.** Assim que o Actions voltar, use o `Deploy Production`
+  (`workflow_dispatch`): ele carimba a release com o SHA, guarda o log e não
+  depende da sua máquina estar do jeito certo.
