@@ -609,21 +609,137 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 .faq__item[open] summary::after { content: "−"; }
 .faq__item p { margin: 0 0 1rem; color: hsl(var(--muted-foreground)); }
 
-/* ── Chamada final ───────────────────────────────────────────────────────── */
-.cta { padding: 3.5rem 0 4rem; }
-.cta__caixa {
-  text-align: center;
-  padding: 3rem 1.5rem;
-  border-radius: calc(var(--radius) + 6px);
-  /* Bloco de destaque: roxo sólido no tom mais escuro (--primary-texto). A
-     primária pura daria 4.29:1 com o texto branco — reprova. Este tom passa
-     (~7:1) e é o MESMO token já usado nos textos de acento, sem cor nova. */
-  background: hsl(var(--primary-texto));
-  color: #fff;
+/* ── Preços ──────────────────────────────────────────────────────────────── */
+/* Substituiu a antiga chamada final (o bloco roxo com um botão só). Não usa
+   caixa colorida: os três cartões já são o destaque da seção, e um fundo roxo
+   atrás deles brigaria com o cartão em evidência. */
+
+/* A nota do limite de equipe vem ANTES dos cartões, porque cada cartão tem o
+   próprio botão — depois deles seria depois do clique. */
+.precos__nota {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: hsl(var(--muted-foreground));
 }
-.cta__caixa h2 { color: #fff; }
-.cta__caixa p { max-width: 34rem; margin-inline: auto; color: hsl(0 0% 100% / 0.88); }
-.cta__caixa .btn { margin-top: 1.25rem; }
+
+.planos {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+/* Um por linha no celular. Três colunas só a partir de 56rem: em telas menores
+   os cartões ficariam estreitos demais para o preço respirar. */
+@media (min-width: 56rem) {
+  /* Sem `align-items: start`: os cartões esticam para a mesma altura, que é o
+     que faz os três botões se alinharem na base (ver .plano__btn). */
+  .planos { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+}
+
+.plano {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.75rem 1.5rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--sombra);
+}
+
+/* O anual: borda na cor da marca e sombra mais forte. Sem aumentar a escala —
+   no empilhamento do celular um cartão maior que os outros só desalinha. */
+.plano--destaque {
+  border: 2px solid hsl(var(--primary));
+  box-shadow: var(--sombra-forte);
+}
+
+/* O selo fica SOBRE a borda superior, fora do fluxo: dentro do cartão ele
+   empurraria o nome e o preço para baixo só neste, desalinhando os três. */
+.plano__selo {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* O selo sobe metade da própria altura; a margem extra evita que ele encoste
+   no cartão de cima quando os três estão empilhados no celular. */
+.plano--destaque { margin-top: 0.75rem; }
+@media (min-width: 56rem) { .plano--destaque { margin-top: 0; } }
+
+.plano__nome {
+  margin: 0;
+  font-size: 1.0625rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.plano__preco {
+  margin: 0.25rem 0 0;
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+}
+.plano__moeda {
+  margin-right: 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  vertical-align: 0.5rem;
+  color: hsl(var(--muted-foreground));
+}
+.plano__periodo {
+  font-size: 1rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.plano__cobranca {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* A vantagem é o que faz subir de plano — vai na cor de acento, com o valor em
+   negrito. No mensal não há economia: a linha fica, em texto neutro, para os
+   três cartões terminarem na mesma altura. */
+.plano__economia {
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  color: hsl(var(--primary-texto));
+}
+.plano__economia--vazia { color: hsl(var(--muted-foreground)); }
+
+/* `margin-top: auto` encosta o botão na base do cartão — com os cartões
+   esticados à mesma altura, os três botões ficam na mesma linha mesmo com
+   textos de tamanhos diferentes. A margem do bloco acima garante a folga
+   mínima quando o cartão é o mais alto e não sobra espaço para distribuir. */
+.plano__economia { margin-bottom: 1.5rem; }
+.plano__btn {
+  margin-top: auto;
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  width: 100%;
+}
+
+.precos__ajuda {
+  margin: 1.5rem 0 0;
+  font-size: 0.9375rem;
+  color: hsl(var(--muted-foreground));
+}
+.precos__ajuda a { color: hsl(var(--primary-texto)); font-weight: 600; }
 
 /* ── Rodapé ──────────────────────────────────────────────────────────────── */
 .rodape {
