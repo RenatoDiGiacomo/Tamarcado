@@ -746,10 +746,14 @@ máquina** (o servidor não builda — §3) e o passo remoto é o **mesmo
 `deploy-remote.sh`** do CD, com backup → migrations → symlink → PM2 →
 healthcheck → **auto-rollback** se o healthcheck falhar.
 
-> **Este pacote pode ser montado no Windows.** Verificado: nenhuma dependência
-> de produção da API tem binário nativo (`.node`) — são todas JS puro, inclusive
-> `bcryptjs` e `mysql2`. O `node_modules` do pnpm vai como symlinks relativos, que
-> o `tar` preserva e o Linux resolve no destino.
+> **Este pacote pode ser montado no Windows** — mas **só com
+> `--node-linker=hoisted`** no `pnpm deploy` (§14.1). Sem essa flag o deploy
+> falha no passo 3/6; o porquê está no §14.7, e vale ler antes de "consertar"
+> por conta própria.
+>
+> Nenhuma dependência de produção da API tem binário nativo (`.node`) — são
+> todas JS puro, inclusive `bcryptjs` e `mysql2` — então o pacote montado no
+> Windows roda no Linux.
 
 ### 14.0 Antes: o código precisa estar no `main`
 
@@ -778,7 +782,12 @@ VITE_API_URL=https://api.tamarcado.tec.br pnpm -r build
 # pacote de produção — MESMA lista de inclusão do CD (§7.1)
 PKG=../tamarcado-pkg          # caminho RELATIVO: o pnpm no Windows resolve
 rm -rf "$PKG"                 # caminho absoluto estilo /c/... de forma errada
-pnpm --filter api deploy --prod "$PKG"
+
+# --node-linker=hoisted é OBRIGATÓRIO aqui (§14.7): monta node_modules sem
+# symlink, do jeito clássico. Sem ele, o pacote sai com links e wrappers
+# apontando para caminhos DA SUA MÁQUINA, e o deploy morre no passo 3/6.
+pnpm --filter api deploy --prod --node-linker=hoisted "$PKG"
+
 cp ecosystem.config.js "$PKG/"
 mkdir -p "$PKG/web"     && cp -r apps/web/dist/. "$PKG/web/"
 mkdir -p "$PKG/landing" && cp -r apps/landing/. "$PKG/landing/"
@@ -787,6 +796,20 @@ find "$PKG/landing" -name "*.md" -delete     # nota interna não vai para a web
 ls -1 "$PKG"     # deve listar: dist ecosystem.config.js landing node_modules package.json web
 ls "$PKG/dist/main.js"                        # a API compilada tem de estar aqui
 ```
+
+**Conferência que evita descobrir o problema no meio do deploy** — as duas
+devem sair **vazias**:
+
+```bash
+# nenhum symlink no pacote
+find "$PKG" -type l | head
+
+# nenhum caminho da sua máquina dentro dos wrappers de linha de comando
+grep -rlE '/mnt/c/|/tmp/|[A-Za-z]:\' "$PKG/node_modules/.bin/" | head
+```
+
+*(Os dois comandos foram testados contra um pacote montado **sem** a flag: eles
+apontam o problema. Contra o pacote correto, não imprimem nada.)*
 
 > Avisos do pnpm sobre `Failed to create bin ... .EXE` no Windows são **normais**
 > e não afetam o pacote: são atalhos de linha de comando que produção não usa.
@@ -851,6 +874,55 @@ rm -rf ../tamarcado-pkg     # o pacote local não serve para mais nada
 
 O servidor mantém as **3 últimas releases** (o próprio script limpa), então o
 rollback continua disponível.
+
+### 14.7 Por que `--node-linker=hoisted` — e por que `--dereference` NÃO resolve
+
+Aconteceu de verdade no primeiro uso: o deploy parou no **passo 3/6
+(migrations)** com `MODULE_NOT_FOUND`. Produção continuou na versão anterior —
+o script para antes de trocar o symlink `current`.
+
+**Duas coisas vinham contaminadas com caminhos da máquina local**, e é preciso
+resolver **as duas**:
+
+1. **O symlink era ABSOLUTO.** O pnpm no Git Bash gerou:
+
+   ```
+   node_modules/typeorm -> /tmp/claude/…/pkg/node_modules/.pnpm/typeorm@0.3.30…/node_modules/typeorm
+   ```
+
+   O alvo **estava** dentro do pacote, mas o link apontava para o caminho
+   absoluto local, que no servidor não existe.
+
+2. **O wrapper `node_modules/.bin/typeorm` trazia `NODE_PATH` absoluto:**
+
+   ```sh
+   export NODE_PATH="/mnt/c/Users/renat/…/pkg/node_modules/.pnpm/typeorm@…/node_modules:…"
+   ```
+
+   Caminho de WSL, escrito **dentro** do script.
+
+> **Por isso `tar --dereference` não resolveria.** Ele copiaria o conteúdo no
+> lugar do link (item 1), mas o wrapper do item 2 continuaria com o `NODE_PATH`
+> apontando para `/mnt/c/Users/renat/…`. O deploy quebraria de novo, e de forma
+> mais confusa — com um pacote bem maior.
+
+**`--node-linker=hoisted`** resolve os dois: instala `node_modules` do jeito
+clássico, sem `.pnpm` e sem links. Verificado no pacote gerado:
+
+| | sem a flag | com `--node-linker=hoisted` |
+|---|---|---|
+| `node_modules/typeorm` | symlink absoluto | **diretório de verdade** |
+| symlinks no pacote | vários | **0** |
+| `.bin/typeorm` | 1.754 B, com `/mnt/c/Users/…` | **280 B, tudo relativo** |
+| pacote comprimido | 21 MB | **20 MB** |
+
+E testado do jeito que importa: extraindo o `.tar.gz` em outro diretório
+(simulando o servidor) e rodando `./node_modules/.bin/typeorm --help` de lá — o
+CLI responde, que é exatamente o que o passo 3/6 precisa.
+
+> **No CD isso nunca apareceu** porque o pacote é montado no **Ubuntu** do
+> runner, onde o pnpm gera links relativos e wrappers sem `NODE_PATH` absoluto.
+> É um problema de **montar no Windows**, não do projeto.
 
 ### O que este procedimento NÃO cobre
 
