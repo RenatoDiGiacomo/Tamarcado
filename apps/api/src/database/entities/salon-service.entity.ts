@@ -27,6 +27,11 @@ export class SalonService {
   @Column({ type: "int" })
   duration_minutes!: number;
 
+  /** Descrição curta na página pública — apoio à decisão, cortada em duas
+   *  linhas no card. Não é texto corrido (1ª leva do redesenho). */
+  @Column({ type: "varchar", length: 280, nullable: true })
+  description!: string | null;
+
   // DECIMAL volta como string no driver MySQL/TypeORM; null quando sem preço.
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   price!: string | null;

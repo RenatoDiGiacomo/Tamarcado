@@ -29,12 +29,20 @@ export interface PublicInstallationView {
   name: string;
   logoUrl: string | null;
   primaryColor: string | null;
+  /** Capa da página: endereço + "Como chegar" e as redes (1ª leva). Cada um é
+   *  `null` quando não preenchido — a página omite o que não existe. */
+  address: string | null;
+  mapsUrl: string | null;
+  instagramUrl: string | null;
+  /** Só dígitos, pronto para montar `wa.me` no front. `null` se não houver. */
+  whatsappPhone: string | null;
 }
 export interface PublicServiceView {
   id: string;
   name: string;
   durationMinutes: number;
   price: string | null;
+  description: string | null;
 }
 export interface PublicProfessionalView {
   id: string;
@@ -46,6 +54,18 @@ export interface CreatedPublicAppointment {
 }
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Telefone como o dono digitou → só dígitos, com DDI 55 quando ele não pôs.
+ * `null` quando não dá para montar um número (vazio ou curto demais): melhor a
+ * página não mostrar o botão do que mostrar um link que não abre conversa.
+ */
+export function normalizarWhatsapp(valor: string | null): string | null {
+  if (!valor) return null;
+  const digitos = valor.replace(/\D/g, "");
+  if (digitos.length < 10) return null;
+  return digitos.startsWith("55") ? digitos : `55${digitos}`;
+}
 
 /**
  * Leituras públicas + criação do pendente (Stories 5B.1/5B.2). O tenant já foi
@@ -80,6 +100,12 @@ export class PublicBookingService {
       name: company?.name ?? "",
       logoUrl: company?.logo_url ?? null,
       primaryColor: company?.primary_color ?? null,
+      address: company?.address ?? null,
+      mapsUrl: company?.maps_url ?? null,
+      instagramUrl: company?.instagram_url ?? null,
+      // Normaliza aqui, não no front: o dono digita "(11) 99999-8888" e o link
+      // do WhatsApp precisa de dígitos. Sem DDI, assume Brasil.
+      whatsappPhone: normalizarWhatsapp(company?.whatsapp_phone ?? null),
     };
   }
 
@@ -91,6 +117,7 @@ export class PublicBookingService {
         name: s.name,
         durationMinutes: s.duration_minutes,
         price: s.price,
+        description: s.description,
       })),
     };
   }
@@ -210,6 +237,10 @@ export class PublicBookingService {
       this.appointments.create({
         company_id: companyId,
         client_id: client.id,
+        // Nome COMO ELA DIGITOU, sempre (DL-071). O cadastro acima pode ter sido
+        // reaproveitado pelo telefone com outro nome; sem este snapshot a
+        // divergência sumiria — é a filha agendando pelo telefone da mãe.
+        requested_client_name: dto.name,
         service_id: service.id,
         professional_id: professionalId,
         scheduled_at: scheduledAt,

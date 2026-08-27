@@ -31,6 +31,7 @@ export class ServicesService {
       duration_minutes: dto.duration_minutes,
       // DECIMAL é string na entidade; null quando sem preço (DL-030).
       price: dto.price != null ? String(dto.price) : null,
+      description: dto.description || null,
       is_active: true,
     });
   }
@@ -53,6 +54,10 @@ export class ServicesService {
     }
     if (dto.is_active !== undefined) {
       service.is_active = dto.is_active;
+    }
+    // String vazia LIMPA a descrição (é como o formulário apaga).
+    if (dto.description !== undefined) {
+      service.description = dto.description || null;
     }
     return this.tenantServices.save(service);
   }

@@ -23,4 +23,10 @@ export class CreateServiceDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   price?: number;
+
+  /** Descrição curta na página pública (1ª leva do redesenho). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(280)
+  description?: string;
 }

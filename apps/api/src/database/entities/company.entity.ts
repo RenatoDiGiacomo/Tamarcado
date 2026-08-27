@@ -29,6 +29,23 @@ export class Company {
   @Column({ type: "varchar", length: 7, nullable: true, default: "#6C63FF" })
   primary_color!: string | null;
 
+  // ── Página pública (1ª leva do redesenho) ───────────────────────────────
+  // Só exibição: a página mostra o que estiver preenchido e omite o resto.
+  /** Endereço em UM campo — decisão da spec de UX (2026-08-26). */
+  @Column({ type: "varchar", length: 200, nullable: true })
+  address!: string | null;
+
+  /** Link do mapa (o dono cola). Sem geocoding: abre o app de mapas do aparelho. */
+  @Column({ type: "varchar", length: 500, nullable: true })
+  maps_url!: string | null;
+
+  @Column({ type: "varchar", length: 200, nullable: true })
+  instagram_url!: string | null;
+
+  /** Guardado como o dono digita; o link `wa.me` é montado na exibição. */
+  @Column({ type: "varchar", length: 20, nullable: true })
+  whatsapp_phone!: string | null;
+
   @Column({ type: "time", default: "08:00:00" })
   business_hours_start!: string;
 

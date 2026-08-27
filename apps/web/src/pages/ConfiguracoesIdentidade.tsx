@@ -32,6 +32,12 @@ export function ConfiguracoesIdentidade() {
   const [primaryColor, setPrimaryColor] = useState("#6c63ff");
   const [openTime, setOpenTime] = useState("08:00");
   const [closeTime, setCloseTime] = useState("19:00");
+  // Página pública (1ª leva do redesenho): tudo opcional — o que ficar vazio
+  // simplesmente não aparece para a cliente.
+  const [address, setAddress] = useState("");
+  const [mapsUrl, setMapsUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -45,12 +51,20 @@ export function ConfiguracoesIdentidade() {
             primaryColor: string | null;
             businessHoursStart?: string;
             businessHoursEnd?: string;
+            address?: string | null;
+            mapsUrl?: string | null;
+            instagramUrl?: string | null;
+            whatsappPhone?: string | null;
           };
           setName(data.name ?? "");
           setLogoUrl(data.logoUrl ?? "");
           setPrimaryColor(data.primaryColor ?? "#6c63ff");
           setOpenTime(data.businessHoursStart ?? "08:00");
           setCloseTime(data.businessHoursEnd ?? "19:00");
+          setAddress(data.address ?? "");
+          setMapsUrl(data.mapsUrl ?? "");
+          setInstagramUrl(data.instagramUrl ?? "");
+          setWhatsappPhone(data.whatsappPhone ?? "");
         }
       })
       .catch(() => setStatus("error"));
@@ -79,6 +93,11 @@ export function ConfiguracoesIdentidade() {
     if (logoUrl) {
       body.logoUrl = logoUrl;
     }
+    // Enviados mesmo vazios: string vazia é o que LIMPA o campo no backend.
+    body.address = address.trim();
+    body.mapsUrl = mapsUrl.trim();
+    body.instagramUrl = instagramUrl.trim();
+    body.whatsappPhone = whatsappPhone.trim();
     const res = await authedRequest("/installation", {
       method: "PATCH",
       body,
@@ -197,6 +216,77 @@ export function ConfiguracoesIdentidade() {
               <p className="text-xs text-muted-foreground">
                 É a faixa que a agenda mostra (ex.: 10:00–21:00).
               </p>
+            </div>
+          </div>
+
+          {/* ── Página pública ──────────────────────────────────────────
+              Estes campos NÃO aparecem no painel: são o que a cliente vê em
+              /agendar/{slug}. Todos opcionais — sem endereço não há linha de
+              endereço, sem Instagram não há botão. */}
+          <div className="flex flex-col gap-4 border-t border-border pt-6">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-semibold">Na sua página de agendamento</h3>
+              <p className="text-xs text-muted-foreground">
+                O que a cliente vê no link público. Deixe em branco o que não quiser mostrar.
+              </p>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="inst-address">Endereço</Label>
+                <Input
+                  id="inst-address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Rua das Acácias, 210 — Vila Mariana"
+                  maxLength={200}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Aparece no topo da página, para quem nunca foi.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="inst-maps">Link do mapa</Label>
+                <Input
+                  id="inst-maps"
+                  type="url"
+                  value={mapsUrl}
+                  onChange={(e) => setMapsUrl(e.target.value)}
+                  placeholder="https://maps.app.goo.gl/..."
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vira o botão “Como chegar”. Copie do Google Maps em Compartilhar.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="inst-instagram">Instagram</Label>
+                <Input
+                  id="inst-instagram"
+                  type="url"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder="https://instagram.com/seuperfil"
+                  maxLength={200}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="inst-whatsapp">WhatsApp</Label>
+                <Input
+                  id="inst-whatsapp"
+                  type="tel"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="(11) 99999-8888"
+                  maxLength={20}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Para a cliente tirar dúvida antes de marcar.
+                </p>
+              </div>
             </div>
           </div>
 

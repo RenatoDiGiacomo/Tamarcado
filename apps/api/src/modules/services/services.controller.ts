@@ -26,6 +26,8 @@ interface ServiceDto {
   name: string;
   durationMinutes: number;
   price: number | null;
+  /** Descrição curta que aparece na página pública (1ª leva do redesenho). */
+  description: string | null;
   isActive: boolean;
 }
 
@@ -36,6 +38,7 @@ function toServiceDto(s: SalonService): ServiceDto {
     durationMinutes: s.duration_minutes,
     // DECIMAL volta como string do banco; expõe número (ou null quando opcional).
     price: s.price === null ? null : Number(s.price),
+    description: s.description,
     isActive: s.is_active,
   };
 }

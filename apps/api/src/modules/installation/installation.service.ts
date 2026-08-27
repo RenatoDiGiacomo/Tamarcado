@@ -44,6 +44,19 @@ export class InstallationService {
     if (dto.primaryColor !== undefined) {
       company.primary_color = dto.primaryColor;
     }
+    // Página pública: string vazia LIMPA o campo (é como o formulário apaga).
+    if (dto.address !== undefined) {
+      company.address = dto.address || null;
+    }
+    if (dto.mapsUrl !== undefined) {
+      company.maps_url = dto.mapsUrl || null;
+    }
+    if (dto.instagramUrl !== undefined) {
+      company.instagram_url = dto.instagramUrl || null;
+    }
+    if (dto.whatsappPhone !== undefined) {
+      company.whatsapp_phone = dto.whatsappPhone || null;
+    }
     if (dto.businessHoursStart !== undefined) {
       company.business_hours_start = dto.businessHoursStart;
     }

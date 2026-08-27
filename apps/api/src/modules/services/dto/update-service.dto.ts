@@ -31,4 +31,10 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  /** Descrição curta na página pública. String vazia LIMPA. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(280)
+  description?: string;
 }
