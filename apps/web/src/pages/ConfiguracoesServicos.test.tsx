@@ -162,6 +162,9 @@ describe("ConfiguracoesServicos", () => {
       name: "Corte",
       duration_minutes: 45,
       price: 80,
+      // Descrição vai SEMPRE, inclusive vazia: é assim que o formulário limpa
+      // o campo (1ª leva do redesenho da página pública).
+      description: "",
     });
 
     const put = apiMock.mock.calls.find(
@@ -204,6 +207,7 @@ describe("ConfiguracoesServicos", () => {
       name: "Escova",
       duration_minutes: 30,
       price: 80.5,
+      description: "",
     });
     expect(typeof post?.[1].body.duration_minutes).toBe("number");
     expect(Number.isInteger(post?.[1].body.duration_minutes)).toBe(true);

@@ -27,6 +27,7 @@ import { CreatePayments1718901300000 } from "./migrations/1718901300000-CreatePa
 import { AddTeamRemuneration1718901400000 } from "./migrations/1718901400000-AddTeamRemuneration";
 import { AddCanViewEquipe1718901500000 } from "./migrations/1718901500000-AddCanViewEquipe";
 import { CreateTeamPayments1718901600000 } from "./migrations/1718901600000-CreateTeamPayments";
+import { AddPublicPageFields1718901700000 } from "./migrations/1718901700000-AddPublicPageFields";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -73,6 +74,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       AddTeamRemuneration1718901400000,
       AddCanViewEquipe1718901500000,
       CreateTeamPayments1718901600000,
+      AddPublicPageFields1718901700000,
     ],
     synchronize: false,
     migrationsRun: false,
