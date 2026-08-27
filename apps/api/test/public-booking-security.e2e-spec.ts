@@ -110,7 +110,8 @@ describe("Segurança do agendamento público (e2e)", () => {
         company_id: company!.id,
         name: "Rosana",
         phone_whatsapp: "11999998888",
-        phone_whatsapp_normalized: "11999998888",
+        // Mesmo formato de `normalizePhoneBR` (E.164) — é a chave do dedup.
+        phone_whatsapp_normalized: "+5511999998888",
       }),
     );
 
@@ -125,7 +126,9 @@ describe("Segurança do agendamento público (e2e)", () => {
     const cliente = await clients.findOne({ where: { id: appt!.client_id } });
     expect(cliente?.name).toBe("Rosana");
     expect(
-      await clients.count({ where: { phone_whatsapp_normalized: "11999998888" } }),
+      await clients.count({
+        where: { phone_whatsapp_normalized: "+5511999998888" },
+      }),
     ).toBe(1);
   });
 
