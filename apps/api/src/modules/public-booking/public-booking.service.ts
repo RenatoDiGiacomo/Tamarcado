@@ -237,6 +237,10 @@ export class PublicBookingService {
       this.appointments.create({
         company_id: companyId,
         client_id: client.id,
+        // Nome COMO ELA DIGITOU, sempre (DL-071). O cadastro acima pode ter sido
+        // reaproveitado pelo telefone com outro nome; sem este snapshot a
+        // divergência sumiria — é a filha agendando pelo telefone da mãe.
+        requested_client_name: dto.name,
         service_id: service.id,
         professional_id: professionalId,
         scheduled_at: scheduledAt,

@@ -21,22 +21,29 @@ vi.mock("../auth/AuthContext", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+const navigateMock = vi.fn();
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => navigateMock,
+}));
+
 function jsonRes(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response;
 }
 
 const pendente = {
   id: "42",
+  clientId: "5",
   clientName: "Maria das Dores",
   serviceId: "3",
   serviceName: "Corte",
-  professionalId: null,
-  professionalName: null,
+  professionalId: null as string | null,
+  professionalName: null as string | null,
   date: "2026-08-01",
   start: "09:00",
   end: "10:00",
   status: "pending",
   source: "link" as const,
+  requestedName: undefined as string | undefined,
 };
 
 const attenders = [
@@ -61,6 +68,7 @@ describe("Pendentes", () => {
   beforeEach(() => {
     apiMock.mockReset();
     refreshMock.mockReset();
+    navigateMock.mockReset();
     useAuthMock.mockReset();
     useAuthMock.mockReturnValue({ user: { accessLevel: "owner" } });
     localStorage.setItem("tamarcado.access", "tok");
@@ -121,6 +129,66 @@ describe("Pendentes", () => {
         expect.objectContaining({ method: "PATCH", body: {} }),
       );
     });
+  });
+
+  it("pendente COM profissional escolhida no link → select pré-selecionado e confirmar preserva", async () => {
+    seedLoad([{ ...pendente, professionalId: "8", professionalName: "Carla" }]);
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores");
+
+    const select = screen.getByLabelText("Profissional") as HTMLSelectElement;
+    expect(select.value).toBe("8");
+    expect(screen.getByText("Escolha da cliente")).toBeInTheDocument();
+    // Confirmar nunca desatribui → a opção vazia não é oferecida aqui.
+    expect(
+      screen.queryByRole("option", { name: "Sem preferência" }),
+    ).toBeNull();
+
+    apiMock.mockResolvedValueOnce(jsonRes({ status: "confirmed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => {
+      expect(apiMock).toHaveBeenCalledWith(
+        "/appointments/42/confirm",
+        expect.objectContaining({
+          method: "PATCH",
+          body: { professionalId: "8" },
+        }),
+      );
+    });
+  });
+
+  it("escolhida que não está mais entre os atendentes ainda aparece no select", async () => {
+    seedLoad([
+      { ...pendente, professionalId: "99", professionalName: "Renato" },
+    ]);
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores");
+
+    const select = screen.getByLabelText("Profissional") as HTMLSelectElement;
+    expect(select.value).toBe("99");
+    expect(screen.getByRole("option", { name: "Renato" })).toBeInTheDocument();
+  });
+
+  it("nome informado divergente aparece no card (DL-071)", async () => {
+    seedLoad([{ ...pendente, requestedName: "Teste" }]);
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores");
+    expect(screen.getByText(/informou-se como/i)).toBeInTheDocument();
+    expect(screen.getByText("Teste")).toBeInTheDocument();
+  });
+
+  it("sem divergência o card não fala em nome informado", async () => {
+    seedLoad();
+    render(<Pendentes />);
+    await screen.findByText("Maria das Dores");
+    expect(screen.queryByText(/informou-se como/i)).toBeNull();
+  });
+
+  it("clicar no nome abre o perfil da cliente (DL-066)", async () => {
+    seedLoad();
+    render(<Pendentes />);
+    fireEvent.click(await screen.findByRole("button", { name: /Maria das Dores/ }));
+    expect(navigateMock).toHaveBeenCalledWith("/clientes/5");
   });
 
   it("Recusar exige motivo: vazio não chama a API; com motivo → PATCH :id/reject", async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, Link2, MessageCircle } from "lucide-react";
+import { Inbox, Link2, MessageCircle, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { authedRequest } from "../lib/session";
 import { PageLayout } from "../components/PageLayout";
 import { EmptyState } from "../components/EmptyState";
@@ -22,7 +23,10 @@ import { bumpAppointments } from "../lib/appointmentsSignal";
 /** Pendente cru da API (`GET /appointments/pending`) — mesma view da agenda. */
 interface PendingAppointment {
   id: string;
+  clientId: string;
   clientName: string;
+  /** Nome digitado no link, SÓ quando diverge do cadastro (DL-071). */
+  requestedName?: string;
   serviceId: string;
   serviceName: string;
   professionalId: string | null;
@@ -49,6 +53,7 @@ interface Attender {
  */
 export function Pendentes() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const managesAll = canManageAllAppointments(user);
   const { refresh: refreshCount } = usePendentes();
   const [items, setItems] = useState<PendingAppointment[]>([]);
@@ -99,7 +104,10 @@ export function Pendentes() {
       if (busyId) return;
       setBusyId(item.id);
       try {
-        const professionalId = chosen[item.id] || undefined;
+        // O que está NA TELA é o que vai: o select já nasce com a escolha da
+        // cliente (`item.professionalId`), então confirmar sem mexer preserva
+        // quem ela pediu — e o dono nunca vê "Sem preferência" e salva outra.
+        const professionalId = (chosen[item.id] ?? item.professionalId) || undefined;
         const res = await authedRequest(`/appointments/${item.id}/confirm`, {
           method: "PATCH",
           body: professionalId ? { professionalId } : {} ,
@@ -182,11 +190,40 @@ export function Pendentes() {
               key={item.id}
               className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <strong className="text-sm font-semibold text-foreground">
-                  {item.clientName}
-                </strong>
-                <SourceHint source={item.source} />
+              <div className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Nome clicável → perfil da cliente (DL-066, mesmo padrão da
+                      agenda). É a saída do "e agora?" quando o nome informado
+                      diverge: quem confirma abre o cadastro e decide. */}
+                  {item.clientId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/clientes/${item.clientId}`)}
+                      className="inline-flex items-center gap-1.5 rounded-md text-sm font-semibold text-foreground hover:text-primary hover:underline"
+                    >
+                      {item.clientName}
+                      <Users className="size-4 shrink-0 opacity-60" />
+                    </button>
+                  ) : (
+                    <strong className="text-sm font-semibold text-foreground">
+                      {item.clientName}
+                    </strong>
+                  )}
+                  <SourceHint source={item.source} />
+                </div>
+                {/* O link reaproveita o cadastro pelo TELEFONE e ignora o nome
+                    digitado (dedup). Quando o nome informado diverge de verdade,
+                    o backend manda `requestedName` (DL-071) e ele aparece aqui —
+                    a filha agendando pelo telefone da mãe, ou o nome que mudou.
+                    Sem divergência o campo não vem, e nada é mostrado. */}
+                {item.requestedName && (
+                  <p className="text-xs text-muted-foreground">
+                    Informou-se como{" "}
+                    <strong className="font-medium text-foreground">
+                      {item.requestedName}
+                    </strong>
+                  </p>
+                )}
               </div>
               <dl className="flex flex-col gap-1.5 text-sm">
                 <Row label="Serviço" value={item.serviceName} />
@@ -204,23 +241,48 @@ export function Pendentes() {
                 {managesAll ? (
                   <label className="flex flex-col gap-1.5 text-sm sm:max-w-56">
                     <span className="font-medium text-foreground">
-                      Profissional (opcional)
+                      {item.professionalId
+                        ? "Profissional"
+                        : "Profissional (opcional)"}
                     </span>
                     <select
                       aria-label="Profissional"
-                      value={chosen[item.id] ?? ""}
+                      value={chosen[item.id] ?? item.professionalId ?? ""}
                       onChange={(e) =>
                         setChosen((prev) => ({ ...prev, [item.id]: e.target.value }))
                       }
                       className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
-                      <option value="">Sem preferência</option>
+                      {/* "Sem preferência" só quando o pendente chegou SEM
+                          profissional: confirmar nunca DESATRIBUI (o backend
+                          ignora um professionalId ausente), então oferecer a
+                          opção num pendente já atribuído prometeria o que a
+                          confirmação não faz. Para tirar a profissional, o
+                          caminho é reatribuir na agenda depois de confirmar. */}
+                      {!item.professionalId && (
+                        <option value="">Sem preferência</option>
+                      )}
+                      {/* A escolhida pode não estar mais em `attenders` (saiu da
+                          equipe ou deixou de atender). Sem esta opção o select
+                          cairia na PRIMEIRA da lista — trocaria a profissional
+                          sozinho, que é justamente o que se quer evitar. */}
+                      {item.professionalId &&
+                        !attenders.some((a) => a.id === item.professionalId) && (
+                          <option value={item.professionalId}>
+                            {item.professionalName ?? "Profissional escolhida"}
+                          </option>
+                        )}
                       {attenders.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
                         </option>
                       ))}
                     </select>
+                    {item.professionalId && item.source === "link" && (
+                      <span className="text-xs text-muted-foreground">
+                        Escolha da cliente
+                      </span>
+                    )}
                   </label>
                 ) : (
                   <span aria-hidden="true" />

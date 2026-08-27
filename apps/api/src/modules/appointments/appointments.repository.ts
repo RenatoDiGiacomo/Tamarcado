@@ -153,6 +153,7 @@ export class AppointmentsRepository extends TenantAwareRepository<Appointment> {
       .addSelect("a.service_id", "service_id")
       .addSelect("a.professional_id", "professional_id")
       .addSelect("c.name", "client_name")
+      .addSelect("a.requested_client_name", "requested_client_name")
       .addSelect("s.name", "service_name")
       .addSelect("u.name", "professional_name")
       .addSelect("a.price_snapshot", "price_snapshot")

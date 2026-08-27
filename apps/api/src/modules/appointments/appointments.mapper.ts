@@ -8,6 +8,7 @@ import type {
   PaymentStatus,
 } from "../../database/entities/payment.entity";
 import { minutesToTime, utcToZonedParts } from "../availability/tz.util";
+import { nomeInformadoDivergente } from "./nome-informado.util";
 
 /** Linha crua vinda do join appointments×clients×salon_services×users×payments. */
 export interface RawAppointmentRow {
@@ -20,6 +21,8 @@ export interface RawAppointmentRow {
   service_id: string;
   professional_id: string | null;
   client_name: string | null;
+  /** Nome digitado no link público (DL-071); NULL nos demais canais. */
+  requested_client_name: string | null;
   service_name: string | null;
   professional_name: string | null;
   price_snapshot: string | null;
@@ -50,6 +53,13 @@ export interface AppointmentView {
   serviceName: string;
   professionalId: string | null; // 3.5: pré-seleciona o profissional atual no select
   professionalName: string | null;
+  /**
+   * Nome que a cliente digitou no link, **só quando diverge do cadastro**
+   * (DL-071). O cadastro é reaproveitado pelo telefone e o nome informado é
+   * ignorado — este campo é o que torna a divergência visível para quem
+   * confirma. Ausente quando não há divergência, ou quando não veio pelo link.
+   */
+  requestedName?: string;
   date: string; // YYYY-MM-DD (fuso do tenant)
   start: string; // HH:MM
   end: string; // HH:MM
@@ -96,6 +106,15 @@ export function toAppointmentView(
     status: row.status,
     source: row.source,
   };
+  // Nome informado: entra no payload SÓ quando diverge (DL-071) — o front não
+  // decide nada, só mostra o que veio. Sem divergência, o campo nem existe.
+  const informado = nomeInformadoDivergente(
+    row.requested_client_name,
+    row.client_name,
+  );
+  if (informado != null) {
+    view.requestedName = informado;
+  }
   if (includePayment) {
     view.price = row.price_snapshot != null ? Number(row.price_snapshot) : null;
     view.payment =

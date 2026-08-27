@@ -49,7 +49,10 @@ describe("Pendentes no painel (e2e)", () => {
       .send({ email, password: PASSWORD, companySlug: SLUG });
     return res.body.accessToken as string;
   }
-  async function seedPending(professionalId: string | null = null): Promise<string> {
+  async function seedPending(
+    professionalId: string | null = null,
+    requestedClientName: string | null = null,
+  ): Promise<string> {
     const repo = ctx.dataSource.getRepository(Appointment);
     const saved = await repo.save(
       repo.create({
@@ -57,6 +60,7 @@ describe("Pendentes no painel (e2e)", () => {
         client_id: clientId,
         service_id: serviceId,
         professional_id: professionalId,
+        requested_client_name: requestedClientName,
         scheduled_at: new Date(Date.now() + 3 * 86400000),
         duration_minutes: 60,
         price_snapshot: "50.00",
@@ -114,6 +118,35 @@ describe("Pendentes no painel (e2e)", () => {
     expect(list.body.appointments[0].status).toBe("pending");
     const count = await api().get("/api/appointments/pending-count").set("Authorization", `Bearer ${owner}`);
     expect(count.body).toEqual({ count: 2 });
+  });
+
+  it("nome informado DIVERGENTE do cadastro aparece na listagem (DL-071)", async () => {
+    // A cliente cadastrada é "Maria"; a solicitação veio como "Teste" — quem
+    // confirma precisa ver a divergência, senão salva no cadastro errado.
+    const id = await seedPending(null, "Teste");
+    const owner = await login("dono@pend.dev");
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${owner}`);
+    const item = list.body.appointments.find(
+      (a: { id: string }) => a.id === id,
+    );
+    expect(item.requestedName).toBe("Teste");
+    expect(item.clientName).toBe("Maria");
+  });
+
+  it("nome informado que BATE com o cadastro não vira aviso (DL-071)", async () => {
+    // "maria" × "Maria" é a mesma pessoa digitando em caixa baixa — aviso aqui
+    // seria ruído em toda solicitação, e ruído deixa de ser lido.
+    const id = await seedPending(null, "maria");
+    const owner = await login("dono@pend.dev");
+    const list = await api()
+      .get("/api/appointments/pending")
+      .set("Authorization", `Bearer ${owner}`);
+    const item = list.body.appointments.find(
+      (a: { id: string }) => a.id === id,
+    );
+    expect(item).not.toHaveProperty("requestedName");
   });
 
   it("CONFIRMAR sem profissional → confirmed + registra status (audita)", async () => {

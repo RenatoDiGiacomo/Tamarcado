@@ -98,6 +98,37 @@ describe("Segurança do agendamento público (e2e)", () => {
     expect(appt?.price_snapshot).toBe("50.00");
   });
 
+  it("nome informado é gravado MESMO reaproveitando a cliente pelo telefone (DL-071)", async () => {
+    // Cliente já cadastrada como "Rosana" com o mesmo telefone: o link reaproveita
+    // o cadastro (dedup) e NÃO renomeia — mas guarda o que foi digitado.
+    const clients = ctx.dataSource.getRepository(Client);
+    const company = await ctx.dataSource
+      .getRepository(Company)
+      .findOne({ where: { slug: "salao-a" } });
+    await clients.save(
+      clients.create({
+        company_id: company!.id,
+        name: "Rosana",
+        phone_whatsapp: "11999998888",
+        phone_whatsapp_normalized: "11999998888",
+      }),
+    );
+
+    const res = await post("salao-a", validBody({ name: "Teste" }));
+    expect(res.status).toBe(201);
+
+    const appt = await ctx.dataSource
+      .getRepository(Appointment)
+      .findOne({ where: { id: res.body.id } });
+    expect(appt?.requested_client_name).toBe("Teste");
+    // O cadastro segue intacto — e sem duplicata.
+    const cliente = await clients.findOne({ where: { id: appt!.client_id } });
+    expect(cliente?.name).toBe("Rosana");
+    expect(
+      await clients.count({ where: { phone_whatsapp_normalized: "11999998888" } }),
+    ).toBe(1);
+  });
+
   it("GET availability público reusa o AvailabilityService (shape slots/reason)", async () => {
     const res = await request(ctx.app.getHttpServer())
       .get(`/api/public/salao-a/availability?serviceId=${serviceIdA}&date=${DATE}`);
