@@ -5,6 +5,7 @@ import {
   IsUrl,
   Matches,
   MaxLength,
+  ValidateIf,
 } from "class-validator";
 
 /**
@@ -28,6 +29,31 @@ export class UpdateInstallationDto {
     message: "primaryColor deve ser hex #RRGGBB",
   })
   primaryColor?: string;
+
+  // ── Página pública (1ª leva) ──────────────────────────────────────────
+  // Todos aceitam string VAZIA além de ausente: é assim que o dono APAGA um
+  // campo pelo formulário. `@IsUrl` recusaria "", daí o `ValidateIf`.
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  address?: string;
+
+  @IsOptional()
+  @ValidateIf((_, valor) => valor !== "")
+  @IsUrl({}, { message: "mapsUrl deve ser um endereço válido" })
+  @MaxLength(500)
+  mapsUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((_, valor) => valor !== "")
+  @IsUrl({}, { message: "instagramUrl deve ser um endereço válido" })
+  @MaxLength(200)
+  instagramUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  whatsappPhone?: string;
 
   // Horário de FUNCIONAMENTO do salão (faixa da grade da agenda) — HH:MM.
   @IsOptional()

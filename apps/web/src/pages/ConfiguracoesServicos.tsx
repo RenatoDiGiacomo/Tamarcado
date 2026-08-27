@@ -17,6 +17,8 @@ interface ServiceDto {
   name: string;
   durationMinutes: number;
   price: number | null;
+  /** Descrição curta que aparece na página pública (1ª leva do redesenho). */
+  description: string | null;
   isActive: boolean;
 }
 
@@ -73,6 +75,7 @@ export function ConfiguracoesServicos() {
   const [name, setName] = useState("");
   const [duration, setDuration] = useState("");
   const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
   const [profIds, setProfIds] = useState<Set<string>>(new Set());
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -124,6 +127,7 @@ export function ConfiguracoesServicos() {
       setName("");
       setDuration("");
       setPrice("");
+      setDescription("");
       setProfIds(new Set());
       return;
     }
@@ -132,6 +136,7 @@ export function ConfiguracoesServicos() {
       setName(svc.name);
       setDuration(String(svc.durationMinutes));
       setPrice(priceToCents(svc.price));
+      setDescription(svc.description ?? "");
     }
     void authedRequest(`/services/${selected}/professionals`, {})
       .then(async (res) => {
@@ -184,10 +189,13 @@ export function ConfiguracoesServicos() {
       name: string;
       duration_minutes: number;
       price: number | null;
+      description: string;
     } = {
       name: trimmedName,
       duration_minutes: durationMinutes,
       price: priceValue,
+      // Enviada mesmo vazia: string vazia é o que LIMPA a descrição.
+      description: description.trim(),
     };
 
     try {
@@ -358,6 +366,28 @@ export function ConfiguracoesServicos() {
                   {price === "" ? "Sem preço" : ""}
                 </span>
               </div>
+            </div>
+
+            {/* Descrição: aparece SÓ na página pública, cortada em duas linhas
+                no card. É apoio à decisão da cliente, não texto corrido. */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="svc-description">
+                Descrição{" "}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <textarea
+                id="svc-description"
+                rows={2}
+                maxLength={280}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Inclui lavagem e finalização."
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-xs text-muted-foreground">
+                Aparece na sua página de agendamento, abaixo do nome do serviço.{" "}
+                {description.length}/280
+              </span>
             </div>
 
             {/* Seção secundária: vínculo profissional↔serviço */}

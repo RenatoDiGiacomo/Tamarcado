@@ -100,6 +100,15 @@ describe("Migration CreateAppointmentsBase (e2e)", () => {
     );
   });
 
+  it("requested_client_name: VARCHAR(100) NULL (DL-071)", async () => {
+    const col = (await columns("appointments")).find(
+      (c) => c.COLUMN_NAME === "requested_client_name",
+    );
+    expect(col?.COLUMN_TYPE).toBe("varchar(100)");
+    // NULL = não veio pelo link (manual/bot, ou anterior ao DL-071).
+    expect(col?.IS_NULLABLE).toBe("YES");
+  });
+
   it("professional_id e price_snapshot são NULLABLE (C.4-bis / DL-038 D1)", async () => {
     const cols = await columns("appointments");
     expect(cols.find((c) => c.COLUMN_NAME === "professional_id")?.IS_NULLABLE).toBe(

@@ -1209,6 +1209,14 @@ Rota `/agendar/{slug}` **sem login**. Resolve empresa por **slug** (`findBySlug`
 ### Story 5B.3: Pendentes no painel (confirmar/recusar + contador)
 Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcional**) e **Recusar** (`PATCH :id/reject`, **motivo obrigatório**), auditados em `appointment_changes`. Confirmar leva ao badge **"confirmado" já existente (3.7)** — **sem badge novo**; disponível **também no modal de detalhe** (caso presencial — DL-046). **Contador de pendentes** = estado compartilhado no front (context/provider, refresh curto) **dentro desta story** (não é story separada). Permissão **owner/gerente**. Spec: `5B-3-pendentes-confirmar-recusar.md`.
 
+> **Ajuste 5B.3.01 (DL-071, 2026-08-27):** o seletor de profissional em Pendentes
+> passa a vir **pré-selecionado** com quem a cliente escolheu no link (e a opção
+> "Sem preferência" some quando já há escolha — confirmar nunca desatribui); e a
+> solicitação guarda o **nome informado** (`requested_client_name`), exibido
+> **só quando diverge** do cadastro reaproveitado pelo telefone — em Pendentes e
+> no **histórico da cliente** (4.2), que é onde a profissional olha antes de
+> atender, com o pendente já confirmado.
+
 > **Fora do Épico 5B:** filtro por status na agenda = ajuste **3.7.01** (DL-028, commit `feat`). **Dívida consciente (fora do 1º ship):** carrinho multi-serviço (DL-040); notificação automática à cliente (Épico 6/bot).
 
 ## Épico 6: Ciclo de Agendamento via WhatsApp (Bot)

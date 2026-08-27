@@ -19,6 +19,7 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     service_id: "3",
     professional_id: "7",
     client_name: "Maria",
+    requested_client_name: null,
     service_name: "Corte",
     professional_name: "Ana",
     price_snapshot: null,
@@ -28,6 +29,28 @@ function row(over: Partial<RawAppointmentRow> = {}): RawAppointmentRow {
     ...over,
   };
 }
+
+describe("toAppointmentView — nome informado (DL-071)", () => {
+  it("omite o campo quando não veio pelo link (sem nome informado)", () => {
+    expect(toAppointmentView(row(), TZ)).not.toHaveProperty("requestedName");
+  });
+
+  it("omite o campo quando o nome informado bate com o cadastro", () => {
+    const v = toAppointmentView(
+      row({ client_name: "Maria das Dores", requested_client_name: "maria" }),
+      TZ,
+    );
+    expect(v).not.toHaveProperty("requestedName");
+  });
+
+  it("expõe o nome COMO DIGITADO quando diverge", () => {
+    const v = toAppointmentView(
+      row({ client_name: "Rosana", requested_client_name: "Teste" }),
+      TZ,
+    );
+    expect(v.requestedName).toBe("Teste");
+  });
+});
 
 describe("toAppointmentView", () => {
   it("converte UTC para o fuso do tenant (data/início/fim)", () => {

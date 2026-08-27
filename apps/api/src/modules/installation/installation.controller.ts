@@ -20,6 +20,11 @@ interface InstallationView {
   businessHoursEnd: string;
   /** Slug do link público (`/agendar/{slug}`) — editável em Configurações. */
   slug: string;
+  /** Campos da página pública (1ª leva do redesenho). */
+  address: string | null;
+  mapsUrl: string | null;
+  instagramUrl: string | null;
+  whatsappPhone: string | null;
   /** Endereço completo do agendamento, montado sobre WEB_BASE_URL. */
   publicUrl: string;
 }
@@ -48,6 +53,10 @@ export class InstallationController {
       businessHoursStart: company.business_hours_start.slice(0, 5),
       businessHoursEnd: company.business_hours_end.slice(0, 5),
       slug: company.slug,
+      address: company.address,
+      mapsUrl: company.maps_url,
+      instagramUrl: company.instagram_url,
+      whatsappPhone: company.whatsapp_phone,
       publicUrl: `${base}/agendar/${company.slug}`,
     };
   }

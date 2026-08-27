@@ -76,6 +76,12 @@ export class Appointment {
   @Column({ type: "enum", enum: ["whatsapp", "manual", "app", "link"] })
   source!: AppointmentSource;
 
+  // Nome COMO A CLIENTE DIGITOU no link público (DL-071). Sempre gravado na
+  // solicitação pública; NULL nos demais canais. O cadastro é reaproveitado pelo
+  // telefone, então este é o único registro de que o nome informado era outro.
+  @Column({ type: "varchar", length: 100, nullable: true })
+  requested_client_name!: string | null;
+
   // Auditoria do criador manual (FR-K2); NULL quando criado pelo bot.
   @Column({ type: "bigint", nullable: true })
   created_by_user_id!: string | null;

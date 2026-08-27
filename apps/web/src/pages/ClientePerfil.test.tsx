@@ -33,7 +33,18 @@ const profile = {
   notes: "Alérgica a amônia.",
   createdAt: "2026-07-20T10:00:00.000Z",
 };
-const history = [
+// `requestedName` declarado nos dois: o tipo do array é inferido daqui, e os
+// testes do DL-071 passam uma cópia com o campo preenchido.
+const history: Array<{
+  id: string;
+  serviceName: string;
+  professionalName: string | null;
+  date: string;
+  start: string;
+  end: string;
+  status: string;
+  requestedName?: string;
+}> = [
   { id: "a1", serviceName: "Corte", professionalName: "Fernanda", date: "2026-03-20", start: "15:00", end: "16:00", status: "confirmed" },
   { id: "a2", serviceName: "Escova", professionalName: null, date: "2026-01-10", start: "09:00", end: "09:45", status: "completed" },
 ];
@@ -79,6 +90,28 @@ describe("ClientePerfil", () => {
     );
     render(<ClientePerfil />);
     expect(await screen.findByText(/Nenhum agendamento ainda/)).toBeInTheDocument();
+  });
+
+  it("histórico avisa quando o atendimento foi pedido com nome divergente (DL-071)", async () => {
+    // A profissional abre o histórico ANTES de atender; o pendente já virou
+    // confirmado, então o aviso da fila não existe mais.
+    apiMock.mockImplementation((path: string, opts?: Opts) =>
+      Promise.resolve(
+        routeApi(path, opts, [
+          { ...history[0], requestedName: "Ana Paula Souza" },
+          history[1],
+        ]),
+      ),
+    );
+    render(<ClientePerfil />);
+    expect(await screen.findByText(/informou-se como/i)).toBeInTheDocument();
+    expect(screen.getByText("Ana Paula Souza")).toBeInTheDocument();
+  });
+
+  it("histórico sem divergência não fala em nome informado", async () => {
+    render(<ClientePerfil />);
+    await screen.findByText("Ana Lima");
+    expect(screen.queryByText(/informou-se como/i)).toBeNull();
   });
 
   it("salva observação → PATCH /clients/1 com notes", async () => {

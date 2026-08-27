@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { PublicAgendar } from "./PublicAgendar";
@@ -161,17 +161,18 @@ describe("PublicAgendar (link público)", () => {
     fireEvent.click(await screen.findByText("Corte"));
   }
 
-  it("Profissional aparece ANTES de Data e Horário", async () => {
+  it("as etapas aparecem na ordem: serviço, profissional, dia, horário, dados", async () => {
     apiMock.mockImplementation(routeComProfissionais());
     renderAt("/agendar/salao-a");
     await escolherServico();
 
-    const rotulos = await screen.findAllByText(/^(Serviço|Profissional \(opcional\)|Data|Horário)$/);
-    expect(rotulos.map((e) => e.textContent)).toEqual([
-      "Serviço",
-      "Profissional (opcional)",
-      "Data",
-      "Horário",
+    const titulos = await screen.findAllByRole("heading", { level: 2 });
+    expect(titulos.map((e) => e.textContent)).toEqual([
+      "Escolha o serviço",
+      "Com quem você quer ser atendida?",
+      "Escolha o dia",
+      "Escolha o horário",
+      "Seus dados",
     ]);
   });
 
@@ -184,7 +185,7 @@ describe("PublicAgendar (link público)", () => {
     expect(screen.getByRole("button", { name: "11:00" })).toHaveClass("bg-primary");
 
     // Bia também atende 11:00 → a seleção sobrevive.
-    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Bia Melo" }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "11:00" })).toHaveClass("bg-primary"),
@@ -199,7 +200,7 @@ describe("PublicAgendar (link público)", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
     // Bia não atende 10:00.
-    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Bia Melo" }));
 
     const aviso = await screen.findByRole("status");
     expect(aviso).toHaveTextContent("10:00");
@@ -214,18 +215,23 @@ describe("PublicAgendar (link público)", () => {
     await escolherServico();
 
     fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
-    fireEvent.change(screen.getByLabelText("Profissional"), { target: { value: "p2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Bia Melo" }));
     await screen.findByRole("status");
 
     fireEvent.click(screen.getByRole("button", { name: "11:00" }));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("trocar a DATA com horário que some avisa citando a data, não a profissional", async () => {
+  it("trocar o DIA com horário que some avisa citando a data, não a profissional", async () => {
+    // Hoje tem 10:00; amanhã, não.
+    const hoje = new Date();
+    const amanha = new Date(hoje);
+    amanha.setDate(hoje.getDate() + 1);
+    const isoAmanha = `${amanha.getFullYear()}-${String(amanha.getMonth() + 1).padStart(2, "0")}-${String(amanha.getDate()).padStart(2, "0")}`;
+
     apiMock.mockImplementation((path?: string, opts?: { method?: string }) => {
       if (path && path.startsWith("/public/salao-a/availability")) {
-        // Data de amanhã não tem 10:00.
-        if (path.includes("date=2030-01-02"))
+        if (path.includes(`date=${isoAmanha}`))
           return Promise.resolve(jsonRes({ slots: [{ time: "15:00" }] }));
         return Promise.resolve(jsonRes({ slots: [{ time: "10:00" }, { time: "11:00" }] }));
       }
@@ -235,12 +241,104 @@ describe("PublicAgendar (link público)", () => {
     await escolherServico();
 
     fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
-    fireEvent.change(screen.getByDisplayValue(/^\d{4}-\d{2}-\d{2}$/), {
-      target: { value: "2030-01-02" },
-    });
+    // Segundo card da faixa de dias = amanhã.
+    const faixaDeDias = screen.getByRole("group", { name: "Dia" });
+    fireEvent.click(within(faixaDeDias).getAllByRole("button")[1]);
 
     const aviso = await screen.findByRole("status");
     expect(aviso).toHaveTextContent(/nesta data/i);
     expect(aviso).not.toHaveTextContent(/Ana|Bia/);
+  });
+
+  it("horários vêm agrupados por período, e período vazio não aparece", async () => {
+    apiMock.mockImplementation((path?: string, opts?: { method?: string }) => {
+      if (path && path.startsWith("/public/salao-a/availability"))
+        return Promise.resolve(jsonRes({ slots: [{ time: "09:00" }, { time: "14:00" }] }));
+      return routeComProfissionais()(path, opts);
+    });
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    expect(await screen.findByText("Manhã")).toBeInTheDocument();
+    expect(screen.getByText("Tarde")).toBeInTheDocument();
+    expect(screen.queryByText("Noite")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("group", { name: "Horários da manhã" })).getByRole("button", {
+        name: "09:00",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("o resumo mostra o que foi escolhido antes de enviar", async () => {
+    apiMock.mockImplementation(routeComProfissionais());
+    renderAt("/agendar/salao-a");
+    await escolherServico();
+
+    // Sem horário escolhido, o resumo convida a escolher.
+    expect(screen.getByText(/para ver o resumo aqui/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ana Souza" }));
+    fireEvent.click(await screen.findByRole("button", { name: "11:00" }));
+
+    // Serviço, horário e preço também aparecem nos cards — a asserção olha
+    // DENTRO do resumo, senão encontra os dois e falha por ambiguidade.
+    const resumo = within(screen.getByRole("group", { name: "Resumo do agendamento" }));
+    expect(resumo.getByText("Corte")).toBeInTheDocument();
+    expect(resumo.getByText("Ana Souza")).toBeInTheDocument();
+    expect(resumo.getByText(/11:00/)).toBeInTheDocument();
+    expect(resumo.getByText("R$ 50,00")).toBeInTheDocument();
+  });
+
+  it("capa mostra endereço, Como chegar e as redes — e omite o que não existe", async () => {
+    apiMock.mockImplementation((path?: string, opts?: { method?: string }) => {
+      if (path === "/public/salao-a/installation")
+        return Promise.resolve(
+          jsonRes({
+            name: "Salão A",
+            logoUrl: null,
+            primaryColor: "#B85C38",
+            address: "Rua das Acácias, 210 — Vila Mariana",
+            mapsUrl: "https://maps.example/salao-a",
+            instagramUrl: "https://instagram.com/salaoa",
+            whatsappPhone: null, // não cadastrado → o botão não aparece
+          }),
+        );
+      return routeComProfissionais()(path, opts);
+    });
+    renderAt("/agendar/salao-a");
+
+    expect(await screen.findByText(/Rua das Acácias, 210/)).toBeInTheDocument();
+    const comoChegar = screen.getByRole("link", { name: /como chegar/i });
+    expect(comoChegar).toHaveAttribute("href", "https://maps.example/salao-a");
+    expect(comoChegar).toHaveAttribute("target", "_blank");
+    expect(comoChegar).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByRole("link", { name: /instagram de salão a/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /whatsapp de/i })).not.toBeInTheDocument();
+  });
+
+  it("descrição do serviço aparece no card quando existe", async () => {
+    apiMock.mockImplementation((path?: string, opts?: { method?: string }) => {
+      if (path === "/public/salao-a/services")
+        return Promise.resolve(
+          jsonRes({
+            services: [
+              {
+                id: "3",
+                name: "Corte",
+                durationMinutes: 60,
+                price: "50.00",
+                description: "Inclui lavagem e finalização.",
+              },
+              { id: "4", name: "Escova", durationMinutes: 45, price: "40.00", description: null },
+            ],
+          }),
+        );
+      return routeComProfissionais()(path, opts);
+    });
+    renderAt("/agendar/salao-a");
+
+    expect(await screen.findByText("Inclui lavagem e finalização.")).toBeInTheDocument();
+    // Sem descrição, o card fica compacto — nada de espaço vazio.
+    expect(screen.getByText("Escova")).toBeInTheDocument();
   });
 });

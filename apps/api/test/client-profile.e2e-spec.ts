@@ -158,6 +158,33 @@ describe("Perfil da cliente — histórico e observações (e2e)", () => {
     });
   });
 
+  it("histórico expõe o nome informado divergente; o que bate não vira aviso (DL-071)", async () => {
+    // A cliente é "Cliente Perfil"; um atendimento foi pedido pelo link como
+    // "Ana Paula Souza" (outra pessoa) e outro como "cliente perfil" (a mesma).
+    await seedAppt({
+      scheduled_at: new Date("2026-04-10T12:00:00Z"),
+      source: "link",
+      requested_client_name: "Ana Paula Souza",
+    });
+    await seedAppt({
+      scheduled_at: new Date("2026-04-11T12:00:00Z"),
+      source: "link",
+      requested_client_name: "cliente perfil",
+    });
+
+    const tok = await login("dono@perfil.dev");
+    const res = await request(ctx.app.getHttpServer())
+      .get(`/api/clients/${clientId}/appointments`)
+      .set("Authorization", `Bearer ${tok}`);
+    expect(res.status).toBe(200);
+
+    const porData = new Map<string, Record<string, unknown>>(
+      res.body.appointments.map((a: { date: string }) => [a.date, a]),
+    );
+    expect(porData.get("2026-04-10")?.requestedName).toBe("Ana Paula Souza");
+    expect(porData.get("2026-04-11")).not.toHaveProperty("requestedName");
+  });
+
   it("cliente sem agendamentos → { appointments: [] }", async () => {
     const tok = await login("dono@perfil.dev");
     const res = await request(ctx.app.getHttpServer())
