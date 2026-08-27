@@ -36,6 +36,11 @@ interface ClientProfile {
 interface HistoryItem {
   id: string;
   serviceName: string;
+  /**
+   * Nome que a cliente digitou no link, SÓ quando diverge do cadastro (DL-071).
+   * Vem da mesma view da agenda — o histórico reusa `toAppointmentView`.
+   */
+  requestedName?: string;
   professionalName: string | null;
   date: string; // YYYY-MM-DD
   start: string;
@@ -320,6 +325,19 @@ export function ClientePerfil() {
                           <em className="italic">Não atribuído</em>
                         )}
                       </span>
+                      {/* Mesmo aviso da tela Pendentes (DL-071), e aqui ele
+                          importa mais: é o histórico que a profissional abre
+                          ANTES de atender, e o pendente já virou confirmado —
+                          o aviso da fila não existe mais. Sem divergência o
+                          backend não manda o campo, e nada aparece. */}
+                      {a.requestedName && (
+                        <span className="text-xs text-muted-foreground">
+                          Informou-se como{" "}
+                          <strong className="font-medium text-foreground">
+                            {a.requestedName}
+                          </strong>
+                        </span>
+                      )}
                     </div>
                     <StatusChip status={mapStatus(a.status)} />
                   </div>
