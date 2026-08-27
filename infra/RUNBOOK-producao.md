@@ -801,9 +801,15 @@ ls "$PKG/dist/main.js"                        # a API compilada tem de estar aqu
 devem sair **vazias**:
 
 ```bash
-find "$PKG" -type l | head                              # nenhum symlink
-grep -rl '/mnt/c/\|C:\Users\|/tmp/' "$PKG/node_modules/.bin/" | head   # nenhum caminho local
+# nenhum symlink no pacote
+find "$PKG" -type l | head
+
+# nenhum caminho da sua máquina dentro dos wrappers de linha de comando
+grep -rlE '/mnt/c/|/tmp/|[A-Za-z]:\' "$PKG/node_modules/.bin/" | head
 ```
+
+*(Os dois comandos foram testados contra um pacote montado **sem** a flag: eles
+apontam o problema. Contra o pacote correto, não imprimem nada.)*
 
 > Avisos do pnpm sobre `Failed to create bin ... .EXE` no Windows são **normais**
 > e não afetam o pacote: são atalhos de linha de comando que produção não usa.
