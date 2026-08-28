@@ -105,6 +105,22 @@ describe("PublicAgendar (link público)", () => {
     ).toBeInTheDocument();
   });
 
+  it("o aviso de consentimento leva à Política de Privacidade (pendência da 5B.2)", async () => {
+    apiMock.mockImplementation(route());
+    renderAt("/agendar/salao-a");
+    fireEvent.click(await screen.findByText("Corte"));
+    fireEvent.click(await screen.findByRole("button", { name: "10:00" }));
+
+    const link = screen.getByRole("link", { name: "Política de Privacidade" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://tamarcado.tec.br/politica-de-privacidade/",
+    );
+    // Outra origem e o formulário já preenchido atrás: abre em aba nova.
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
   it("mostra a mensagem REAL da API quando o POST falha (ex.: 2h)", async () => {
     apiMock.mockImplementation(
       route({

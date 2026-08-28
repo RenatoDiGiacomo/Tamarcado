@@ -83,18 +83,17 @@
      Renato: cole aqui a meta de verificação do Google Search Console.
      <meta name="google-site-verification" content="SEU_TOKEN_AQUI" />          -->
 
-<!-- ═══ PONTO DE INSERÇÃO — Google Analytics (GA4) ══════════════════════════
-     Renato: troque G-XXXXXXXXXX pelo ID da propriedade e DESCOMENTE o bloco.
-     Fica no fim do <head> de propósito: não bloqueia a primeira pintura.
-
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<!-- ═══ Google Analytics (GA4) ═════════════════════════════════════════════
+     Fica no fim do <head> de propósito: `async` + por último, para não
+     bloquear a primeira pintura. A coleta está declarada no item 3.3 da
+     Política de Privacidade — se o ID mudar, ela continua valendo. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-KF5T8NKZ4Y"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){ dataLayer.push(arguments); }
   gtag("js", new Date());
-  gtag("config", "G-XXXXXXXXXX");
+  gtag("config", "G-KF5T8NKZ4Y");
 </script>
-                                                                              -->
 
 <!-- ═══ Dados estruturados ═════════════════════════════════════════════════
      SoftwareApplication descreve o produto para o Google; FAQPage habilita o
@@ -663,6 +662,13 @@
             <svg class="social__icone" aria-hidden="true" focusable="false"><use href="#i-facebook" /></svg>
           </a>
         </li>
+      </ul>
+
+      <!-- Junto das redes, como pediu o Renato: quem procura a política a
+           procura no rodapé, não no menu. -->
+      <ul class="rodape__legal">
+        <li><a href="/politica-de-privacidade/">Política de Privacidade</a></li>
+        <li><a href="/termos-de-uso/">Termos de Uso</a></li>
       </ul>
     </div>
     <nav aria-label="Navegação do rodapé">

@@ -741,6 +741,76 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 }
 .precos__ajuda a { color: hsl(var(--primary-texto)); font-weight: 600; }
 
+/* ── Documentos legais (política de privacidade, termos de uso) ──────────── */
+/* Uma coluna estreita (`wrap--estreito`, 46rem): texto jurídico é lido linha a
+   linha, e linha longa demais faz o olho perder o lugar ao voltar. */
+.doc h1 { margin: 0 0 0.5rem; }
+.doc__data {
+  margin: 0 0 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 0.9375rem;
+  color: hsl(var(--muted-foreground));
+}
+/* Espaço generoso ANTES do título e curto depois: cada bloco fica visualmente
+   preso ao próprio título, e não flutuando entre dois. */
+.doc h2 { margin: 2.5rem 0 0.75rem; font-size: 1.375rem; }
+.doc h3 { margin: 1.75rem 0 0.5rem; font-size: 1.0625rem; }
+.doc p { margin: 0 0 1rem; color: hsl(var(--muted-foreground)); }
+.doc strong { color: hsl(var(--foreground)); }
+.doc a { color: hsl(var(--primary-texto)); font-weight: 600; }
+.doc code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: hsl(var(--muted));
+  font-size: 0.9em;
+  color: hsl(var(--foreground));
+}
+
+.doc__lista { margin: 0 0 1rem; padding-left: 1.25rem; color: hsl(var(--muted-foreground)); }
+.doc__lista li { margin-bottom: 0.5rem; }
+
+/* Destaque do que a pessoa precisa MESMO ver — a barra lateral separa do
+   texto corrido sem usar caixa colorida. */
+.doc__nota {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid hsl(var(--primary));
+  background: hsl(var(--muted));
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.doc__nota p { margin: 0; }
+
+/* A tabela rola DENTRO do próprio quadro: sem isso, "Fornecedor / Para quê /
+   Onde" empurraria a página inteira para o lado no celular. */
+.doc__rolagem { margin: 0 0 1.5rem; overflow-x: auto; }
+.doc__tabela {
+  width: 100%;
+  min-width: 22rem;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.doc__tabela th,
+.doc__tabela td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.doc__tabela th { color: hsl(var(--foreground)); font-weight: 600; background: hsl(var(--muted)); }
+.doc__tabela td { color: hsl(var(--muted-foreground)); }
+
+/* Links legais no rodapé, junto das redes. */
+.rodape__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
 /* ── Rodapé ──────────────────────────────────────────────────────────────── */
 .rodape {
   /* Rodapé CLARO, na superfície `muted` do design system — um bloco preto no

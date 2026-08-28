@@ -41,6 +41,19 @@ describe("AceitarConvite", () => {
     expect(screen.queryByLabelText("Nova senha")).toBeNull();
   });
 
+  it("mostra o aceite de Termos e Política ao criar a conta", () => {
+    renderAt("/aceitar-convite?token=abc");
+    expect(
+      screen.getByRole("link", { name: "Termos de Uso" }),
+    ).toHaveAttribute("href", "https://tamarcado.tec.br/termos-de-uso/");
+    expect(
+      screen.getByRole("link", { name: "Política de Privacidade" }),
+    ).toHaveAttribute(
+      "href",
+      "https://tamarcado.tec.br/politica-de-privacidade/",
+    );
+  });
+
   it("senha curta → erro (não chama a API)", async () => {
     renderAt("/aceitar-convite?token=xyz");
     fireEvent.change(screen.getByLabelText("Nova senha"), { target: { value: "123" } });
