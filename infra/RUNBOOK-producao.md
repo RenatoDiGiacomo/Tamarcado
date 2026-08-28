@@ -760,11 +760,10 @@ healthcheck → **auto-rollback** se o healthcheck falhar.
 Produção sai **só do `main`** (DL-059). Merge do PR de trabalho em `dev`, depois
 o PR `dev → main`.
 
-> ⚠️ Se a **branch protection** do `main` exige o check `checks` verde e o CI
-> está cortado, o merge fica bloqueado. Nesse caso, o merge precisa ser feito com
-> **override de administrador** — decisão consciente de subir sem CI. Rode a
-> suíte local antes (`pnpm run lint && pnpm run typecheck && pnpm run test`), que
-> é o mesmo que o job `checks` faria.
+> ⚠️ **Não há branch protection no `main`** (§15 explica por quê): nada no
+> GitHub barra o merge com o CI vermelho ou cortado. A conferência é sua — rode
+> a suíte local antes (`pnpm run lint && pnpm run typecheck && pnpm run test`),
+> que é o mesmo que o job `checks` faria.
 
 ### 14.1 Build e empacotamento (na sua máquina)
 
@@ -983,3 +982,76 @@ pagamento recusado e se o limite de gastos de Actions comporta o mês.
   derruba o tempo de parede (~4,5 min → ~1,5 min), mas **cada shard é um job** e
   os minutos contam por job. Se a cota voltar a apertar, reduzir os shards é o
   primeiro lugar a mexer — custa tempo de espera, não cobertura.
+
+---
+
+## 15. Proteção do `main` — o que existe e o que não
+
+`main` é produção: é dela que sai o deploy (DL-059), e ela deve receber **só** o
+PR de implantação vindo de `dev`. O que garante isso, hoje, é um hook local —
+não o GitHub.
+
+### O que NÃO temos: branch protection
+
+O repositório é **privado**, e no **plano gratuito** as regras de proteção de
+branch (exigir PR, exigir check verde, impedir push direto) **não estão
+disponíveis** para repositório privado. Consequências práticas:
+
+- **nada no servidor do GitHub impede um `git push origin main`**;
+- **nada exige o CI verde** para mergear — o §14.0 depende de disciplina, não de
+  trava;
+- as duas coisas só mudam tornando o repositório público ou assinando um plano
+  pago. Enquanto isso, a proteção é a de baixo, e ela vale **só nesta máquina**.
+
+### O que temos: hook de `pre-push` (2026-08-27)
+
+Instalado em `.git/hooks/pre-push`, bloqueia o push antes de ele sair da
+máquina:
+
+```
+BLOQUEADO: push direto no main. Use branch + PR.
+```
+
+> Se aparecer isso, **não é credencial nem rede.** É o hook. Saia para uma
+> branch a partir de `dev`, empurre ela, e abra o PR.
+
+**Por que o hook existe.** O repositório volta para o `main` depois de cada
+merge de PR, e o commit seguinte cai lá sem ninguém perceber — aconteceu duas
+vezes no mesmo dia (27/08/2026). Uma delas virou push, e a correção foi um
+`git revert` na `main` (nunca `--force`: é a branch de onde sai o deploy).
+
+**Hooks não são versionados.** `.git/hooks/` não vai no clone. Em máquina nova,
+ou depois de um clone limpo, o hook **não existe** — recrie:
+
+```bash
+cat > .git/hooks/pre-push <<'HOOK'
+#!/bin/sh
+# Bloqueia por DESTINO: pega tanto o push estando no main quanto
+# `git push origin <branch>:main` a partir de outra branch.
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "BLOQUEADO: push direto no main. Use branch + PR."
+    exit 1
+  fi
+done
+exit 0
+HOOK
+chmod +x .git/hooks/pre-push
+```
+
+**Lacuna do hook instalado hoje:** ele decide pela **branch atual**
+(`git rev-parse --abbrev-ref HEAD`), não pelo destino. Isso cobre o caso que
+motivou sua criação — estar no `main` e empurrar —, mas deixa passar
+`git push origin minha-branch:main` feito de outra branch. A versão acima, por
+destino, cobre os dois; é o mesmo critério do `pre-push.off` que já estava na
+máquina.
+
+**Para desligar temporariamente** (só com motivo, e religue depois):
+
+```bash
+mv .git/hooks/pre-push .git/hooks/pre-push.off    # desliga
+mv .git/hooks/pre-push.off .git/hooks/pre-push    # religa
+```
+
+`git push --no-verify` também pula o hook — o que significa que ele é uma rede
+de proteção contra descuido, não uma trava de segurança.
