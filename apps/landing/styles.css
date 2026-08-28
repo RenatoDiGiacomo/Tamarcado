@@ -800,6 +800,17 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
 .doc__tabela th { color: hsl(var(--foreground)); font-weight: 600; background: hsl(var(--muted)); }
 .doc__tabela td { color: hsl(var(--muted-foreground)); }
 
+/* Links legais no rodapé, junto das redes. */
+.rodape__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
 /* ── Rodapé ──────────────────────────────────────────────────────────────── */
 .rodape {
   /* Rodapé CLARO, na superfície `muted` do design system — um bloco preto no
@@ -862,36 +873,8 @@ a { color: hsl(var(--primary-texto)); text-decoration-thickness: 1px; text-under
   border-top: 1px solid hsl(var(--border));
   font-size: 0.875rem;
   color: hsl(var(--muted-foreground));
-  /* Copyright à esquerda, links legais à direita, na MESMA linha. Quando não
-     couber, o `wrap` desce a lista para baixo do copyright — e não de volta
-     para a coluna acima, porque este bloco está fora da grade das colunas. */
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
 }
 .rodape__base p { margin: 0; }
-
-/* `.rodape ul` (grid, logo acima) tem especificidade MAIOR que `.rodape__legal`
-   sozinha — o mesmo caso já documentado em `.social`. Sem o pai no seletor os
-   dois links ficam um embaixo do outro. */
-.rodape .rodape__legal {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-/* Separador ENTRE os links, nunca antes do primeiro. Fica no tom do texto do
-   rodapé (não em cinza mais claro): um ponto quase invisível não separa nada. */
-.rodape__legal li + li::before {
-  content: "·";
-  margin-right: 0.75rem;
-  color: hsl(var(--muted-foreground));
-}
 
 /* ── Animação de entrada das seções ──────────────────────────────────────────
    Discreta: aparecer subindo 12px, meio segundo, uma vez só. Vale apenas com
