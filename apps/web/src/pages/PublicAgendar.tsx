@@ -615,9 +615,23 @@ export function PublicAgendar() {
                     onChange={(e) => setConsent(e.target.checked)}
                     className="mt-0.5 size-4"
                   />
+                  {/* O link para a política era pendência da 5B.2 (NFR-S2): o
+                      aviso pedia consentimento sem lugar nenhum para ler o que
+                      se estava aceitando. Aponta para a página da landing, em
+                      outra origem — daí `noopener`, e nova aba para não perder
+                      o formulário já preenchido. */}
                   <span>
                     Concordo que o estabelecimento guarde meu nome e WhatsApp para gerenciar
-                    este atendimento.
+                    este atendimento. Veja a{" "}
+                    <a
+                      href="https://tamarcado.tec.br/politica-de-privacidade/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary underline underline-offset-2"
+                    >
+                      Política de Privacidade
+                    </a>
+                    .
                   </span>
                 </label>
 
