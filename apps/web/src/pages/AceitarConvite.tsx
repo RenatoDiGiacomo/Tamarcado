@@ -135,6 +135,30 @@ export function AceitarConvite() {
               <Button type="submit" disabled={submitting} className="mt-1 w-full">
                 {submitting ? "Entrando..." : "Criar senha e entrar"}
               </Button>
+              {/* É aqui que a pessoa passa a ter conta — o aceite fica junto do
+                  ato, não escondido depois. Links para a landing (outra
+                  origem): nova aba para não perder a senha já digitada. */}
+              <p className="text-center text-xs text-muted-foreground">
+                Ao criar a senha, você concorda com os{" "}
+                <a
+                  href="https://tamarcado.tec.br/termos-de-uso/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
+                  Termos de Uso
+                </a>{" "}
+                e a{" "}
+                <a
+                  href="https://tamarcado.tec.br/politica-de-privacidade/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
+                  Política de Privacidade
+                </a>
+                .
+              </p>
             </form>
           )}
         </CardContent>
