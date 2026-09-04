@@ -245,7 +245,7 @@ A cliente agenda sozinha por um **link público** (`/agendar/{slug}`), **sem Wha
 **FRs cobertas:** FR-B1/B2/B4 · **NFRs:** NFR-A3, NFR-C1, NFR-S1/S2 · **UX-DRs:** UX-DR9
 
 ### Épico 6: Ciclo de Agendamento via WhatsApp (Bot) — o diferencial, depois da base
-Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` sobre a **WhatsApp Cloud API oficial (Meta)** (DL-054; Evolution só dev), a máquina de estados (`whatsapp_conversations`, **estado e jobs agendados no MySQL, sem Redis/BullMQ** — DL-056), o fluxo de agendamento via bot (**uma conversa = um serviço**; carrinho multi-serviço é fast-follow — DL-055), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6) e a resiliência do provider. **Gated por plano:** o WhatsApp só liga no plano **Pró** (DL-057). **Conexão multi-tenant (DL-068):** cada estabelecimento conecta o **próprio número** via **Embedded Signup**, com o Tamarcado atuando como **Tech Provider** da Meta — a conta e o número são **do cliente**, a conexão é **autoatendimento** e inclui tela de conectar/ver estado/desconectar + **tutorial em PDF** (Stories 6.12–6.14). Consome a base do Épico 3 (não recria tabelas de agendamento). **Já entregues pelo 5B:** notificação ao salão + confirmar/recusar (antiga 6.4) e polling de pendentes (antiga 6.9). **Movido ao roadmap:** monitoramento/alertas (antiga 6.8, DL-058).
+Adiado para depois do produto manual estar vendável (DL-035). A cliente agenda e cancela pelo WhatsApp; o salão trata os **pendentes** pelo painel. Cobre a abstração `WhatsAppProvider` sobre a **WhatsApp Cloud API oficial (Meta)** (DL-054; Evolution só dev), a máquina de estados (`whatsapp_conversations`, **estado e jobs agendados no MySQL, sem Redis/BullMQ** — DL-056), o fluxo de agendamento via bot (**uma conversa = um serviço**; carrinho multi-serviço é fast-follow — DL-055), a notificação ao salão + confirmação/recusa de pendentes, o timeout de 2h, o cancelamento via bot, a notificação à cliente no cancelamento pelo painel (FR-C6) e a resiliência do provider. **Gated por CAPABILITY (DL-072, reescreve DL-057):** o acesso é decidido por uma **lista de recursos liberados por empresa** (`whatsapp_bot`, `lembrete_automatico`) — o **plano é só um PRESET** que preenche essa lista, e **nenhum código pergunta o nome do plano**. Bloqueio em **três camadas**: front marca, backend devolve 403, e o **webhook e o agendador também checam** (Story 6.11 reformulada). **Conexão multi-tenant (DL-068):** cada estabelecimento conecta o **próprio número**, com a conta e o número sendo **do cliente**. **Ajuste DL-073:** as credenciais por tenant **nascem na Story 6.1**, preenchidas à mão pelo endpoint de plataforma (6.16); o **Embedded Signup (6.12–6.14) está ⛔ bloqueado pelo CNPJ inapto** e depois apenas passa a preencher **os mesmos campos** automaticamente. **Stories novas:** 6.15 (coroa), 6.16 (ativação manual), 6.17 (tela de WhatsApp no menu principal), 6.18 (**modelos de mensagem** — buraco fechado, DL-077) e 6.19 (Termos + Política, DL-079). Consome a base do Épico 3 (não recria tabelas de agendamento). **Já entregues pelo 5B:** notificação ao salão + confirmar/recusar (antiga 6.4) e polling de pendentes (antiga 6.9). **Movido ao roadmap:** monitoramento/alertas (antiga 6.8, DL-058).
 **FRs cobertas:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 migraram para o Épico 5B — pendentes pelo painel)*, FR-C1–C3, FR-C5, FR-C6, FR-J2
 **NFRs:** NFR-A1, NFR-A3, NFR-C1 (concorrência), NFR-C2, NFR-C3, NFR-O3
 **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
@@ -287,13 +287,19 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **3.5. Landing page + separação de endereços — NOVO (DL-069).** `tamarcado.tec.br` vira **landing page** (estática, servida pelo Nginx) e o painel migra para **`app.tamarcado.tec.br`** (com `/agendar/{slug}` junto); a API segue em `api.`. **Por que agora:** ainda **não há cliente com link divulgado** — depois, mudar quebra link em bio de Instagram e material impresso **de terceiros**. Inclui: `WEB_BASE_URL`/`CORS_ORIGIN` apontando para o `app.`, **301** das rotas antigas na raiz (salva os e-mails de convite/senha já enviados), **reinstalação do PWA** (origem nova = app novo para o navegador; a LP desregistra o service worker velho) e SEO da LP (o painel fica **fora** do índice). **Depende do Renato:** registro DNS do `app` (hoje **NXDOMAIN**), certificado via Certbot, capturas de tela reais e os IDs de GA4/Search Console. Procedimento no **RUNBOOK §12**.
 > *Numerado como **3.5** de propósito: os itens 4–6 abaixo **não** foram renumerados para não invalidar as referências a "roadmap item 2/4" espalhadas nos documentos e no runbook.*
 
-**4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058). **Pré-requisito não-técnico:** a **verificação de negócio na Meta precisa COMEÇAR antes do código** (leva dias, não depende de dev) — **começar em paralelo já**, pois é o gargalo.
+**4. Épico 6 — WhatsApp** (Cloud API oficial, DL-054 a DL-058; **revisado DL-072 a DL-079**).
+> **REVISADO (2026-09-04): o pré-requisito não-técnico deixou de ser "começar já" e virou BLOQUEIO EXTERNO.** O **CNPJ está inapto** (omissão de declarações) e **não será regularizado agora**; sem CNPJ ativo **não há verificação de negócio**, logo **não há Tech Provider** e **não há Embedded Signup**. **Isso NÃO trava o épico** — trava **três stories** (6.12–6.14). Todo o resto (**6.11 reformulada, 6.15, 6.16, 6.1, 6.18, 6.17, 6.2, 6.3, …**) é construível **hoje** contra a **WABA de desenvolvimento** do Renato, porque a diferença entre conectar pelo Embedded Signup e conectar à mão é **apenas COMO as credenciais chegam na tabela** (DL-073). **Ordem interna completa** no cabeçalho do Épico 6.
+> **Consequência de negócio (DL-074, fato verificado):** **Tech Provider não tem linha de crédito** — o cliente cadastra o **próprio cartão** na Meta e **a cobrança nunca passa pelo Tamarcado**. E a **coexistência** existe: **o salão não perde o WhatsApp dele**.
+> **Regularizar o CNPJ segue no caminho crítico da ESCALA** (não da existência do produto): sem ele, cada conexão é manual. **Quando destravar, a 6.12 entra** — direto na **v4** do Embedded Signup (a v2 é descontinuada em **15/10/2026**).
 
 **5. Monitoramento do bot** — alertas de queda/entrega + painel (vindo do **DL-058**). Fica **com o Épico 6** (mesma estrutura de coleta do Financeiro/Dashboard); **não** entra nas duas levas do item 3.
 
+**5.5. Tela de administração de planos e capabilities — DÍVIDA REGISTRADA (DL-076).** A ativação é **manual, por endpoint de plataforma** (`x-platform-key` + IP restrito, Story 6.16). Rodar comando é **aceitável com poucos clientes** e **insustentável com trinta** — **o gatilho é o volume**, e ele vai chegar. **Fora do Épico 6**, de propósito: construir agora seria antecipar trabalho que a venda ainda não pediu.
+> *Numerado como **5.5** pelo mesmo motivo do 3.5: não renumerar os itens existentes.*
+
 **6. Updates contínuos** *(faixa PERMANENTE — não é épico):* correções visuais do mobile e refinos de interface entram em **ciclos regulares**. A **2ª leva do Épico 7 (7.2.NN)** faz parte disso.
 
-> **Navegação (DL-061/DL-062):** Financeiro, Dashboard e Equipe são **menus próprios** (Equipe deixa de ser aba de Configurações). No **desktop**, Configurações continua na **sidebar**; no **mobile**, Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile **conscientemente aceita**). A **tab bar do mobile** precisa ser **revista para comportar os novos módulos sem truncar**.
+> **Navegação (DL-061/DL-062):** Financeiro, Dashboard e Equipe são **menus próprios** (Equipe deixa de ser aba de Configurações). No **desktop**, Configurações continua na **sidebar**; no **mobile**, Configurações é acessada pelo **perfil do usuário** (duplicação desktop/mobile **conscientemente aceita**). ~~A **tab bar do mobile** precisa ser **revista para comportar os novos módulos sem truncar**.~~ ✅ **RESOLVIDO (DL-078)** — a barra é **fixa e de uso diário** (**Agenda · Pendentes · [FAB] · Clientes · [Menu]**) e **todos os módulos** vivem no **drawer**, gateados por permissão. **A barra nunca foi a lista de módulos**, então o **sétimo módulo (WhatsApp) não é problema** e **nada trunca**.
 
 > **Versionamento & saída do beta (DL-063):** o produto usa **SemVer `X.Y.Z`**, com o bump **manual no PR `dev → main`** pelos prefixos de commit do DL-028 (`fix`/`chore`→PATCH, `feat`→MINOR, quebra→MAJOR). Fonte em `apps/web/package.json` (lida na build; exibida no login/painel/Perfil — o PATCH aparece a partir do `.1`). **`CHANGELOG.md` obrigatório** em linguagem de usuário. **Saída do beta** (`1.0.x-beta`/`v1.0…b` → `1.0.0` estável) exige **as duas condições juntas, funcionando de fato:** **(1)** WhatsApp ativo (Épico 6) **e (2)** Dashboard + Financeiro + Equipe (DL-061, as duas levas).
 
@@ -362,7 +368,9 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Épico 6 — Bot WhatsApp — NÃO INICIADO** (revisado em 2026-08-10, DL-054 a DL-058), **exceto** o que o 5B já entregou:
 - ✅ **6.4** (notificar salão + confirmar/recusar) e ✅ **6.9** (polling de pendentes) — **entregues pelo 5B.3 (PR #43)**. Falta só, no Épico 6, **disparar a notificação ao salão quando o pré-agendamento vier do bot**.
 - ⛔ **6.8 monitoramento → roadmap** (DL-058, com Financeiro/Dashboard).
-- 🆕 **6.11 interruptor de WhatsApp por plano** (DL-057) — introduz **PLANO** (`plan` básico|pró + `whatsapp_enabled`); Dashboard/Financeiro passam a depender de `plan`.
+- 🆕 **6.11 CAPABILITIES por empresa** (**DL-072, reescreve DL-057**) — a versão "interruptor por plano" (`plan` básico|pró + `whatsapp_enabled`) foi **reformulada** antes de ser construída: quem decide acesso é a **lista de capabilities por empresa**, o **plano é só um PRESET**, e o bloqueio vale em **três camadas** (front · backend 403 · **webhook e agendador**). **CAPABILITY = direito** (nosso) × **PREFERÊNCIA = uso** (do dono) são campos diferentes.
+- 🆕 **6.15** coroa (marcador de recurso bloqueado, componente de plataforma — DL-075) · **6.16** ativação manual por endpoint de plataforma (DL-076) · **6.17** tela de WhatsApp no **menu principal**, dois estados + preferências + informativo (DL-073/077/078) · **6.18** **provisionamento dos modelos de mensagem** (DL-077 — buraco encontrado: sem ela o lembrete **não sai e não dá erro**) · **6.19** Termos de Uso + Política de Privacidade (DL-079).
+- ⛔ **6.12 / 6.13 / 6.14 BLOQUEADAS pelo CNPJ inapto** (DL-073) — Tech Provider exige verificação de negócio, que exige CNPJ ativo. **Não travam o épico:** as credenciais por tenant passam a nascer na **6.1**, preenchidas à mão, tendo a **WABA de desenvolvimento** (`1944290202933684`, **+55 11 94245-8672**) como **primeiro tenant**. Ordem interna revisada no cabeçalho do Épico 6.
 
 **Pendências que não podem sumir (não são bugs esquecidos — cada uma decidida):**
 - ⏳ **Correções visuais do mobile** levantadas pelo Renato ao usar o app — **ainda não catalogadas** numa lista; abrir o inventário antes da 2ª leva (7.2.NN).
@@ -382,6 +390,9 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - **Notificação automática à cliente (confirmação/recusa)** — depende de canal; fica no **Épico 6/bot**. No link (5B), a cliente vê "o estabelecimento vai confirmar" e o salão contata manual (DL-049).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada.
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**, e agora **fast-follow explícito fora do MVP do bot** (DL-055: uma conversa = um serviço). Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
+- **Tela de administração de planos/capabilities** — a ativação é por **endpoint de plataforma** (DL-076). Decidido **não** construir tela agora: com poucos clientes o comando resolve. **Gatilho: volume.** Roadmap, item 5.5.
+- **Personalização do texto dos modelos de mensagem pelo dono** — **decidido não fazer no 1º momento** (DL-077): cada alteração é **nova submissão à Meta**, e uma reprovação do texto **dele** para o lembrete com a culpa caindo em nós. **Evolução prevista:** variantes nossas **pré-aprovadas**, não campo livre.
+- **Modelo em número de COEXISTÊNCIA — risco aberto** (DL-074, item 6): a documentação da Meta **não afirma literalmente** que modelo funciona nesse arranjo; a evidência é forte, mas **indireta**. **Validar no primeiro número de coexistência real** antes de vender `lembrete_automatico` para quem conectou assim.
 - **Overbooking do mesmo profissional** — permitido **de propósito** (D1: encaixe deliberado). A 3.2.02 adicionou **aviso nomeando** quem já está ocupado, mas **não há bloqueio duro**. Fica assim no MVP; revisar se algum salão pedir prevenção rígida.
 
 ---
@@ -1227,7 +1238,7 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > 1. **Produção só na WhatsApp Cloud API oficial (Meta)** — Evolution API só dev, número descartável (DL-054). Motivo: banimento de APIs não oficiais em 2026; o número em risco é o **do cliente**.
 > 2. **Carrinho multi-serviço fora do MVP** (fast-follow, DL-055): **uma conversa = um serviço**. As notas do DL-040 (carrinho / disponibilidade encadeada) ficam para depois.
 > 3. **Redis fora de vez** (DL-056): estado de conversa **e jobs agendados** no MySQL. BullMQ vira um **scheduler simples** (tabela `scheduled_tasks` com `due_at` + rotina a cada minuto, dentro da própria API — sem serviço novo).
-> 4. **Interruptor de WhatsApp por plano** (DL-057, novo — Story 6.11): introduz o conceito de **PLANO** (`plan` básico|pró + `whatsapp_enabled`).
+> 4. ~~**Interruptor de WhatsApp por plano** (DL-057, novo — Story 6.11): introduz o conceito de **PLANO** (`plan` básico|pró + `whatsapp_enabled`).~~ ⛔ **REESCRITO pelo DL-072 (2026-09-04)** — ver item 10 abaixo.
 > 5. **Monitoramento (6.8) → roadmap** (DL-058, com Financeiro/Dashboard); no épico fica só log msg in/out + estado da conexão.
 > 6. **Já entregues pelo 5B:** Story **6.4** e Story **6.9** (ver marcações abaixo).
 >
@@ -1239,13 +1250,45 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > **Atrito conhecido (DL-068):** o dono precisa **ter ou criar conta Meta Business** durante o fluxo. Para quem só usa WhatsApp e Instagram, isso pode **travar** — daí o **tutorial em PDF** (6.14) e, no **futuro**, o **apoio remoto** (evolução registrada na 6.13, **evitar por ora**).
 > **Custos (Meta, ago/2026):** serviço (resposta ≤24h) **grátis**; utilidade (confirmação/lembrete) ≈ **R$ 0,04–0,05**; marketing não usado. Fluxo principal gratuito; ≈ **R$ 30/mês** por salão com 300 agendamentos.
 
+> **REVISADO (2026-09-04, DL-072 a DL-079) — o CNPJ inapto reordena o épico, mas não o bloqueia:**
+> 8. **⛔ O que está bloqueado é UMA story.** O **CNPJ do Renato está inapto** e **não será regularizado agora**; Tech Provider exige **verificação de negócio**, que exige **CNPJ ativo**. Logo a **6.12 (Embedded Signup) sai da frente da fila** — junto com a 6.13 e a 6.14, que dependem dela.
+> 9. **Credenciais POR TENANT desde o primeiro dia (DL-073).** A diferença entre "conectado pelo Embedded Signup" e "conectado à mão" é **apenas COMO as credenciais chegam na tabela** — factory por tenant, roteamento de webhook, isolamento por `company_id` e gate por capability são **idênticos**. Elas passam a **nascer na Story 6.1**, preenchidas à mão pelo endpoint de plataforma (6.16); o **primeiro tenant é a WABA de desenvolvimento do Renato** (`1944290202933684`, **+55 11 94245-8672**). A 6.12 depois **só preenche os mesmos campos automaticamente**.
+> 10. **CAPABILITIES no lugar de PLANO (DL-072, reescreve DL-057 — Story 6.11 REFORMULADA).** Lista de recursos liberados **por empresa**; o **plano é só um PRESET** que preenche essa lista; **nenhum código pergunta o nome do plano**. Bloqueio em **três camadas** — front esconde/marca, backend devolve **403**, e o **WEBHOOK e o AGENDADOR também checam** (o webhook é chamado **pela Meta**, sem login; sem essa camada o bot responde cliente de empresa cortada). **CAPABILITY = o DIREITO** (nosso, comercial) e **PREFERÊNCIA = o USO** (do dono) são **campos diferentes**.
+> 11. **Stories novas: 6.15** (marcador de recurso bloqueado — a **coroa**, componente de plataforma, DL-075), **6.16** (ativação manual de plano por endpoint de plataforma, DL-076), **6.17** (**tela de WhatsApp no menu principal** — dois estados, preferências e informativo; absorve a antiga 6.13), **6.18** (**provisionamento dos modelos de mensagem** — buraco encontrado, DL-077) e **6.19** (**Termos de Uso e Política de Privacidade**, DL-079).
+> 12. **BURACO FECHADO (DL-077):** toda mensagem que o **sistema inicia** exige **modelo aprovado pela Meta**, **na conta do cliente**. Sem a 6.18, o dono conecta, a tela diz "conectado", ele liga o lembrete — **e nada sai, sem erro visível**. Por isso **"conectado" deixa de bastar** como estado: enquanto os modelos não são aprovados (**minutos a 24h**), a tela diz **"conectado — preparando os envios automáticos"**.
+> 13. **FATOS DA META agora são premissa (DL-074), verificados na documentação oficial:** **Tech Provider NÃO tem linha de crédito** (só Solution Partner) — **o cliente cadastra o próprio cartão e a Meta cobra dele; a cobrança NUNCA passa pelo Tamarcado**. **COEXISTÊNCIA existe e vale para Tech Provider** — o número segue no WhatsApp Business App **e** na Cloud API, com **histórico sincronizado nos dois sentidos**: **o salão não perde o WhatsApp dele**. **Brasil não está bloqueado** (a restrição que existe é para criar WABA pelo Meta Business Suite, e a alternativa apontada pela própria Meta é **o Embedded Signup com um parceiro**). **Correção:** não são "13 dias" — a documentação fala em **~14 dias** (aparelho principal) e ~30 (companion), e o número **não deve ir para a interface**. **Custo da coexistência (achado):** o dono **perde**, naquele número, **mensagem de saudação, mensagem de ausência, respostas rápidas e etiquetas** do app — **avisar antes da venda**. **Risco aberto:** a Meta **não afirma literalmente** que **modelo funciona em número de coexistência** (evidência forte, indireta) — **validar no primeiro número real**.
+> 14. **Navegação decidida (DL-078):** WhatsApp é **item do drawer** no mobile — a barra fixa **Agenda · Pendentes · [FAB] · Clientes · [Menu]** **não muda**. A pendência do roadmap (*"tab bar precisa ser revista"*) está **vencida**: a barra nunca foi a lista de módulos.
+
+> **ORDEM INTERNA DO ÉPICO (revisada — DL-073, 2026-09-04).** A ordem anterior (**6.12 antes da 6.1**) está **travada pelo CNPJ**; esta não está:
+>
+> | # | Story | Por que aqui |
+> |---|---|---|
+> | 1 | **6.11** capabilities *(reformulada)* | **Fundação.** Sem o gate nas três camadas, tudo o que vier depois nasce sem trava e é retrabalho. |
+> | 2 | **6.15** coroa + modal | Depende da 6.11 e é o que **transforma bloqueio em venda**. Barato, e Financeiro/Dashboard herdam. |
+> | 3 | **6.16** ativação por endpoint | Sem ela, liberar um cliente é `UPDATE` no banco à mão. |
+> | 4 | **6.1** provider + credenciais por tenant | **Maior risco técnico do épico** — validar cedo, contra a WABA de desenvolvimento. |
+> | 5 | **6.18** modelos de mensagem | Logo depois da 6.1, **antes** de qualquer envio automático existir. |
+> | 6 | **6.17** tela de WhatsApp | Precisa dos estados que 6.1 e 6.18 produzem. Conexão **assistida** enquanto a 6.12 não vem. |
+> | 7 | **6.2 → 6.3** | O bot em si: máquina de estados e fluxo de agendamento. |
+> | 8 | **6.5 · 6.6 · 6.7 · 6.10** | Timeout, cancelamento, notificação e lembrete — dependem do fluxo pronto. |
+> | 9 | **6.19** Termos + Política | **Antes do primeiro cliente pagante no Pró**; o item da Política, **antes da primeira conexão real**. |
+> | — | **6.12 · 6.13 · 6.14** | **⛔ Bloqueadas pelo CNPJ.** Entram quando regularizar; a 6.12 nasce em **v4** do Embedded Signup. |
+>
+> **O que isso compra:** com 1–6 no ar, o Épico 6 é **vendável para um piloto** contra a WABA de desenvolvimento — sem CNPJ, sem Tech Provider. O que o CNPJ destrava depois é **escala de conexão**, não a existência do produto.
+
 **FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C3, NFR-O3 *(NFR-C2 monitoramento → roadmap, DL-058)* · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
 ### Story 6.1: Abstração WhatsAppProvider e integração com a Cloud API oficial (Meta)
 
 > **Revisada (DL-054, 2026-08-10):** produção usa **exclusivamente a WhatsApp Cloud API oficial da Meta**. A Evolution API fica **só para desenvolvimento**, com número descartável — **nunca** produção (banimento de APIs não oficiais em 2026; o número em risco é o do cliente). A interface `WhatsAppProvider` **permanece** — é ela que torna a troca barata (NFR-O3). **Pré-requisito não-técnico:** **cadastro como Tech Provider na Meta** + verificação de negócio (Business Manager), iniciados **antes** desta story.
 >
-> **Revisada de novo (DL-068, 2026-08-25):** as **credenciais por tenant** (identificadores da conta WhatsApp do cliente + token para operar em nome dele) **não são cadastradas à mão por nós** — chegam do **Embedded Signup** (**Story 6.12**). Esta story consome o que a 6.12 grava; a factory por tenant e o roteamento do webhook **permanecem como estão**.
+> **Revisada de novo (DL-068, 2026-08-25):** as **credenciais por tenant** (identificadores da conta WhatsApp do cliente + token para operar em nome dele) chegam do **Embedded Signup** (**Story 6.12**). A factory por tenant e o roteamento do webhook **permanecem como estão**.
+>
+> **REVISADA (DL-073, 2026-09-04) — esta story deixa de depender da 6.12.** As **credenciais por tenant nascem AQUI**, preenchidas **à mão** pelo endpoint de plataforma (Story 6.16); a **6.12 depois apenas preenche os MESMOS campos automaticamente**. Motivo: o **CNPJ inapto** impede a verificação de negócio da Meta, logo a 6.12 **não pode ser construída nem testada hoje** — mas a diferença entre "conectado pelo Embedded Signup" e "conectado à mão" é **apenas COMO as credenciais chegam na tabela**. **Nunca** modelar credencial global no `.env` "por enquanto": seria refazer esta story inteira depois.
+>
+> **Primeiro tenant:** a **WABA de desenvolvimento do Renato** (`1944290202933684`, número **+55 11 94245-8672**, conectado, qualidade Alta) — tratada como **um tenant qualquer**, sem caminho especial no código. **Limite conhecido:** conta não verificada tem **teto de destinatários e volume** — serve para provar o ciclo e para um **piloto**, **não** para escalar venda.
+>
+> **Gate de capability (DL-072) vale para o webhook desta story:** empresa sem `whatsapp_bot` → **descartar a mensagem e responder 200 à Meta**. Responder erro faz a Meta repetir e, na insistência, **desativar o webhook de todos os tenants**.
 
 As a operador da plataforma,
 I want enviar e receber mensagens de WhatsApp por uma interface abstrata, sobre a Cloud API oficial da Meta,
@@ -1514,37 +1557,335 @@ So that eu não esqueça e o salão reduza as faltas.
 (ex.: 24h/3h/ambos)? Definir com dados dos primeiros salões. (Depende também de `whatsapp_provider`
 ativo e da resiliência da Story 6.8.)
 
-### Story 6.11: Interruptor de WhatsApp por plano (novo — DL-057)
+> **REVISADA (2026-09-04, DL-072/DL-077) — três dependências que não existiam quando isto foi escrito:**
+> 1. **Capability `lembrete_automatico`** (Story 6.11) — o lembrete é o recurso que se vende **separado** do bot. E a checagem tem de estar **no agendador**, não só na tela: a rotina de 1 min roda **sozinha**, e sem esse gate o lembrete continua saindo para empresa cortada, **cobrado no cartão dela**.
+> 2. **Preferência do dono** (Story 6.17) — *enviar lembrete automático* liga/desliga **+ antecedência**, dentro do direito que ele tem. **Preferência desligada → nada é enviado**, e essa checagem também vale no agendador.
+> 3. **Modelo aprovado na conta do cliente** (Story 6.18) — o lembrete é mensagem **iniciada pelo sistema**: sem modelo aprovado **não sai, e não dá erro visível**. Enquanto os modelos estão pendentes, o lembrete fica **indisponível na tela**, não "ligado e mudo".
+>
+> **Custo (DL-074):** é mensagem de **utilidade** (≈ R$ 0,05), cobrada **pela Meta no cartão do cliente** — nunca pelo Tamarcado.
 
-> **Introduz o conceito de PLANO no produto** (não existia). **Dashboard e Financeiro (roadmap) vão depender de `plan`.** Gate de entrada do bot: sem ligar o interruptor, nada do Épico 6 opera para o tenant.
+### Story 6.11: Capabilities por empresa — o DIREITO de usar cada recurso (**REFORMULADA** — DL-072, reescreve DL-057)
+
+> **Reformulada em 2026-09-04 (DL-072).** A versão anterior (*"Interruptor de WhatsApp por plano"*,
+> `plan` `basico|pro` + `whatsapp_enabled`) **não escala**: cada recurso novo viraria um
+> `if (plan === 'pro')` espalhado, e o modelo não permite **vender avulso** nem **dar cortesia**.
+> **Fundação do épico:** nada do Épico 6 opera para um tenant sem a capability correspondente — e é
+> ela também que **Financeiro, Dashboard e limite de equipe** vão usar quando virarem pagos.
+
+As a operador da plataforma,
+I want liberar recursos por empresa numa lista própria, e não pelo nome do plano,
+So that eu venda avulso, dê cortesia e mude o conteúdo de um plano sem caçar condicional no código.
 
 As a dono,
-I want ligar e desligar o WhatsApp em Configurações, dentro do que o meu plano permite,
-So that eu controle o canal sem conseguir habilitar o que não contratei.
+I want ligar e desligar o que eu contratei, dentro do que tenho direito,
+So that eu controle o uso sem conseguir habilitar o que não comprei.
 
 **Acceptance Criteria:**
 
 **Given** a migration desta story
 **When** aplicada
-**Then** `companies` ganha **`plan`** (`basico` | `pro`) e **`whatsapp_enabled`** (boolean, default `false`) — `plan` é definido **por Renato no provisionamento** (Story 1.9), o dono **não** altera
+**Then** existe uma **lista de recursos liberados por empresa** (`company_capabilities` — `company_id` + chave do recurso + quando/por quem foi concedida), **não** um campo por recurso na `companies`. Recurso novo é **linha**, não migration. As chaves do primeiro momento são **`whatsapp_bot`** e **`lembrete_automatico`**
 
-**Given** o dono em Configurações no plano **Pró**
-**When** liga/desliga o WhatsApp
-**Then** `whatsapp_enabled` alterna; com ele **desligado**, o bot não processa nem envia nada para o tenant
+**Given** o conceito de PLANO
+**When** uma empresa é contratada ou tem o plano alterado
+**Then** o plano age **apenas como PRESET** que preenche a lista de capabilities; a partir daí **quem manda é a capability**. **Nenhum ponto do código pergunta o nome do plano** para decidir acesso — `plan === 'pro'` em runtime é violação desta story
 
-**Given** o dono no plano **básico** (FR-I2, gating por plano)
-**When** abre Configurações
-**Then** a opção de WhatsApp aparece **bloqueada** com *"disponível no plano Pró"* — não consegue ligar; **só** Renato muda o plano (operação manual)
+**Given** a distinção entre DIREITO e USO (DL-072)
+**When** o dono abre as preferências do WhatsApp
+**Then** **capability** (`whatsapp_bot`, `lembrete_automatico`) é **nossa**, comercial, e **não aparece como interruptor para ele**; **preferência** (*aceitar agendamento pelo bot*, *enviar lembrete automático*, *confirmação automática*) é **dele**, e só existe **dentro do que ele tem direito**. São **campos diferentes** — desligar a preferência **não** revoga o direito, e revogar o direito **não** apaga a preferência que ele escolheu
 
-**Given** o backend (defesa em profundidade, não só a UI)
-**When** uma requisição tenta habilitar `whatsapp_enabled` num tenant `basico`
-**Then** é **rejeitada** — o gating não depende do front
+**Given** a **camada 1 — front**
+**When** a empresa não tem a capability
+**Then** o recurso aparece **marcado com a coroa** (Story 6.15), **não sumido** — o objetivo aqui é **vender**. É UX; **não** é segurança
 
-> **Fora de escopo agora (DL-057):** cobrança, upgrade automático, autoatendimento de plano. Mudar de plano é **operação manual do Renato**.
+**Given** a **camada 2 — backend, rota autenticada**
+**When** uma requisição toca um recurso sem a capability da empresa
+**Then** responde **403**, independentemente do que o front mostrou. Guard **próprio e separado** do `ModuleGuard` (DL-062): módulo é *quem da equipe vê*; capability é *o que a empresa comprou* — **não** sobrecarregar o `ModuleGuard`, são eixos distintos
+
+**Given** a **camada 3 — WEBHOOK e AGENDADOR** (a que costuma ser esquecida)
+**When** a Meta chama o webhook, ou a rotina de 1 min do scheduler (DL-056) vence uma tarefa, para uma empresa **sem** a capability
+**Then** **nada é processado nem enviado**. O webhook é chamado **pela Meta, sem login nenhum**, e o agendador roda **sozinho**: sem esta camada, **o bot continua respondendo cliente de empresa cortada** e o lembrete continua saindo — **cobrado no cartão de quem já não paga**
+
+**Given** o webhook de uma empresa sem capability
+**When** a mensagem é descartada
+**Then** a resposta à Meta é **200**. Responder erro faz a Meta **repetir a entrega** e, na insistência, **desativar o webhook** — quebrando o canal de **todos** os tenants, não só o cortado
+
+**Given** o guard-rail (padrão DL-027 / DL-053)
+**When** a suíte roda
+**Then** um teste varre os pontos de entrada do domínio gateado (rotas, handler de webhook, tipos de tarefa do scheduler) e **falha** se algum não checar capability — o mesmo mecanismo que impede esquecer `ActiveUserGuard` ou registrar controller fora do `tenant-aware-controllers`
+
+**Given** a leitura da capability
+**When** o gate decide
+**Then** lê da **linha fresca** da empresa, **nunca do token** — mesma razão do DL-062: cortar acesso não pode esperar o token expirar
+
+**Given** as empresas já existentes na base
+**When** a migration roda
+**Then** elas recebem as capabilities equivalentes ao que usam hoje — **ninguém perde acesso na virada**. Migration aditiva, testada contra **base populada** (DL-064)
+
+> **Fora de escopo (mantido do DL-057):** cobrança, upgrade automático, autoatendimento de plano.
+> A ativação é **manual** — Story 6.16 (DL-076).
+
+### Story 6.15: Marcador de recurso bloqueado (coroa) — componente reutilizável (novo — DL-075)
+
+> **Não é um ícone da tela de WhatsApp.** É o **marcador padrão** de recurso bloqueado, ligado à
+> **capability** (Story 6.11). Nasce aqui porque é onde a primeira capability aparece; **Financeiro,
+> Dashboard e limite de equipe herdam o comportamento** quando virarem pagos, **sem componente novo**.
+
+As a dono no plano básico,
+I want entender o que eu ganharia liberando o recurso e falar com alguém sobre isso,
+So that eu decida contratar em vez de topar com uma porta fechada sem explicação.
+
+**Acceptance Criteria:**
+
+**Given** um recurso cuja capability a empresa **não** tem
+**When** ele aparece em qualquer tela (menu, item de lista, botão, interruptor)
+**Then** é exibido **com a coroa**, num tratamento visual **único e reutilizável** — o mesmo componente em todos os lugares, alimentado pela capability, sem lista de exceções por tela
+
+**Given** o marcador
+**When** o dono clica
+**Then** abre um **modal** que explica **o que o Pró desbloqueia**, em linguagem de dono de salão (o que o recurso faz por ele, não o nome técnico)
+
+**Given** o modal
+**When** o dono decide falar com a gente
+**Then** o botão leva ao **WhatsApp comercial da Tamarcado — (11) 99832-5320**, o mesmo da landing page. **NÃO** o 94245-8672: aquele é a **WABA de desenvolvimento** e estará **ocupado com a API** — mandar cliente para lá é mandar cliente para o bot
+
+**Given** o texto pré-preenchido da conversa
+**When** o WhatsApp abre
+**Then** a mensagem **identifica o estabelecimento**:
+*"Olá! Sou do **[nome do estabelecimento]** e quero fazer o update para o plano Pró."*
+O nome sai da **empresa logada** e vai **codificado na URL**. Sem isso, o Renato recebe *"quero dar update"* de um número desconhecido e não sabe quem é
+
+**Given** o conteúdo do modal
+**When** é redigido
+**Then** **não contém preço**. A landing page hoje vende **plano único** com três formas de pagamento, e **Básico/Pró ainda não têm escopo nem valor definidos** — número aqui **prende a decisão de preço antes do primeiro cliente pagante** e obriga a mexer no sistema (e nos Termos) a cada ajuste comercial
+
+**Given** um recurso cuja capability a empresa **tem**
+**When** a tela renderiza
+**Then** **nenhum vestígio** do marcador — nem coroa, nem espaço reservado, nem tooltip
+
+### Story 6.16: Ativação manual de plano — endpoint de plataforma (novo — DL-076)
+
+> O pagamento é **manual** (Pix/transferência, direto com o Renato — sem CNPJ não há cobrança
+> automática). **Logo a ativação também é.** Mesma família do provisionamento (Story 1.9).
+
+As a operador da plataforma,
+I want ativar ou cortar recursos de uma empresa por um endpoint protegido,
+So that eu libere o que foi pago sem precisar de tela e sem mexer no banco à mão.
+
+**Acceptance Criteria:**
+
+**Given** o endpoint (`PATCH /platform/companies/:id/plan` ou equivalente)
+**When** é chamado
+**Then** exige **`x-platform-key`** e está sob a **restrição de IP no Nginx** que já protege `/api/platform/*` — **pré-tenant**, nunca uma rota autenticada de dono. Registrado em `PRE_TENANT_CONTROLLERS` (DL-027)
+
+**Given** o corpo da requisição
+**When** define o que a empresa passa a ter
+**Then** aceita **o preset** (nome do plano, que preenche a lista) **ou** a **lista de capabilities** diretamente — é o segundo caminho que permite **venda avulsa** e **cortesia** sem mentir o plano da empresa (DL-072)
+
+**Given** uma ativação ou um corte
+**When** acontece
+**Then** fica **auditado em log**: quando, de qual IP, qual empresa, o que mudou (antes → depois) — mesmo padrão da 1.9.01
+
+**Given** um corte de recurso
+**When** aplicado
+**Then** o efeito é **imediato** — a capability é lida da **linha fresca** (DL-062), o dono não continua usando até o token expirar, e o **webhook e o agendador param junto** (Story 6.11, camada 3)
+
+**Given** uma chave de capability desconhecida no corpo
+**When** recebida
+**Then** é **rejeitada com erro claro** — o `ValidationPipe` com `whitelist` descartaria em silêncio, e um typo viraria "ativei e não funcionou" sem pista (armadilha conhecida do contrato da API)
+
+> **DÍVIDA REGISTRADA (não é esquecimento) — tela de administração.** Rodar comando é **aceitável com
+> poucos clientes** e **insustentável com trinta**. O gatilho é o **volume**, e ele vai chegar. Fica no
+> **roadmap**, fora do Épico 6.
+
+### Story 6.17: WhatsApp no menu principal — dois estados, preferências e informativo (novo — DL-073/DL-077/DL-078)
+
+> **Substitui e amplia a antiga Story 6.13** (que era "tela em Configurações"). Passa a ser **menu
+> próprio**, e absorve as **preferências do dono** e o **informativo**. A 6.13 permanece no documento
+> apenas como o **fluxo de conectar/desconectar do Embedded Signup**, que depende do CNPJ.
+
+As a dono do estabelecimento,
+I want uma tela própria de WhatsApp que me diga em que pé está a conexão e me deixe escolher o que o sistema faz sozinho,
+So that eu use só a parte que me interessa e saiba o que está acontecendo com o meu número.
+
+**Acceptance Criteria — navegação:**
+
+**Given** a navegação (DL-078)
+**When** o WhatsApp entra
+**Then** no **mobile** ele é **item do drawer**, como os demais módulos — a barra fixa **Agenda · Pendentes · [FAB] · Clientes · [Menu]** **não muda** e **nada trunca**; no **desktop** fica na sidebar **no bloco do owner, junto de Configurações** (é configuração de canal, não operação diária). A pendência do roadmap *"tab bar precisa ser revista"* está **vencida** — a barra nunca foi a lista de módulos
+
+**Given** uma empresa **sem** a capability `whatsapp_bot`
+**When** o dono navega
+**Then** o item **aparece com a coroa** (Story 6.15) — **não some**. Aqui o objetivo é **vender**, o oposto do DL-062 (lá, esconder o módulo de quem não tem permissão é o comportamento certo, porque é permissão interna da equipe)
+
+**Acceptance Criteria — estado DESCONECTADO:**
+
+**Given** o tenant não conectado
+**When** o dono abre a tela
+**Then** vê: a **explicação** do que o recurso faz, o **informativo** (abaixo), um **passo a passo curto na própria tela** e o **link do tutorial em PDF** (Story 6.14) — visível, não escondido em ajuda
+
+**Given** o botão de conexão **enquanto a Story 6.12 não existe** (DL-073)
+**When** a tela renderiza
+**Then** oferece **conexão assistida** — o dono fala com a gente e **nós preenchemos** as credenciais pelo endpoint de plataforma. Quando a 6.12 entrar, este ponto vira o botão **"Conectar WhatsApp"** e **nada mais na tela muda**
+
+**Acceptance Criteria — estado CONECTADO:**
+
+**Given** o tenant conectado
+**When** o dono abre a tela
+**Then** vê o **número conectado**, o **estado da conexão** e a ação de **desconectar** — **sem** expor token nem identificadores técnicos
+
+**Given** os modelos de mensagem ainda não aprovados (Story 6.18, DL-077)
+**When** a tela renderiza
+**Then** o estado é **"conectado — preparando os envios automáticos"**, e **não** apenas "conectado". O **lembrete fica indisponível** (visível, explicado, não clicável) até liberar; o **bot de agendamento já funciona** nesse estado, porque resposta dentro da janela de 24h **não usa modelo**
+
+**Given** a Meta **reprovar** um modelo, ou o cliente **não ter meio de pagamento** cadastrado na conta dele (DL-074)
+**When** a tela renderiza
+**Then** distingue as duas causas: reprovação diz que **nós vamos resolver** (o dono não tem o que fazer); falta de cartão diz **o que ele precisa fazer na conta Meta dele**. Nunca um erro genérico
+
+**Acceptance Criteria — PREFERÊNCIAS do dono (DL-072: USO, não DIREITO):**
+
+**Given** o tenant conectado, com as capabilities correspondentes
+**When** o dono abre as preferências
+**Then** encontra, **separadamente**:
+> 1. **Aceitar agendamento pelo bot** (liga/desliga)
+> 2. **Enviar lembrete automático** (liga/desliga) **+ antecedência**
+> 3. **Confirmação automática ao agendar** (liga/desliga)
+
+**Given** as três preferências
+**When** o dono usa uma sem as outras
+**Then** funciona. **Sem essa separação, quem só quer lembrete é obrigado a aceitar agendamento pelo bot** — que é exatamente o que esta story existe para impedir
+
+**Given** uma preferência cujo **direito** a empresa não tem
+**When** a tela renderiza
+**Then** ela aparece com a **coroa** (Story 6.15), não como interruptor quebrado
+
+**Given** uma preferência desligada
+**When** o evento correspondente acontece
+**Then** **nada é enviado** — e a checagem vale **também no agendador** (Story 6.11, camada 3), não só na tela
+
+**Acceptance Criteria — INFORMATIVO (enquadrado como VANTAGEM, não como aviso legal):**
+
+**Given** o informativo
+**When** é redigido
+**Then** diz, em linguagem de dono de salão:
+> - A **conta e o número são SEUS**; se sair do Tamarcado, **leva o número**
+> - **Nunca vemos sua senha** — quem autentica é a Meta
+> - **Você NÃO perde seu WhatsApp atual:** continua atendendo pelo celular, com o histórico, e o bot atende junto (**coexistência** — DL-074)
+> - O **agendamento pelo bot não tem custo** com a Meta: quando a cliente escreve primeiro, a conversa das **24h seguintes é gratuita**
+> - **Só o que o sistema envia sozinho** (lembrete, confirmação) é cobrado — **cerca de R$ 0,05 por mensagem**, **pela META**, no **cartão dele**
+
+**Given** os valores no texto
+**When** são escritos
+**Then** são **aproximados e em texto corrido** — **nunca tabela fixa no código**. Os preços da Meta mudam e são **convertidos de dólar**; número preciso **vira mentira em três meses**
+
+**Given** o que a coexistência **custa** (DL-074, item 5 — achado da verificação)
+**When** o informativo é redigido
+**Then** **avisa o que sai de cena** no número em coexistência: **mensagem de saudação, mensagem de ausência, respostas rápidas e etiquetas** do WhatsApp Business App (além de grupos, listas de transmissão, chamadas e catálogo). **Salão usa isso.** Dizer "você não perde nada" seria **mentira**, e descobrir depois da venda é pior do que avisar antes
+
+**Given** a exigência de manter o app em uso
+**When** o informativo menciona
+**Then** diz *"use o WhatsApp no celular normalmente; ficar semanas sem abrir derruba a conexão"* — **sem cravar o número de dias**. A documentação fala em ~14 dias (aparelho principal) e ~30 (companion), e esse número **muda** (DL-074, item 4)
+
+### Story 6.18: Provisionamento dos modelos de mensagem na conta do cliente (novo — DL-077)
+
+> **BURACO ENCONTRADO na revisão de 2026-09-04 — não estava em nenhuma story.** Toda mensagem que o
+> **sistema inicia** exige **modelo aprovado pela Meta**, e como a conta é **do cliente** (DL-068), o
+> modelo precisa estar aprovado **na conta dele**. Sem esta story: ele conecta, a tela diz "conectado",
+> ele liga o lembrete — **e nada sai, sem erro visível**.
+
+As a dono do estabelecimento,
+I want que os envios automáticos simplesmente funcionem depois que eu conecto,
+So that eu não precise aprender o que é "modelo de mensagem" para o lembrete sair.
+
+**Acceptance Criteria:**
+
+**Given** um tenant recém-conectado
+**When** a conexão é concluída (por qualquer caminho — manual hoje, Embedded Signup depois)
+**Then** o sistema **cria e submete os modelos automaticamente** na conta do cliente, **usando o mesmo token** da conexão. **O dono não executa nenhum passo** e não vê jargão de API
+
+**Given** os textos dos modelos
+**When** são definidos
+**Then** são **fixos nossos**, com as variáveis preenchidas no envio: **nome da cliente, nome do salão, serviço, profissional, dia da semana, data, hora, valor**
+
+**Given** as regras de redação da Meta
+**When** um modelo é escrito
+**Then** **nenhuma variável abre ou fecha a mensagem**, e **não há duas variáveis coladas**. Violar isso é **reprovação na submissão** — não é preferência de estilo, e um teste deve barrar o texto antes de submeter
+
+**Given** o dono
+**When** ele abre as preferências
+**Then** **não edita o texto** — só **liga/desliga**. **Motivo:** cada alteração é **nova submissão à Meta**, com espera e chance de reprovação; se a Meta recusa o texto **dele**, o lembrete para e **a culpa cai no Tamarcado**
+
+**Given** o acompanhamento da aprovação
+**When** os modelos estão pendentes (**minutos a 24h**)
+**Then** o sistema acompanha o estado e reflete na tela (Story 6.17): **"conectado — preparando os envios automáticos"**, com o lembrete indisponível até liberar
+
+**Given** um modelo **reprovado**
+**When** o estado chega
+**Then** é tratado como **estado previsto**, não erro genérico: fica registrado para nós resolvermos, e a tela **não pede ação do dono**
+
+**Given** uma reconexão do mesmo tenant
+**When** o provisionamento roda de novo
+**Then** é **idempotente** — verifica o que já existe na conta antes de submeter e **não duplica modelo**
+
+**Given** um número conectado por **coexistência**
+**When** o provisionamento roda
+**Then** **validar que modelo funciona nesse número** antes de liberar `lembrete_automatico` para ele. A documentação **não afirma isso literalmente** (DL-074, item 6) — a evidência é forte mas indireta, e este é o **risco aberto** do épico
+
+> **EVOLUÇÃO futura (registrada, não corte arbitrário):** personalização do texto pelo dono —
+> provavelmente por **variantes nossas pré-aprovadas** (ele escolhe entre textos que já passaram),
+> **não** por campo livre.
+
+### Story 6.19: Termos de Uso e Política de Privacidade acompanham o Pró (novo — DL-079)
+
+> **Condição de lançamento, não polimento.** Os Termos afirmam **textualmente** (item 4.1):
+> *"Atualmente há um plano único, com três formas de pagamento."* No dia em que o Pró aparecer no
+> sistema, isso vira **contradição em documento jurídico**.
+
+As a Renato,
+I want que o contrato descreva o que o sistema realmente vende,
+So that eu não fique com o sistema dizendo uma coisa e o contrato dizendo outra.
+
+**Acceptance Criteria:**
+
+**Given** os **Termos de Uso, item 4.1**
+**When** o Pró existir no sistema
+**Then** o item descreve **quais planos existem** e **o que cada um contém** — é o que o contrato promete entregar
+
+**Given** os **Termos de Uso, item 4**
+**When** o WhatsApp for vendido
+**Then** consta que as **mensagens são cobradas pela META, no cartão do contratante**, e **não** pelo Tamarcado (DL-074). É **custo de terceiro** assumido ao ligar o recurso; omitir custo em contrato de consumo não se defende depois. Alinha com o que o item 2 já diz (*"não processamos pagamentos"*)
+
+**Given** os **Termos de Uso, item 4.1** — *"O plano inclui até 5 pessoas na equipe"*
+**When** o limite de equipe virar capability
+**Then** a frase é revista junto
+
+**Given** a **Política de Privacidade, item 5 (Com quem compartilhamos)**
+**When** a primeira conexão real de WhatsApp acontecer
+**Then** a **Meta entra na tabela** de fornecedores. Hoje ela lista Hostinger, Cloudflare, Brevo e Google Analytics; a conexão introduz **fluxo de dados novo** — telefone e mensagens das **clientes finais** passam a transitar pela Meta
+
+**Given** a **Política de Privacidade, itens 2.2 e 3.2**
+**When** revisados
+**Then** registram a **particularidade do arranjo**: a **conta WhatsApp é do estabelecimento**, não nossa (DL-068) — o que muda **quem é o quê** perante a LGPD nesse fluxo. A Política atual foi escrita **sem esse caso existir**
+
+**Given** o escopo desta story
+**When** é executada
+**Then** entrega o **levantamento do que muda e por quê**, com os **trechos exatos apontados** — **não inventa texto jurídico**. A redação final é do Renato (ou de quem ele consultar)
+
+**Given** a ordem de entrada
+**When** o épico avança
+**Then** os itens de **plano** e **custo Meta** entram **antes do primeiro cliente pagante no Pró**, e o item da **Política** entra **antes da primeira conexão real** — **inclusive a do piloto**
 
 ### Story 6.12: Embedded Signup — o estabelecimento conecta o próprio número (novo — DL-068)
 
-> **Pré-requisito não-técnico, começa ANTES do código:** o Tamarcado precisa estar **cadastrado e verificado como Tech Provider** na Meta (*"Torne-se um Provedor de Tecnologia"*). Sem isso o Embedded Signup **não existe**. **Ordem real:** esta story vem **antes da 6.1** (é ela que produz as credenciais por tenant); a numeração 6.12 é só para não renumerar 6.1–6.11.
+> **Pré-requisito não-técnico:** o Tamarcado precisa estar **cadastrado e verificado como Tech Provider** na Meta (*"Torne-se um Provedor de Tecnologia"*). Sem isso o Embedded Signup **não existe**.
+>
+> **⛔ BLOQUEADA (DL-073, 2026-09-04) — não é fila, é bloqueio externo.** O **CNPJ do Renato está inapto** (omissão de declarações) e **não será regularizado agora**. Tech Provider exige **verificação de negócio**, que exige **CNPJ ativo** — logo esta story **não pode ser construída nem testada hoje**. **Entra quando o CNPJ regularizar.**
+>
+> **A ordem inverteu:** ela **não vem mais antes da 6.1**. As credenciais por tenant passam a **nascer na 6.1**, preenchidas à mão (Story 6.16). **O escopo desta story encolheu** para o que de fato lhe é próprio: **preencher automaticamente os MESMOS campos** que hoje preenchemos à mão, e **trocar a conexão assistida da Story 6.17 pelo botão "Conectar WhatsApp"**. **Nada mais na tela muda.**
+>
+> **Prazo com data marcada (DL-074, item 7):** o **Embedded Signup v2 será descontinuado em 15/10/2026**. Como esta story só começa depois do CNPJ, ela **nasce direto em v4** — não implementar contra documentação velha achada no Google.
+>
+> **Coexistência (DL-074, item 2) entra NESTA story:** o fluxo deve oferecer ao dono conectar o **número que ele já usa** no WhatsApp Business App, mantendo **histórico sincronizado nos dois sentidos**. É o que **remove o maior atrito de venda** — ele não perde o WhatsApp dele. Exige que ele esteja na **versão 2.24.17 ou superior** do app.
 
 As a dono do estabelecimento,
 I want conectar o meu próprio número de WhatsApp pelo painel, sem depender de ninguém,
@@ -1564,9 +1905,9 @@ So that o bot atenda pelo número do meu salão, na minha conta, sem eu ter que 
 **When** o bot envia ou recebe mensagem (Story 6.1)
 **Then** usa **as credenciais daquele tenant** — a conta e o número são **do cliente**, e cada cliente gerencia os **próprios modelos (templates)**
 
-**Given** o gate por plano (DL-057, Story 6.11)
-**When** um tenant no plano **básico** ou com `whatsapp_enabled` desligado acessa a opção
-**Then** o Embedded Signup **não é oferecido** — bloqueio **também no backend**, não só na UI
+**Given** o gate por **capability** (DL-072, Story 6.11 — *revisado; era "gate por plano, DL-057"*)
+**When** um tenant **sem a capability `whatsapp_bot`** acessa a opção
+**Then** o Embedded Signup **não é oferecido** — bloqueio **também no backend** (403), não só na UI. Na tela, o recurso aparece **com a coroa** (Story 6.15), não sumido: aqui o objetivo é **vender**
 
 **Given** o fluxo interrompido (o dono fecha a janela, cancela ou a Meta retorna erro)
 **When** o painel recebe o retorno
@@ -1574,7 +1915,11 @@ So that o bot atenda pelo número do meu salão, na minha conta, sem eu ter que 
 
 > **Consequência de produto (registrar, é argumento de venda):** se o cliente sair da plataforma, **ele leva o número** — a conta é dele. Não é perda; é o que tira de nós a responsabilidade sobre número de terceiro.
 
-### Story 6.13: Tela de configuração do WhatsApp — conectar, estado e desconectar (novo — DL-068)
+### Story 6.13: Conectar e desconectar pelo Embedded Signup (novo — DL-068; **ENCOLHIDA** — DL-073)
+
+> **⛔ BLOQUEADA junto com a 6.12** (mesmo motivo: CNPJ inapto).
+>
+> **ENCOLHIDA (DL-073/DL-078, 2026-09-04).** A **tela** saiu daqui: virou a **Story 6.17**, que é **menu próprio** (não aba de Configurações) e já entrega os **dois estados**, as **preferências do dono** e o **informativo** — construíveis **hoje**, sem CNPJ. Restou nesta story **só o que depende do Embedded Signup**: a **ação de conectar** por ele e o **desconectar** que invalida as credenciais obtidas por ele. Os ACs abaixo permanecem válidos **no que trata de conectar/desconectar**; o que trata de *tela, estado exibido e bloqueio por plano* está **realizado pela 6.17** — leia lá.
 
 As a dono do estabelecimento,
 I want uma tela em Configurações que mostre se o meu WhatsApp está conectado e me deixe conectar ou desconectar,
@@ -1598,9 +1943,9 @@ So that eu saiba o estado do canal e resolva sozinho, sem abrir chamado.
 **When** a tela é exibida em qualquer estado
 **Then** há um **link visível para o tutorial**, na própria tela — não escondido em ajuda
 
-**Given** o plano **básico** (DL-057)
+**Given** um tenant **sem a capability `whatsapp_bot`** (DL-072 — *revisado; era "plano básico, DL-057"*)
 **When** o dono abre a tela
-**Then** a conexão aparece **bloqueada** com *"disponível no plano Pró"*, coerente com a Story 6.11
+**Then** a conexão aparece **bloqueada com a coroa** e o modal da **Story 6.15** — não um texto solto *"disponível no plano Pró"*, que não leva a lugar nenhum
 
 > **FUTURO — registrar como evolução e EVITAR por ora (DL-068):** uma **base de gerenciamento** que nos permita **conectar remotamente pelo cliente** quando ele travar no processo. Só faz sentido depois de medirmos quantos travam de fato; construir agora é assumir de volta o trabalho manual que o Embedded Signup elimina.
 
@@ -1618,7 +1963,7 @@ So that eu consiga completar as telas da Meta sem travar.
 **When** é produzido
 **Then** é um **PDF** com o passo a passo **em linguagem de dono de salão** (sem jargão), com **captura de cada tela** do fluxo — incluindo **o que fazer quando ele não tem conta Meta Business** (criar durante o processo), o **atrito mais provável**
 
-**Given** a tela de configuração do WhatsApp (Story 6.13)
+**Given** a tela de WhatsApp (**Story 6.17** — *revisado; era "Story 6.13"*, cujo escopo de tela foi absorvido pela 6.17 no DL-073)
 **When** o dono a acessa
 **Then** o **link para o PDF está na própria tela**, em qualquer estado da conexão
 
