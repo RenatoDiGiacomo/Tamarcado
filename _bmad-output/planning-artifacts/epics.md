@@ -369,6 +369,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ✅ **6.4** (notificar salão + confirmar/recusar) e ✅ **6.9** (polling de pendentes) — **entregues pelo 5B.3 (PR #43)**. Falta só, no Épico 6, **disparar a notificação ao salão quando o pré-agendamento vier do bot**.
 - ⛔ **6.8 monitoramento → roadmap** (DL-058, com Financeiro/Dashboard).
 - 🆕 **6.11 CAPABILITIES por empresa** (**DL-072, reescreve DL-057**) — a versão "interruptor por plano" (`plan` básico|pró + `whatsapp_enabled`) foi **reformulada** antes de ser construída: quem decide acesso é a **lista de capabilities por empresa**, o **plano é só um PRESET**, e o bloqueio vale em **três camadas** (front · backend 403 · **webhook e agendador**). **CAPABILITY = direito** (nosso) × **PREFERÊNCIA = uso** (do dono) são campos diferentes.
+- 🆕 **6.20 fila de entrada do webhook** (DL-080) — o endpoint **grava e responde 200**; regra de negócio só no **processador**. Traz **idempotência** (`UNIQUE` no id do evento), **reprocessamento**, **auditoria** e **retenção** (conteúdo 30 dias / registro técnico 90). Entra **entre a 6.1 e a 6.2**, nunca depois.
 - 🆕 **6.15** coroa (marcador de recurso bloqueado, componente de plataforma — DL-075) · **6.16** ativação manual por endpoint de plataforma (DL-076) · **6.17** tela de WhatsApp no **menu principal**, dois estados + preferências + informativo (DL-073/077/078) · **6.18** **provisionamento dos modelos de mensagem** (DL-077 — buraco encontrado: sem ela o lembrete **não sai e não dá erro**) · **6.19** Termos de Uso + Política de Privacidade (DL-079).
 - ⛔ **6.12 / 6.13 / 6.14 BLOQUEADAS pelo CNPJ inapto** (DL-073) — Tech Provider exige verificação de negócio, que exige CNPJ ativo. **Não travam o épico:** as credenciais por tenant passam a nascer na **6.1**, preenchidas à mão, tendo a **WABA de desenvolvimento** (`1944290202933684`, **+55 11 94245-8672**) como **primeiro tenant**. Ordem interna revisada no cabeçalho do Épico 6.
 
@@ -390,6 +391,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - **Notificação automática à cliente (confirmação/recusa)** — depende de canal; fica no **Épico 6/bot**. No link (5B), a cliente vê "o estabelecimento vai confirmar" e o salão contata manual (DL-049).
 - **Visão Mês da agenda** — só **dia/semana** hoje. Entra como `3.2.NN` quando priorizada.
 - **Multi-serviço (`group_id`)** — **decidido** (DL-040: N agendamentos agrupados, aditivo), **não implementado**, e agora **fast-follow explícito fora do MVP do bot** (DL-055: uma conversa = um serviço). Hoje 1 agendamento = 1 serviço (FR-A8); por isso "cancelar só aquele" é naturalmente por-agendamento.
+- **Piloto do WhatsApp pelo número do Renato** — **armadilha registrada (DL-081), não caminho.** Bate no teto da conta de desenvolvimento **e** faz a cliente final receber mensagem do *"Tamarcado"* em vez do salão dela, **descaracterizando o produto**. **Piloto = um ou dois salões**, para provar o fluxo; crescimento é pela **6.12**, não por mais salões no nosso número.
 - **Tela de administração de planos/capabilities** — a ativação é por **endpoint de plataforma** (DL-076). Decidido **não** construir tela agora: com poucos clientes o comando resolve. **Gatilho: volume.** Roadmap, item 5.5.
 - **Personalização do texto dos modelos de mensagem pelo dono** — **decidido não fazer no 1º momento** (DL-077): cada alteração é **nova submissão à Meta**, e uma reprovação do texto **dele** para o lembrete com a culpa caindo em nós. **Evolução prevista:** variantes nossas **pré-aprovadas**, não campo livre.
 - **Modelo em número de COEXISTÊNCIA — risco aberto** (DL-074, item 6): a documentação da Meta **não afirma literalmente** que modelo funciona nesse arranjo; a evidência é forte, mas **indireta**. **Validar no primeiro número de coexistência real** antes de vender `lembrete_automatico` para quem conectou assim.
@@ -1258,6 +1260,8 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > 12. **BURACO FECHADO (DL-077):** toda mensagem que o **sistema inicia** exige **modelo aprovado pela Meta**, **na conta do cliente**. Sem a 6.18, o dono conecta, a tela diz "conectado", ele liga o lembrete — **e nada sai, sem erro visível**. Por isso **"conectado" deixa de bastar** como estado: enquanto os modelos não são aprovados (**minutos a 24h**), a tela diz **"conectado — preparando os envios automáticos"**.
 > 13. **FATOS DA META agora são premissa (DL-074), verificados na documentação oficial:** **Tech Provider NÃO tem linha de crédito** (só Solution Partner) — **o cliente cadastra o próprio cartão e a Meta cobra dele; a cobrança NUNCA passa pelo Tamarcado**. **COEXISTÊNCIA existe e vale para Tech Provider** — o número segue no WhatsApp Business App **e** na Cloud API, com **histórico sincronizado nos dois sentidos**: **o salão não perde o WhatsApp dele**. **Brasil não está bloqueado** (a restrição que existe é para criar WABA pelo Meta Business Suite, e a alternativa apontada pela própria Meta é **o Embedded Signup com um parceiro**). **Correção:** não são "13 dias" — a documentação fala em **~14 dias** (aparelho principal) e ~30 (companion), e o número **não deve ir para a interface**. **Custo da coexistência (achado):** o dono **perde**, naquele número, **mensagem de saudação, mensagem de ausência, respostas rápidas e etiquetas** do app — **avisar antes da venda**. **Risco aberto:** a Meta **não afirma literalmente** que **modelo funciona em número de coexistência** (evidência forte, indireta) — **validar no primeiro número real**.
 > 14. **Navegação decidida (DL-078):** WhatsApp é **item do drawer** no mobile — a barra fixa **Agenda · Pendentes · [FAB] · Clientes · [Menu]** **não muda**. A pendência do roadmap (*"tab bar precisa ser revista"*) está **vencida**: a barra nunca foi a lista de módulos.
+> 15. **Webhook: RECEBER é separado de PROCESSAR (DL-080, Story 6.20 — nova).** O endpoint **não contém lógica de negócio nenhuma**: valida a assinatura, **grava o evento cru**, **responde 200** e processa **fora do ciclo da resposta**. Motivo: a Meta desativa o webhook por **qualquer** resposta ruim (banco fora, exceção, bug, demora) — não só pela empresa cortada —, e desativar derruba **todos** os tenants. **O gate de capability muda de lugar**, do webhook para o processador; as três camadas do DL-072 seguem obrigatórias. A tabela de entrada entrega junto **idempotência** (`UNIQUE` no id do evento — sem ela, **duplicata vira agendamento duplicado**), **reprocessamento** (realiza o NFR-C3) e **auditoria**. **Retenção definida:** conteúdo **30 dias**, registro técnico **90 dias**. **Sem serviço novo, sem Redis** (DL-056 mantido).
+> 16. **CORREÇÃO (DL-081):** o **teto da WABA de desenvolvimento não é o teto do produto** — em produção **cada salão tem a própria WABA**, e **a escala não passa pela WABA do Renato**; o gargalo é o **CNPJ**. **Armadilha registrada:** atender **vários salões pelo nosso número** bate no teto **e** faz a cliente receber mensagem do *"Tamarcado"* em vez do salão dela.
 
 > **ORDEM INTERNA DO ÉPICO (revisada — DL-073, 2026-09-04).** A ordem anterior (**6.12 antes da 6.1**) está **travada pelo CNPJ**; esta não está:
 >
@@ -1267,14 +1271,15 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > | 2 | **6.15** coroa + modal | Depende da 6.11 e é o que **transforma bloqueio em venda**. Barato, e Financeiro/Dashboard herdam. |
 > | 3 | **6.16** ativação por endpoint | Sem ela, liberar um cliente é `UPDATE` no banco à mão. |
 > | 4 | **6.1** provider + credenciais por tenant | **Maior risco técnico do épico** — validar cedo, contra a WABA de desenvolvimento. |
-> | 5 | **6.18** modelos de mensagem | Logo depois da 6.1, **antes** de qualquer envio automático existir. |
-> | 6 | **6.17** tela de WhatsApp | Precisa dos estados que 6.1 e 6.18 produzem. Conexão **assistida** enquanto a 6.12 não vem. |
-> | 7 | **6.2 → 6.3** | O bot em si: máquina de estados e fluxo de agendamento. |
-> | 8 | **6.5 · 6.6 · 6.7 · 6.10** | Timeout, cancelamento, notificação e lembrete — dependem do fluxo pronto. |
-> | 9 | **6.19** Termos + Política | **Antes do primeiro cliente pagante no Pró**; o item da Política, **antes da primeira conexão real**. |
+> | 5 | **6.20** fila de entrada do webhook | **Antes da 6.2, nunca depois.** Põe a fila no meio **antes de existir regra de negócio para proteger**; depois da máquina de estados já seria refactor. |
+> | 6 | **6.18** modelos de mensagem | **Antes** de qualquer envio automático existir. |
+> | 7 | **6.17** tela de WhatsApp | Precisa dos estados que 6.1 e 6.18 produzem. Conexão **assistida** enquanto a 6.12 não vem. |
+> | 8 | **6.2 → 6.3** | O bot em si: máquina de estados e fluxo de agendamento — já sobre a fila da 6.20. |
+> | 9 | **6.5 · 6.6 · 6.7 · 6.10** | Timeout, cancelamento, notificação e lembrete — dependem do fluxo pronto. |
+> | 10 | **6.19** Termos + Política | **Antes do primeiro cliente pagante no Pró**; o item da Política, **antes da primeira conexão real**. Inclui a **retenção da fila de entrada** (DL-080). |
 > | — | **6.12 · 6.13 · 6.14** | **⛔ Bloqueadas pelo CNPJ.** Entram quando regularizar; a 6.12 nasce em **v4** do Embedded Signup. |
 >
-> **O que isso compra:** com 1–6 no ar, o Épico 6 é **vendável para um piloto** contra a WABA de desenvolvimento — sem CNPJ, sem Tech Provider. O que o CNPJ destrava depois é **escala de conexão**, não a existência do produto.
+> **O que isso compra:** com 1–7 no ar, o Épico 6 é **vendável para um piloto** contra a WABA de desenvolvimento — sem CNPJ, sem Tech Provider. O que o CNPJ destrava depois é **escala de conexão**, não a existência do produto.
 
 **FRs:** FR-A1–A8, FR-B3/B5/B6 *(FR-B1/B2/B4 → Épico 5B)*, FR-C1–C3, FR-C5, FR-C6, FR-J2 · **NFRs:** NFR-A1, NFR-A3, NFR-C1, NFR-C3, NFR-O3 *(NFR-C2 monitoramento → roadmap, DL-058)* · **UX-DRs:** UX-DR1–DR6, UX-DR9, UX-DR18
 
@@ -1286,9 +1291,13 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 >
 > **REVISADA (DL-073, 2026-09-04) — esta story deixa de depender da 6.12.** As **credenciais por tenant nascem AQUI**, preenchidas **à mão** pelo endpoint de plataforma (Story 6.16); a **6.12 depois apenas preenche os MESMOS campos automaticamente**. Motivo: o **CNPJ inapto** impede a verificação de negócio da Meta, logo a 6.12 **não pode ser construída nem testada hoje** — mas a diferença entre "conectado pelo Embedded Signup" e "conectado à mão" é **apenas COMO as credenciais chegam na tabela**. **Nunca** modelar credencial global no `.env` "por enquanto": seria refazer esta story inteira depois.
 >
-> **Primeiro tenant:** a **WABA de desenvolvimento do Renato** (`1944290202933684`, número **+55 11 94245-8672**, conectado, qualidade Alta) — tratada como **um tenant qualquer**, sem caminho especial no código. **Limite conhecido:** conta não verificada tem **teto de destinatários e volume** — serve para provar o ciclo e para um **piloto**, **não** para escalar venda.
+> **Primeiro tenant:** a **WABA de desenvolvimento do Renato** (`1944290202933684`, número **+55 11 94245-8672**, conectado, qualidade Alta) — tratada como **um tenant qualquer**, sem caminho especial no código. **Limite conhecido:** conta não verificada tem **teto de destinatários e volume** — serve para provar o ciclo e para um **piloto**.
 >
-> **Gate de capability (DL-072) vale para o webhook desta story:** empresa sem `whatsapp_bot` → **descartar a mensagem e responder 200 à Meta**. Responder erro faz a Meta repetir e, na insistência, **desativar o webhook de todos os tenants**.
+> **CORREÇÃO (DL-081, 2026-09-05) — o teto NÃO é o teto do produto.** Ele é da **WABA de desenvolvimento**. Em produção, cada salão tem a **própria WABA**, com o **próprio limite** (número novo começa em **1.000 conversas iniciadas/24h** e **sobe sozinho** com qualidade e volume — folga enorme para 300 agendamentos/mês); e o **fluxo principal do bot nem consome esse limite**, porque quem inicia é a cliente (conversa de **serviço**, DL-054). **A escala do produto não passa pela WABA do Renato: o gargalo é o CNPJ, não o teto.**
+>
+> **⚠️ ARMADILHA (DL-081) — atender vários salões piloto PELO NÚMERO DO RENATO.** Bate no teto **e**, pior, faz a **cliente final receber mensagem do "Tamarcado" em vez do salão dela** — **descaracteriza o produto inteiro** e reintroduz, pela porta dos fundos, o modelo que o **DL-068 rejeitou**. **Piloto = um ou dois salões, para provar o fluxo. NÃO é degrau de crescimento** — o caminho de crescimento é a **6.12**.
+>
+> **Webhook (DL-080, 2026-09-05) — a proteção é ESTRUTURAL, não um `if`.** O webhook desta story **grava o evento cru e responde 200**; **nenhuma regra de negócio** roda no caminho da resposta. O **gate de capability sai daqui** e vira checagem do **processador** (as três camadas do DL-072 seguem obrigatórias — a terceira **muda de lugar**). Motivo: a Meta desativa o webhook por **qualquer** resposta ruim — banco fora, exceção, bug, demora —, não só pelo caso da empresa cortada. **Especificado na Story 6.20**, que entra **logo depois desta**.
 
 As a operador da plataforma,
 I want enviar e receber mensagens de WhatsApp por uma interface abstrata, sobre a Cloud API oficial da Meta,
@@ -1306,7 +1315,7 @@ So that o bot opere sobre um provider oficial sem acoplar a lógica de negócio 
 
 **Given** uma mensagem recebida pela cliente
 **When** o webhook da **Cloud API** é chamado
-**Then** o `WhatsAppController` resolve o `company_id` pelo número/identificador e dispara o handler registrado com a `IncomingMessage`
+**Then** o `WhatsAppController` resolve o `company_id` pelo número/identificador e dispara o handler registrado com a `IncomingMessage` — **resolver o tenant é lookup, não regra de negócio**, e continua no endpoint. **A partir da Story 6.20** o endpoint passa a **gravar e responder 200**, e o handler é chamado **pelo processador**, fora do ciclo da resposta (DL-080)
 
 **Given** uma mensagem de saída
 **When** `sendMessage` é chamado
@@ -1315,6 +1324,119 @@ So that o bot opere sobre um provider oficial sem acoplar a lógica de negócio 
 **Given** um número conectado e um handler de echo temporário (smoke test de ponta a ponta — maior risco técnico, validar cedo)
 **When** envio uma mensagem real ao número do bot
 **Then** o webhook recebe, o handler dispara e o provider responde de volta ao WhatsApp de origem — o ciclo recebe→processa→envia é comprovado antes da Story 6.2
+
+### Story 6.20: Fila de entrada do webhook — receber é separado de processar (novo — DL-080)
+
+> **Por que é story própria, e não um AC da 6.1:** a 6.1 já carrega provider, factory por tenant,
+> credenciais e smoke test. Esta é a **fundação de resiliência** de tudo que vem depois — tabela,
+> idempotência, processador, reprocessamento e retenção. Enfiada na 6.1, é entregue pela metade.
+>
+> **Posição:** **imediatamente depois da 6.1 e ANTES da 6.2.** A 6.1 comprova o ciclo
+> recebe→processa→envia; esta story **põe a fila no meio antes de existir regra de negócio para
+> proteger**. Depois da 6.2 já seria refactor.
+
+As a operador da plataforma,
+I want que o webhook apenas registre o que a Meta manda e responda na hora,
+So that um bug, um pico ou o banco fora do ar não façam a Meta desativar o webhook e derrubar o canal de todos os estabelecimentos.
+
+**Acceptance Criteria — o endpoint:**
+
+**Given** o endpoint do webhook
+**When** é implementado
+**Then** **não contém lógica de negócio nenhuma**. Ele: **(1)** recebe, **(2)** **valida a assinatura da Meta**, **(3)** **grava o evento cru** na tabela de entrada, **(4)** **responde 200** e **(5)** dispara o processamento **fora do ciclo da resposta**. Qualquer regra que decida *o que fazer com a mensagem* mora **no processador**
+
+**Given** a assinatura da Meta
+**When** é inválida
+**Then** a requisição é **rejeitada** — isto é **segurança**, e rejeitar é o certo
+
+**Given** rejeições de assinatura **em massa**
+**When** acontecem
+**Then** **alarme**. Uma rejeição isolada é ataque ou ruído; **rejeição em massa é configuração nossa quebrada** (segredo errado depois de um deploy) e faz a Meta desativar o webhook **pelo motivo que esta story existe para evitar**
+
+**Given** um evento gravado com sucesso
+**When** o endpoint responde
+**Then** responde **200 imediatamente**, **antes** de qualquer regra de negócio — e **antes** de saber se o processamento vai dar certo
+
+**Given** a falha ao **GRAVAR** (banco fora do ar)
+**When** acontece
+**Then** a resposta é **erro**, de propósito. **200 significa "eu guardei":** responder 200 sem ter guardado é **perda silenciosa de mensagem** exatamente quando a **re-entrega da Meta** — o mecanismo que nos salva — deixaria de acontecer. A regra **não** é *"200 sempre"*, é ***"200 quando guardei; erro só quando não guardei"***. Como não há regra de negócio nesse caminho, ele é **raro e é incidente real**, não erro de lógica
+
+**Acceptance Criteria — a tabela de entrada:**
+
+**Given** a migration desta story
+**When** aplicada
+**Then** existe a tabela de eventos de entrada com, no mínimo: **identificador do evento na Meta**, **empresa resolvida**, **tipo**, **payload cru**, **quando chegou**, **situação** (`pendente`/`processado`/`falhou`/`ignorado`/`não roteado`), **tentativas**, **quando foi processado** e **último erro**
+
+**Given** a **idempotência**
+**When** a tabela é criada
+**Then** o **identificador do evento** (`wamid` da mensagem / id do status) é **`UNIQUE`**. A unicidade é **global, não por empresa** — o identificador da Meta já é único, e escopar por `company_id` **deixaria passar duplicata cruzada**
+
+**Given** uma **reentrega** da Meta (ela reenvia sempre que acha que a entrega falhou — e vai achar, em qualquer instabilidade de rede)
+**When** o evento repetido chega
+**Then** a violação de unicidade é tratada como **"já recebi"**, com **200** — **não** como erro. Sem isso, **uma duplicata vira agendamento duplicado**: o bug que só aparece em produção, sob carga, e é caríssimo de diagnosticar depois
+
+**Given** um POST da Meta com **vários eventos**
+**When** é gravado
+**Then** vira **uma linha por evento**, cada uma com o seu identificador e o seu trecho cru — não uma linha por requisição
+
+**Given** um evento que **não é mensagem** (status de entrega, evento de conta, ou o **eco** das mensagens que o dono manda pelo celular no arranjo de coexistência — DL-074)
+**When** chega
+**Then** é **gravado com o tipo correspondente** e o processador **ignora o que não sabe tratar, sem quebrar**
+
+**Given** um evento para um número que **não pertence a nenhum tenant**
+**When** chega
+**Then** é gravado como **não roteado** e **não derruba nada** — nem a resposta, nem o processamento dos demais
+
+**Acceptance Criteria — o processador:**
+
+**Given** o **gate por capability** (DL-072, camada 3)
+**When** o processador pega um evento de empresa **sem** `whatsapp_bot`
+**Then** **nada é processado** e o evento fica **`ignorado`**. **A checagem não desapareceu — mudou de lugar:** saiu do webhook e passou a ser do processador, que pode falhar à vontade **sem que a Meta veja**
+
+**Given** o evento gravado **antes** do gate
+**When** uma empresa está cortada
+**Then** **fica registrado que chegou mensagem para ela** — o que vira **conversa comercial concreta** (*"no mês passado 40 clientes escreveram para você e ninguém respondeu"*) em vez de um descarte invisível
+
+**Given** a **latência** (ajuste ao DL-056 — ver nota abaixo)
+**When** um evento é gravado
+**Then** o processamento é **disparado imediatamente após a resposta 200**, no mesmo processo, fora do ciclo da requisição. A **rotina periódica** (a mesma do DL-056) é **REDE DE SEGURANÇA**: varre o que ficou `pendente` por reinício, falha ou pico. **Sem serviço novo e sem Redis** — muda *quem chama*, não *onde roda*
+
+**Given** duas mensagens da **mesma cliente** chegando quase juntas
+**When** são processadas
+**Then** respeitam a **ordem de chegada dentro da mesma conversa** (mesma empresa + mesmo telefone). Fora de ordem, a **máquina de estados da 6.2 quebra** — responderia o segundo passo antes do primeiro. Conversas **diferentes** seguem em paralelo à vontade
+
+**Given** o **reprocessamento** de eventos `falhou` ou de um intervalo
+**When** é acionado
+**Then** existe caminho para reenfileirar. Bug que engole mensagem **deixa de ser perda** — realiza o **NFR-C3** (não perder mensagem) de forma concreta
+
+**Given** a **idempotência do EFEITO** (não só da entrada)
+**When** um evento já aplicado é reprocessado
+**Then** **não cria um segundo agendamento**. A `UNIQUE` protege contra **reentrega da Meta**; ela **não** protege contra o **nosso próprio reprocessamento** — sem isso, a ferramenta do AC anterior vira **arma apontada para o próprio pé**
+
+**Acceptance Criteria — retenção (LGPD: somos OPERADOR, o salão é CONTROLADOR):**
+
+**Given** o acúmulo de mensagem crua, que contém **dado pessoal da cliente final**
+**When** a retenção é definida
+**Then** o **conteúdo** (payload cru, texto da mensagem) é purgado aos **30 dias**, e o **registro técnico sem conteúdo** (identificador, empresa, tipo, quando chegou, resultado) é mantido até **90 dias**
+
+**Given** o porquê dos prazos
+**When** for questionado
+**Then** vale o registrado no DL-080: suporte do tipo *"mandei e nada aconteceu"* acontece em **dias**; reprocessamento útil é de **horas a dias**; guardar conversa de cliente final além disso **aumenta exposição sem ganho** — e **o dado não é nosso**. Os **90 dias** do registro técnico alinham com o prazo que a **Política de Privacidade já promete** (item 6) e sustentam o diagnóstico **sem guardar o que a cliente escreveu**
+
+**Given** a purga
+**When** roda
+**Then** usa a **mesma rotina periódica** (DL-056) — **sem serviço novo**
+
+**Given** a Política de Privacidade
+**When** esta story entrar
+**Then** a retenção acima **entra no escopo da Story 6.19** (item 6 da Política), junto com a inclusão da Meta na tabela de fornecedores
+
+> **Nota sobre o DL-056 (ajuste, não revogação):** o DL-056 escolheu a rotina de **1 minuto** para
+> **timeout de 2h** e **lembrete de 24h** — onde a precisão é folgada, e continua valendo. **Chat não
+> é isso:** um bot que leva até um minuto para responder **parece quebrado**, e a cliente escreve de
+> novo, gerando mais eventos. Daí o **disparo imediato** com a rotina como rede de segurança. **A
+> decisão de fundo do DL-056 — MySQL, sem Redis, sem serviço novo — permanece intacta.**
+
 
 ### Story 6.2: Máquina de estados do bot e estado de conversa
 
@@ -1862,6 +1984,10 @@ So that eu não fique com o sistema dizendo uma coisa e o contrato dizendo outra
 **Given** a **Política de Privacidade, item 5 (Com quem compartilhamos)**
 **When** a primeira conexão real de WhatsApp acontecer
 **Then** a **Meta entra na tabela** de fornecedores. Hoje ela lista Hostinger, Cloudflare, Brevo e Google Analytics; a conexão introduz **fluxo de dados novo** — telefone e mensagens das **clientes finais** passam a transitar pela Meta
+
+**Given** a **Política de Privacidade, item 6 (Por quanto tempo guardamos)** e a **fila de entrada do webhook** (Story 6.20, DL-080)
+**When** a fila existir
+**Then** a **retenção** entra na Política: **conteúdo das mensagens purgado aos 30 dias**, **registro técnico sem conteúdo mantido até 90 dias**. Motivo: a fila guarda **mensagem crua da cliente final** — dado pessoal de **titular do salão**, com o Tamarcado como **operador**. A Política hoje fala em 90 dias **após o encerramento da conta** e **não cobre** dado transitório de canal
 
 **Given** a **Política de Privacidade, itens 2.2 e 3.2**
 **When** revisados
