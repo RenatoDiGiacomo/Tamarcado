@@ -9,6 +9,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Company } from "../../database/entities/company.entity";
 import { UsersService } from "../users/users.service";
+import { CapabilitiesService } from "../capabilities/capabilities.service";
+import { DEFAULT_PLAN } from "../capabilities/capability-presets";
 import { CreateCompanyDto } from "./dto/create-company.dto";
 import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 
@@ -38,6 +40,8 @@ export class PlatformService {
     private readonly companies: Repository<Company>,
     private readonly users: UsersService,
     private readonly config: ConfigService,
+    // Story 6.11 (DL-072): a contratação é o momento em que o PLANO vira LISTA.
+    private readonly capabilities: CapabilitiesService,
   ) {}
 
   /**
@@ -79,9 +83,16 @@ export class PlatformService {
       throw new ConflictException("Slug já está em uso");
     }
 
+    const plan = dto.plan ?? DEFAULT_PLAN;
     const company = await this.companies.save(
-      this.companies.create({ name: dto.name, slug: dto.slug }),
+      this.companies.create({ name: dto.name, slug: dto.slug, plan }),
     );
+
+    // O PLANO como PRESET (DL-072, Story 6.11): traduz o que foi vendido em
+    // linhas de `company_capabilities`, UMA VEZ, aqui. Depois disso quem manda é
+    // a capability — `companies.plan` fica só como rótulo comercial/histórico.
+    // Mudar o que uma empresa já contratada pode usar é a Story 6.16, não isto.
+    await this.capabilities.applyPlanPreset(company.id, plan);
 
     // Convite do owner (auto-login no aceite define a senha). invited_by = null:
     // provisionamento de plataforma, sem usuário que convida.

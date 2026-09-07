@@ -7,6 +7,8 @@ import { DataSource } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { buildDataSourceOptions } from "../data-source-options";
 import { Company } from "../entities/company.entity";
+import { CompanyCapability } from "../entities/company-capability.entity";
+import { capabilitiesForPlan } from "../../modules/capabilities/capability-presets";
 import { User } from "../entities/user.entity";
 import { SalonService } from "../entities/salon-service.entity";
 import { ProfessionalService } from "../entities/professional-service.entity";
@@ -23,6 +25,11 @@ import type {
  * usuário owner para tornar o login do painel testável. SÓ PARA DEV.
  */
 export const SEED_COMPANY_SLUG = "salao-teste";
+/**
+ * Plano do salão de dev (Story 6.11). É só o PRESET que preenche as
+ * capabilities — nenhum código pergunta este nome depois (DL-072).
+ */
+export const SEED_COMPANY_PLAN = "pro";
 export const SEED_OWNER_EMAIL = "dono@tamarcado.dev";
 export const SEED_OWNER_PASSWORD = "tamarcado123";
 
@@ -64,7 +71,40 @@ export async function seedDev(dataSource: DataSource): Promise<void> {
     console.log("Owner de dev já existe, nada a fazer.");
   }
 
+  await seedCapabilities(dataSource, company);
   await seedAgenda(dataSource, company, owner);
+}
+
+/**
+ * Capabilities do salão de dev (Story 6.11, DL-072).
+ *
+ * Aplica o PRESET do plano PRÓ para que as stories seguintes do Épico 6 (a coroa
+ * da 6.15, a tela da 6.17) tenham ambiente com o recurso liberado sem precisar
+ * de `INSERT` à mão. Idempotente: já concedida, não duplica.
+ *
+ * Para exercitar o BLOQUEIO em dev, apague a linha — o gate lê a linha fresca,
+ * então o efeito aparece na requisição seguinte, sem relogar.
+ */
+async function seedCapabilities(
+  dataSource: DataSource,
+  company: Company,
+): Promise<void> {
+  const repo = dataSource.getRepository(CompanyCapability);
+  for (const capability of capabilitiesForPlan(SEED_COMPANY_PLAN)) {
+    const existente = await repo.findOne({
+      where: { company_id: company.id, capability },
+    });
+    if (!existente) {
+      await repo.save(
+        repo.create({
+          company_id: company.id,
+          capability,
+          granted_by: `seed:preset:${SEED_COMPANY_PLAN}`,
+        }),
+      );
+      console.log(`Capability concedida ao salão de dev: ${capability}`);
+    }
+  }
 }
 
 /**

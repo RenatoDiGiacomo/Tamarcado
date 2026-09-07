@@ -18,6 +18,8 @@ import type { AuthUser } from "../auth/auth-user";
 import { User } from "../../database/entities/user.entity";
 import { TokenService, type AuthTokens } from "../token/token.service";
 import { UsersService } from "./users.service";
+import { CapabilitiesService } from "../capabilities/capabilities.service";
+import type { CapabilityKey } from "../../common/capabilities/capability";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateMeDto } from "./dto/update-me.dto";
@@ -38,6 +40,32 @@ interface UserProfile {
   canViewDashboard: boolean;
   canViewEquipe: boolean;
   canManageAllAppointments: boolean;
+}
+
+/**
+ * Perfil do PRÓPRIO usuário — o que o AuthContext guarda. Só ele carrega as
+ * capabilities, porque só ele descreve "quem sou eu e onde estou".
+ */
+interface MeProfile extends UserProfile {
+  /**
+   * CAPABILITIES DA EMPRESA (DL-072, Story 6.11) — eixo DIFERENTE dos `canView*`
+   * acima, e o nome diz isso: aqueles são por USUÁRIO e o dono controla; estas
+   * são por EMPRESA e quem controla somos nós. As duas camadas valem juntas: a
+   * empresa pode TER o recurso e a pessoa NÃO poder vê-lo.
+   *
+   * POR QUE VIAJAM NO `/users/me` (e não num endpoint próprio): o AuthContext já
+   * faz polling deste endpoint a cada ~20s para os flags do DL-062. Entrar aqui
+   * dá à capability a MESMA janela de convergência, de graça — o operador corta
+   * um cliente e a tela dele reflete no próximo ciclo, sem relogar. Um endpoint
+   * separado dobraria a requisição e criaria DUAS janelas diferentes para dois
+   * eixos que a UI combina na mesma decisão de render. Fica FORA das rotas de
+   * lista (`GET /users`, `/users/attenders`): lá o campo seria ruído repetido em
+   * cada linha e uma query a mais por request.
+   *
+   * É UX (camada 1 do DL-072): serve para marcar o recurso com a coroa (Story
+   * 6.15). Segurança é o 403 do `CapabilityGuard` — camada 2.
+   */
+  companyCapabilities: CapabilityKey[];
 }
 
 function toProfile(user: User): UserProfile {
@@ -67,16 +95,31 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly tokens: TokenService,
+    private readonly capabilities: CapabilitiesService,
   ) {}
+
+  /**
+   * Perfil próprio + capabilities da empresa, lidas da LINHA FRESCA e nunca do
+   * token (DL-072, mesma razão do DL-062) — é o que faz a revogação valer no
+   * próximo poll, sem esperar o token expirar.
+   */
+  private async toMeProfile(user: User): Promise<MeProfile> {
+    return {
+      ...toProfile(user),
+      companyCapabilities: await this.capabilities.listForCompany(
+        user.company_id,
+      ),
+    };
+  }
 
   /** Perfil do usuário autenticado (tenant-scoped). Antes de :id na ordem de rotas. */
   @Get("me")
-  async me(@CurrentUser() authUser: AuthUser): Promise<UserProfile> {
+  async me(@CurrentUser() authUser: AuthUser): Promise<MeProfile> {
     const user = await this.users.findById(authUser.userId);
     if (!user) {
       throw new NotFoundException();
     }
-    return toProfile(user);
+    return this.toMeProfile(user);
   }
 
   /** Preferências do próprio usuário — tema claro/escuro (AC3, Story 1.7). Antes de :id. */
@@ -84,8 +127,10 @@ export class UsersController {
   async updateMe(
     @CurrentUser() authUser: AuthUser,
     @Body() dto: UpdateMeDto,
-  ): Promise<UserProfile> {
-    return toProfile(await this.users.setTheme(authUser.userId, dto.theme));
+  ): Promise<MeProfile> {
+    // Devolve o perfil COMPLETO (com capabilities): o AuthContext troca o objeto
+    // do usuário por esta resposta — omitir o campo o apagaria da sessão.
+    return this.toMeProfile(await this.users.setTheme(authUser.userId, dto.theme));
   }
 
   /**
