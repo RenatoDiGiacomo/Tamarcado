@@ -2,7 +2,6 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  Index,
   PrimaryGeneratedColumn,
   Unique,
 } from "typeorm";
@@ -22,8 +21,9 @@ import type { CapabilityKey } from "../../common/capabilities/capability";
  * ele escolheu, e desligar a preferência NÃO revoga o direito.
  */
 @Entity({ name: "company_capabilities" })
+// `company_id` é a PRIMEIRA coluna da UNIQUE, então ela já indexa a leitura do
+// gate (`WHERE company_id = ?`) — índice avulso seria redundante.
 @Unique("uq_company_capability", ["company_id", "capability"])
-@Index("idx_company_capabilities_company", ["company_id"])
 export class CompanyCapability {
   @PrimaryGeneratedColumn({ type: "bigint" })
   id!: string;

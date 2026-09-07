@@ -17,6 +17,11 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  *    existente muda de gate; conceder o Pró a todos aqui DARIA acesso que
  *    ninguém tinha.
  *
+ * Índice: a `UNIQUE (company_id, capability)` tem `company_id` como PRIMEIRA
+ * coluna, então ela já serve de índice para a leitura do gate
+ * (`WHERE company_id = ?`). Um `KEY` avulso de `company_id` seria redundante —
+ * custo de escrita sem ganho de leitura.
+ *
  * Provado contra base POPULADA em `test/migration-company-capabilities.e2e-spec.ts`.
  */
 export class CreateCompanyCapabilities1718901900000 implements MigrationInterface {
@@ -34,7 +39,6 @@ export class CreateCompanyCapabilities1718901900000 implements MigrationInterfac
         \`granted_by\` VARCHAR(100) NULL,
         PRIMARY KEY (\`id\`),
         UNIQUE KEY \`uq_company_capability\` (\`company_id\`, \`capability\`),
-        KEY \`idx_company_capabilities_company\` (\`company_id\`),
         CONSTRAINT \`fk_company_capabilities_company\`
           FOREIGN KEY (\`company_id\`) REFERENCES \`companies\`(\`id\`) ON DELETE CASCADE
       ) ENGINE=InnoDB
