@@ -25,6 +25,7 @@ import { InstallationModule } from "./modules/installation/installation.module";
 import { InstallationController } from "./modules/installation/installation.controller";
 import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
 import { PlatformModule } from "./modules/platform/platform.module";
+import { CapabilitiesModule } from "./modules/capabilities/capabilities.module";
 
 @Module({
   imports: [
@@ -47,6 +48,8 @@ import { PlatformModule } from "./modules/platform/platform.module";
     InstallationModule,
     PublicBookingModule,
     PlatformModule,
+    // Capabilities por empresa (DL-072, Story 6.11) — fundação do Épico 6.
+    CapabilitiesModule,
   ],
 })
 export class AppModule implements NestModule {
