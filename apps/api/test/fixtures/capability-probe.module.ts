@@ -24,7 +24,7 @@ import { Roles } from "../../src/common/decorators/roles.decorator";
 
 /**
  * FIXTURE DE TESTE — não faz parte da aplicação (vive em `test/`, fora do
- * `src/`, e é montado só pelo `bootstrapCapabilityE2E`).
+ * `src/`, e é montado só pelo `capability-gate.e2e-spec.ts`).
  *
  * Existe porque a Story 6.11 entrega a FUNDAÇÃO: nenhum recurso real é gateado
  * por capability ainda (o bot é a 6.1, a tela é a 6.17). Sem um ponto gateado de
