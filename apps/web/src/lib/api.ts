@@ -39,6 +39,75 @@ export class ApiConnectionError extends Error {
   }
 }
 
+/**
+ * Motivo de um 403 MARCADO pelo backend (Story 6.15). Espelha
+ * `common/errors/forbidden-reason.ts` da API.
+ *
+ * Os três NÃO são a mesma coisa para quem está na tela:
+ * - `capability`: a EMPRESA não contratou (DL-072) → tem caminho de venda;
+ * - `module`: a PESSOA não tem o módulo (DL-062) → falar com o dono;
+ * - `role`: o PAPEL não permite (FR-I2) → falar com o dono.
+ */
+export type ForbiddenReason = "capability" | "module" | "role";
+
+const FORBIDDEN_REASONS: readonly string[] = ["capability", "module", "role"];
+
+/** Corpo de um 403 marcado, como o backend serializa. */
+interface ForbiddenPayload {
+  reason?: unknown;
+  capability?: unknown;
+  module?: unknown;
+}
+
+/**
+ * 403 que o backend MARCOU com o motivo (Story 6.15).
+ *
+ * Existe para a UI parar de tratar bloqueio como defeito: antes, todo 403 caía
+ * no "Tivemos um problema no servidor. Tente de novo em instantes" — um botão
+ * que nunca ia funcionar, para um bloqueio que era comercial.
+ *
+ * O motivo vem do CAMPO `reason`, nunca do texto da mensagem nem da rota:
+ * texto muda no primeiro ajuste de copy e rota não diz nada sobre o porquê.
+ */
+export class ApiForbiddenError extends Error {
+  constructor(
+    public readonly reason: ForbiddenReason,
+    public readonly capability?: string,
+    public readonly module?: string,
+  ) {
+    super("Acesso bloqueado");
+    this.name = "ApiForbiddenError";
+  }
+}
+
+/**
+ * Lê o corpo de uma resposta 403 e devolve o erro tipado — ou `null` se o 403
+ * não é marcado (de terceiros, proxy, versão antiga da API). Sem marca, nada
+ * muda: o chamador segue tratando como sempre tratou.
+ *
+ * Usa `clone()` para não consumir o corpo de quem ainda vá lê-lo.
+ */
+export async function forbiddenErrorFrom(
+  res: Response,
+): Promise<ApiForbiddenError | null> {
+  if (res.status !== 403) return null;
+  try {
+    const body = (await res.clone().json()) as ForbiddenPayload;
+    const reason = body?.reason;
+    if (typeof reason !== "string" || !FORBIDDEN_REASONS.includes(reason)) {
+      return null;
+    }
+    return new ApiForbiddenError(
+      reason as ForbiddenReason,
+      typeof body.capability === "string" ? body.capability : undefined,
+      typeof body.module === "string" ? body.module : undefined,
+    );
+  } catch {
+    // Corpo vazio ou não-JSON: 403 sem marca, comportamento antigo.
+    return null;
+  }
+}
+
 export interface ApiRequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;

@@ -4,7 +4,12 @@
 // as telas davam erro sem renovar — só recarregando a página. Aqui o access é
 // renovado sozinho no 401 e a requisição é refeita, sem o usuário perceber. Se o
 // refresh também venceu, a sessão é encerrada e o app cai no /login com mensagem.
-import { apiRequest, ApiConnectionError, type ApiRequestOptions } from "./api";
+import {
+  apiRequest,
+  ApiConnectionError,
+  forbiddenErrorFrom,
+  type ApiRequestOptions,
+} from "./api";
 
 const ACCESS_KEY = "tamarcado.access";
 const REFRESH_KEY = "tamarcado.refresh";
@@ -85,12 +90,27 @@ export function refreshAccessToken(): Promise<string | null> {
  *
  * Falha de REDE (`ApiConnectionError`) propaga normalmente — é "sem conexão",
  * não "sessão vencida"; o "tentar de novo" refaz quando a rede voltar.
+ *
+ * 403 MARCADO (Story 6.15) também PROPAGA, como `ApiForbiddenError`, em vez de
+ * voltar como resposta. Isso é deliberado e é o que faz o bloqueio aparecer
+ * certo em TODAS as telas de uma vez: o padrão delas é
+ * `if (!res.ok) setErrorKind("server")` — hardcoded, sem olhar o status —, então
+ * devolver a resposta faria o bloqueio continuar virando "erro de servidor".
+ * Lançar desvia para o `catch` que as telas já têm, e o `errorKindFrom`
+ * classifica. Sem lista de exceções por tela; sem editar página por página.
+ *
+ * 403 SEM marca (proxy, versão antiga da API) volta como resposta, igual a antes.
  */
 export async function authedRequest(
   path: string,
   opts: Omit<ApiRequestOptions, "token"> = {},
 ): Promise<Response> {
   const res = await apiRequest(path, { ...opts, token: getAccessToken() });
+  if (res.status === 403) {
+    const forbidden = await forbiddenErrorFrom(res);
+    if (forbidden) throw forbidden;
+    return res;
+  }
   if (res.status !== 401) return res;
 
   let newToken: string | null;
@@ -107,5 +127,12 @@ export async function authedRequest(
     onSessionExpired?.();
     return res; // 401 — a UI já vai redirecionar ao login pelo handler
   }
-  return apiRequest(path, { ...opts, token: newToken });
+  // Repetição após renovar o token: o 403 marcado também precisa propagar aqui,
+  // senão o bloqueio escaparia justamente na requisição refeita.
+  const retried = await apiRequest(path, { ...opts, token: newToken });
+  if (retried.status === 403) {
+    const forbidden = await forbiddenErrorFrom(retried);
+    if (forbidden) throw forbidden;
+  }
+  return retried;
 }
