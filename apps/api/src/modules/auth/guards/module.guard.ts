@@ -1,15 +1,11 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import {
   REQUIRE_MODULE_KEY,
   type ModuleName,
 } from "../../../common/decorators/require-module.decorator";
 import type { User } from "../../../database/entities/user.entity";
+import { ModuleAccessDeniedException } from "../../../common/errors/forbidden-reason";
 
 /** Coluna de flag por módulo na entidade `User`. */
 const MODULE_FLAG: Record<ModuleName, keyof User> = {
@@ -44,7 +40,7 @@ export class ModuleGuard implements CanActivate {
       .getRequest<{ currentUser?: User }>();
     if (!currentUser) {
       // Sem a linha fresca não há como afirmar acesso — nega por segurança.
-      throw new ForbiddenException("Acesso ao módulo negado");
+      throw new ModuleAccessDeniedException(required);
     }
     if (currentUser.access_level === "owner") {
       return true;
@@ -52,6 +48,9 @@ export class ModuleGuard implements CanActivate {
     if (currentUser[MODULE_FLAG[required]] === true) {
       return true;
     }
-    throw new ForbiddenException("Acesso ao módulo negado");
+    // 403 MARCADO com `reason: "module"` (Story 6.15): é permissão INTERNA da
+    // equipe, não venda. O front mostra "fale com o dono", nunca oferta de plano
+    // — oferecer upgrade a quem não compra faz a pessoa cobrar o dono por isso.
+    throw new ModuleAccessDeniedException(required);
   }
 }

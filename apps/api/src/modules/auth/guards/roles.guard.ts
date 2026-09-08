@@ -1,13 +1,9 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ROLES_KEY } from "../../../common/decorators/roles.decorator";
 import type { AccessLevel } from "../../../database/entities/user.entity";
 import type { AuthUser } from "../auth-user";
+import { RoleAccessDeniedException } from "../../../common/errors/forbidden-reason";
 
 /**
  * Autorização por `access_level` (matriz FR-I2). Roda DEPOIS do `JwtAuthGuard`
@@ -30,7 +26,10 @@ export class RolesGuard implements CanActivate {
       .switchToHttp()
       .getRequest<{ user?: AuthUser }>();
     if (!user || !required.includes(user.accessLevel)) {
-      throw new ForbiddenException("Acesso negado para o seu nível");
+      // 403 MARCADO com `reason: "role"` (Story 6.15). É o TERCEIRO motivo de
+      // 403 do sistema; sem a marca ele voltaria a cair no "erro de servidor"
+      // genérico do front — o defeito que a 6.15 existe para fechar.
+      throw new RoleAccessDeniedException();
     }
     return true;
   }
