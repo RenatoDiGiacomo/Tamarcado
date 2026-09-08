@@ -1,4 +1,4 @@
-import { INestApplication } from "@nestjs/common";
+import { INestApplication, Type } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
@@ -14,10 +14,17 @@ export interface E2EContext {
  * reaproveita a ÚNICA conexão do app (`app.get(DataSource)`) para seed/reset —
  * sem abrir um DataSource paralelo. Isso, com `teardownE2E`, fecha todos os
  * handles e dispensa `--forceExit` (AC5).
+ *
+ * `extraModules` monta módulos de FIXTURE junto do app real (Story 6.11): a
+ * fundação de capabilities não gateia nenhum recurso de produção ainda, então o
+ * 403 da camada 2 só é demonstrável ponta a ponta contra um controller de prova.
+ * Fora esse caso, chame sem argumento.
  */
-export async function bootstrapE2E(): Promise<E2EContext> {
+export async function bootstrapE2E(
+  extraModules: Type[] = [],
+): Promise<E2EContext> {
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
+    imports: [AppModule, ...extraModules],
   }).compile();
 
   const app = moduleRef.createNestApplication();

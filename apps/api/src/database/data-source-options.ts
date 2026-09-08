@@ -10,6 +10,7 @@ import { Appointment } from "./entities/appointment.entity";
 import { AppointmentChange } from "./entities/appointment-change.entity";
 import { Payment } from "./entities/payment.entity";
 import { TeamPayment } from "./entities/team-payment.entity";
+import { CompanyCapability } from "./entities/company-capability.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
@@ -29,6 +30,7 @@ import { AddCanViewEquipe1718901500000 } from "./migrations/1718901500000-AddCan
 import { CreateTeamPayments1718901600000 } from "./migrations/1718901600000-CreateTeamPayments";
 import { AddPublicPageFields1718901700000 } from "./migrations/1718901700000-AddPublicPageFields";
 import { AddRequestedClientNameToAppointments1718901800000 } from "./migrations/1718901800000-AddRequestedClientNameToAppointments";
+import { CreateCompanyCapabilities1718901900000 } from "./migrations/1718901900000-CreateCompanyCapabilities";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -56,6 +58,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       AppointmentChange,
       Payment,
       TeamPayment,
+      CompanyCapability,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -77,6 +80,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       CreateTeamPayments1718901600000,
       AddPublicPageFields1718901700000,
       AddRequestedClientNameToAppointments1718901800000,
+      CreateCompanyCapabilities1718901900000,
     ],
     synchronize: false,
     migrationsRun: false,

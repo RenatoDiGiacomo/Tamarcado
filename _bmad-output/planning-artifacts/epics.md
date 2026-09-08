@@ -1276,7 +1276,7 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > | 7 | **6.17** tela de WhatsApp | Precisa dos estados que 6.1 e 6.18 produzem. Conexão **assistida** enquanto a 6.12 não vem. |
 > | 8 | **6.2 → 6.3** | O bot em si: máquina de estados e fluxo de agendamento — já sobre a fila da 6.20. |
 > | 9 | **6.5 · 6.6 · 6.7 · 6.10** | Timeout, cancelamento, notificação e lembrete — dependem do fluxo pronto. |
-> | 10 | **6.19** Termos + Política | **Antes do primeiro cliente pagante no Pró**; o item da Política, **antes da primeira conexão real**. Inclui a **retenção da fila de entrada** (DL-080). |
+> | 10 | **6.19** Termos + Política | **Antes do primeiro cliente pagante no Pró**; o item da Política, **antes da primeira conexão real**. **DOCUMENTA** na Política a retenção da fila de entrada — que já é **implementada pela 6.20** (ajuste de escopo 2026-09-07; ver a nota da 6.19). |
 > | — | **6.12 · 6.13 · 6.14** | **⛔ Bloqueadas pelo CNPJ.** Entram quando regularizar; a 6.12 nasce em **v4** do Embedded Signup. |
 >
 > **O que isso compra:** com 1–7 no ar, o Épico 6 é **vendável para um piloto** contra a WABA de desenvolvimento — sem CNPJ, sem Tech Provider. O que o CNPJ destrava depois é **escala de conexão**, não a existência do produto.
@@ -1425,11 +1425,11 @@ So that um bug, um pico ou o banco fora do ar não façam a Meta desativar o web
 
 **Given** a purga
 **When** roda
-**Then** usa a **mesma rotina periódica** (DL-056) — **sem serviço novo**
+**Then** ela é **entregue NESTA story**, junto da tabela que limpa, usando a **mesma rotina periódica** (DL-056) — **sem serviço novo**. **Ajuste de escopo (2026-09-07):** a purga **não** espera a 6.19. A tabela nasce aqui, que é a **quinta** da fila, e a 6.19 é a **última** — deixar a purga lá abriria uma janela em que o sistema **acumula dado pessoal de cliente final sem purga alguma**, enquanto a **Política de Privacidade já publicada promete os prazos**. Tabela e purga entram **juntas**, sempre
 
 **Given** a Política de Privacidade
 **When** esta story entrar
-**Then** a retenção acima **entra no escopo da Story 6.19** (item 6 da Política), junto com a inclusão da Meta na tabela de fornecedores
+**Then** a Story 6.19 **DOCUMENTA** na Política (item 6) os prazos **já implementados aqui**, junto com a inclusão da Meta na tabela de fornecedores. É **redação**, não implementação — o código de purga é desta story
 
 > **Nota sobre o DL-056 (ajuste, não revogação):** o DL-056 escolheu a rotina de **1 minuto** para
 > **timeout de 2h** e **lembrete de 24h** — onde a precisão é folgada, e continua valendo. **Chat não
@@ -1987,7 +1987,7 @@ So that eu não fique com o sistema dizendo uma coisa e o contrato dizendo outra
 
 **Given** a **Política de Privacidade, item 6 (Por quanto tempo guardamos)** e a **fila de entrada do webhook** (Story 6.20, DL-080)
 **When** a fila existir
-**Then** a **retenção** entra na Política: **conteúdo das mensagens purgado aos 30 dias**, **registro técnico sem conteúdo mantido até 90 dias**. Motivo: a fila guarda **mensagem crua da cliente final** — dado pessoal de **titular do salão**, com o Tamarcado como **operador**. A Política hoje fala em 90 dias **após o encerramento da conta** e **não cobre** dado transitório de canal
+**Then** a **retenção JÁ IMPLEMENTADA pela 6.20** é **descrita** na Política: **conteúdo das mensagens purgado aos 30 dias**, **registro técnico sem conteúdo mantido até 90 dias**. **Aqui é só texto** — a purga é código da 6.20, entregue junto da tabela (ajuste de escopo 2026-09-07): a 6.20 é a **quinta** da fila e esta é a **última**, e deixar a purga para cá acumularia dado pessoal de cliente final **sem purga** enquanto a Política **já publicada** promete o prazo. Motivo: a fila guarda **mensagem crua da cliente final** — dado pessoal de **titular do salão**, com o Tamarcado como **operador**. A Política hoje fala em 90 dias **após o encerramento da conta** e **não cobre** dado transitório de canal
 
 **Given** a **Política de Privacidade, itens 2.2 e 3.2**
 **When** revisados

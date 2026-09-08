@@ -5,6 +5,10 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import {
+  DEFAULT_PLAN,
+  type PlanName,
+} from "../../common/capabilities/plan";
 
 /**
  * Tenant. Schema canônico em architecture.md §3.1.
@@ -62,6 +66,19 @@ export class Company {
 
   @Column({ type: "boolean", default: true })
   is_active!: boolean;
+
+  /**
+   * RÓTULO COMERCIAL do que foi vendido (DL-072, Story 6.11) — histórico e
+   * conversa de venda, NUNCA decisão de acesso.
+   *
+   * Quem decide acesso é a CAPABILITY (`company_capabilities`). O plano age
+   * apenas como PRESET que preenche aquela lista no ato da contratação; depois
+   * disso este campo não é lido por nenhuma regra. `plan === "pro"` em runtime é
+   * o defeito que o DL-072 existe para impedir — e há guard-rail que FALHA a
+   * suíte se alguém escrever isso (`plan-name-not-in-runtime.spec.ts`).
+   */
+  @Column({ type: "varchar", length: 20, default: DEFAULT_PLAN })
+  plan!: PlanName | string;
 
   @CreateDateColumn({ type: "timestamp" })
   created_at!: Date;

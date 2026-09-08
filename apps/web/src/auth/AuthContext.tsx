@@ -33,7 +33,22 @@ export interface CurrentUser {
   canViewDashboard: boolean;
   canViewEquipe: boolean;
   canManageAllAppointments: boolean;
+  /**
+   * Capabilities da EMPRESA (DL-072) — o que ela CONTRATOU. Eixo diferente dos
+   * `canView*` acima, que são por PESSOA e o dono controla. As duas camadas
+   * valem juntas: a empresa pode TER o recurso e a pessoa NÃO poder vê-lo.
+   *
+   * Viajam no mesmo `/users/me` do polling de flags — logo convergem na mesma
+   * janela de ~20s, e cortar um cliente reflete na tela dele sem relogar.
+   *
+   * Servem para MARCAR o recurso (a coroa da Story 6.15), nunca para proteger:
+   * segurança é o 403 do backend, igual aos flags de módulo.
+   */
+  companyCapabilities: CapabilityKey[];
 }
+
+/** Recursos que a empresa pode ter contratado (DL-072). Espelha o backend. */
+export type CapabilityKey = "whatsapp_bot" | "lembrete_automatico";
 
 /** Estabelecimento oferecido na desambiguação de e-mail (DL-052). */
 export interface CompanyChoice {
