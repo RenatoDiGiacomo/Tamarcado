@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   authedRequest,
   consumeSessionExpired,
+  setForbiddenHandler,
   setSessionExpiredHandler,
 } from "./session";
+import { ApiForbiddenError } from "./api";
 
 // Mocka só o apiRequest; preserva ApiConnectionError (classe usada em session.ts).
 const apiMock = vi.fn();
@@ -13,11 +15,13 @@ vi.mock("./api", async (importActual) => {
 });
 
 function res(status: number, body?: unknown): Response {
-  return {
+  const r = {
     ok: status < 400,
     status,
     json: async () => body,
-  } as unknown as Response;
+    clone: () => r,
+  };
+  return r as unknown as Response;
 }
 
 describe("authedRequest — renovação automática de sessão", () => {
@@ -26,6 +30,7 @@ describe("authedRequest — renovação automática de sessão", () => {
     localStorage.clear();
     sessionStorage.clear();
     setSessionExpiredHandler(null);
+    setForbiddenHandler(null);
   });
 
   it("token válido → não faz refresh, envia com o access atual", async () => {
@@ -76,5 +81,49 @@ describe("authedRequest — renovação automática de sessão", () => {
     await expect(authedRequest("/x")).rejects.toBeInstanceOf(ApiConnectionError);
     // sessão preservada — não foi expiração, foi rede
     expect(localStorage.getItem("tamarcado.access")).toBe("old");
+  });
+
+  // ── Story 6.15: o 403 MARCADO propaga em vez de virar "erro de servidor" ──
+
+  it("403 MARCADO lança ApiForbiddenError com o motivo e a chave", async () => {
+    localStorage.setItem("tamarcado.access", "a1");
+    apiMock.mockResolvedValueOnce(
+      res(403, { reason: "capability", capability: "whatsapp_bot" }),
+    );
+    // Lançar é o que desvia do `if (!res.ok) setErrorKind("server")` hardcoded
+    // que as telas têm — sem isso, o bloqueio continuaria virando erro genérico.
+    await expect(authedRequest("/x")).rejects.toBeInstanceOf(ApiForbiddenError);
+  });
+
+  it("403 marcado avisa o handler, para a rota reagir antes do próximo poll", async () => {
+    localStorage.setItem("tamarcado.access", "a1");
+    const aviso = vi.fn();
+    setForbiddenHandler(aviso);
+    apiMock.mockResolvedValueOnce(res(403, { reason: "module", module: "financeiro" }));
+    await expect(authedRequest("/x")).rejects.toBeInstanceOf(ApiForbiddenError);
+    // Fecha a janela de dessincronização E cobre as mutações sem try/catch, que
+    // de outro modo ficariam mudas ao clique.
+    expect(aviso).toHaveBeenCalledTimes(1);
+  });
+
+  it("403 SEM marca volta como resposta — comportamento antigo intacto", async () => {
+    localStorage.setItem("tamarcado.access", "a1");
+    const aviso = vi.fn();
+    setForbiddenHandler(aviso);
+    apiMock.mockResolvedValueOnce(res(403, { message: "Forbidden" }));
+    const r = await authedRequest("/x");
+    expect(r.status).toBe(403);
+    expect(aviso).not.toHaveBeenCalled();
+  });
+
+  it("403 marcado DEPOIS de renovar o token também propaga", async () => {
+    localStorage.setItem("tamarcado.access", "velho");
+    localStorage.setItem("tamarcado.refresh", "r1");
+    apiMock
+      .mockResolvedValueOnce(res(401))
+      .mockResolvedValueOnce(res(200, { accessToken: "novo" }))
+      .mockResolvedValueOnce(res(403, { reason: "role" }));
+    // Sem isto, o bloqueio escaparia justamente na requisição refeita.
+    await expect(authedRequest("/x")).rejects.toBeInstanceOf(ApiForbiddenError);
   });
 });

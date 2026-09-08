@@ -49,6 +49,26 @@ export function setSessionExpiredHandler(fn: (() => void) | null): void {
   onSessionExpired = fn;
 }
 
+/**
+ * Handler de 403 MARCADO (Story 6.15) — mesmo padrão do `onSessionExpired`
+ * acima, e pelo mesmo motivo: `authedRequest` é função de módulo, fora do React.
+ *
+ * O AuthContext o registra para RECARREGAR O PERFIL quando um bloqueio aparece.
+ * Isso fecha a janela de dessincronização: o operador corta a capability (ou o
+ * dono revoga o módulo) e, em vez de esperar o próximo ciclo do polling de ~20s,
+ * a rota reage na hora — `RequireCapability`/`RequireModule` passam a mostrar a
+ * tela de bloqueio certa.
+ *
+ * Ele também cobre o ponto cego das MUTAÇÕES: várias chamam `authedRequest` sem
+ * `try/catch` (buraco que já existe hoje para `ApiConnectionError`), então uma
+ * rejeição ali ficaria muda. Com o handler, a UI converge para a explicação em
+ * vez de simplesmente não reagir ao clique.
+ */
+let onForbidden: (() => void) | null = null;
+export function setForbiddenHandler(fn: (() => void) | null): void {
+  onForbidden = fn;
+}
+
 // Refresh SINGLE-FLIGHT: várias requisições que caem 401 ao mesmo tempo
 // compartilham UMA chamada a /auth/refresh (sem estampar o endpoint nem correr
 // atrás de tokens diferentes).
@@ -108,7 +128,10 @@ export async function authedRequest(
   const res = await apiRequest(path, { ...opts, token: getAccessToken() });
   if (res.status === 403) {
     const forbidden = await forbiddenErrorFrom(res);
-    if (forbidden) throw forbidden;
+    if (forbidden) {
+      onForbidden?.();
+      throw forbidden;
+    }
     return res;
   }
   if (res.status !== 401) return res;
@@ -132,7 +155,10 @@ export async function authedRequest(
   const retried = await apiRequest(path, { ...opts, token: newToken });
   if (retried.status === 403) {
     const forbidden = await forbiddenErrorFrom(retried);
-    if (forbidden) throw forbidden;
+    if (forbidden) {
+      onForbidden?.();
+      throw forbidden;
+    }
   }
   return retried;
 }
