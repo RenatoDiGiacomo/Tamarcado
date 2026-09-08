@@ -91,7 +91,7 @@ describe("ErrorState", () => {
         <ErrorState kind="permission" resource="o Financeiro" onRetry={() => {}} />,
       ),
     );
-    expect(screen.getByText(/não tem acesso/i)).toBeInTheDocument();
+    expect(screen.getByText(/não tem acesso a esta área/i)).toBeInTheDocument();
     expect(screen.getByText(/dono do estabelecimento/i)).toBeInTheDocument();
     // O CORAÇÃO da story: quem não tem permissão não recebe oferta de compra —
     // ela não tem como comprar o que o dono já pagou, e cobraria o dono por isso.

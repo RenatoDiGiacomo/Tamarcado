@@ -232,7 +232,7 @@ export function BloqueioPro({
  *
  * Também sem "Tentar de novo": repetir não muda permissão.
  */
-export function BloqueioPermissao({ recurso }: { recurso?: string }) {
+export function BloqueioPermissao() {
   return (
     <div
       role="alert"
@@ -241,8 +241,12 @@ export function BloqueioPermissao({ recurso }: { recurso?: string }) {
       <span className="relative">
         <Lock className="size-8 text-muted-foreground" aria-hidden="true" />
       </span>
+      {/* Sem interpolar o nome da área: em português a preposição concorda com o
+          gênero ("ao Financeiro", "à Equipe"), e montar isso a partir de um
+          rótulo genérico produzia "acesso a o Financeiro" — apareceu no
+          screenshot. O nome já está no cabeçalho da tela, então nada se perde. */}
       <p className="text-base font-semibold text-foreground">
-        Você não tem acesso a {recurso ?? "esta área"}
+        Você não tem acesso a esta área
       </p>
       <p className="max-w-sm text-sm text-muted-foreground">
         O acesso é liberado pelo dono do estabelecimento. Fale com ele para pedir

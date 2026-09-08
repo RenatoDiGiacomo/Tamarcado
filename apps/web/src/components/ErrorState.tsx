@@ -67,7 +67,7 @@ export function ErrorState({
   // BLOQUEIO por permissão: quem decide é o dono. NADA de oferta de plano aqui —
   // a pessoa não tem como comprar o que o dono já pagou.
   if (kind === "permission") {
-    return <BloqueioPermissao recurso={resource} />;
+    return <BloqueioPermissao />;
   }
 
   const connection = kind === "connection";

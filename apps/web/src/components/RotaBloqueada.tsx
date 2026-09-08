@@ -60,7 +60,7 @@ export function RequireModule({
   if (canViewModule(user, module)) return <>{children}</>;
   return (
     <TelaBloqueada titulo={ROTULO_MODULO[module]}>
-      <BloqueioPermissao recurso={`o ${ROTULO_MODULO[module]}`} />
+      <BloqueioPermissao />
     </TelaBloqueada>
   );
 }

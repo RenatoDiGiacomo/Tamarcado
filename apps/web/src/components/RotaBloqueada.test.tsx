@@ -75,7 +75,7 @@ describe("RequireModule — rota bloqueada por PERMISSÃO, acessada direto pela 
         <p>conteúdo secreto</p>
       </RequireModule>,
     );
-    expect(await screen.findByText(/não tem acesso/i)).toBeInTheDocument();
+    expect(await screen.findByText(/não tem acesso a esta área/i)).toBeInTheDocument();
     expect(screen.getByText(/dono do estabelecimento/i)).toBeInTheDocument();
     expect(screen.queryByText("conteúdo secreto")).toBeNull();
     // Antes desta story a pessoa era jogada na Agenda sem uma palavra.
@@ -89,7 +89,7 @@ describe("RequireModule — rota bloqueada por PERMISSÃO, acessada direto pela 
         <p>conteúdo</p>
       </RequireModule>,
     );
-    await screen.findByText(/não tem acesso/i);
+    await screen.findByText(/não tem acesso a esta área/i);
     expect(screen.queryByText(/plano pró/i)).toBeNull();
     expect(screen.queryByRole("link", { name: /quero saber mais/i })).toBeNull();
     // Repetir não muda permissão — botão aqui seria promessa falsa.
