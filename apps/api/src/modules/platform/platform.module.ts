@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Company } from "../../database/entities/company.entity";
+import { CompanyPlanChange } from "../../database/entities/company-plan-change.entity";
 import { UsersModule } from "../users/users.module";
 import { CapabilitiesModule } from "../capabilities/capabilities.module";
 import { PlatformController } from "./platform.controller";
@@ -13,10 +14,18 @@ import { PlatformRateLimitService } from "./platform-rate-limit.service";
  * Módulo de plataforma (Story 1.9). Reusa o `UsersService` (fluxo de
  * `user_invites`) para convidar o owner. PRÉ-TENANT — o controller vai em
  * PRE_TENANT_CONTROLLERS (DL-027); não passa pelo TenantMiddleware.
+ *
+ * A Story 6.16 acrescenta a TROCA de plano de uma empresa existente, com o
+ * registro de auditoria (`CompanyPlanChange`) que sustenta uma divergência
+ * comercial meses depois — ver `platform.service.ts#changePlan`.
  */
 @Module({
   // CapabilitiesModule: a contratação aplica o PRESET do plano (DL-072, 6.11).
-  imports: [TypeOrmModule.forFeature([Company]), UsersModule, CapabilitiesModule],
+  imports: [
+    TypeOrmModule.forFeature([Company, CompanyPlanChange]),
+    UsersModule,
+    CapabilitiesModule,
+  ],
   controllers: [PlatformController, PasswordResetController],
   providers: [PlatformService, PlatformKeyGuard, PlatformRateLimitService],
 })

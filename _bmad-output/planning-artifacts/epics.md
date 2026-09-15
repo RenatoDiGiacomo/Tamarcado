@@ -376,7 +376,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Pendências que não podem sumir (não são bugs esquecidos — cada uma decidida):**
 - ⏳ **Correções visuais do mobile** levantadas pelo Renato ao usar o app — **ainda não catalogadas** numa lista; abrir o inventário antes da 2ª leva (7.2.NN).
 - ⏳ **Recuperação de senha por e-mail** — **bloqueador antes de vender**; **mitigada** pela 1.9.01 (reset por link do operador). Self-service por e-mail depende de envio de e-mail configurado (não temos).
-- ⏳ **Restringir `/api/platform/*` por IP no Nginx** — na hora do **VPS** (nota de deploy do Épico 1); os endpoints pré-tenant (1.9 / 1.9.01) hoje só têm o `PLATFORM_KEY`.
+- ⏳ **Restringir `/api/platform/*` por IP no Nginx** — na hora do **VPS** (nota de deploy do Épico 1); os endpoints pré-tenant (1.9 / 1.9.01 / **6.16**) hoje só têm o `PLATFORM_KEY`. **O peso desta pendência SUBIU com a 6.16:** antes a superfície era provisionar e gerar link de senha; agora ela **liga e desliga o que o cliente pagou**, protegida por **um único segredo compartilhado**. É **ação do Renato no servidor**, e o endpoint de plano **não deveria ir para produção sem ela**.
 - ⏳ **Testar o PWA instalado em aparelho real** — exige **HTTPS**; não dá para validar 100% em `localhost`. Fazer quando houver domínio/VPS.
 - ⏳ **3.7.01 — filtro por status na agenda**, incluindo a origem **"Link"** (agendamento vindo do público 5B, `source = 'link'`, DL-049). Planejado, fora do 5B (ver Buracos).
 
@@ -1815,6 +1815,34 @@ So that eu libere o que foi pago sem precisar de tela e sem mexer no banco à m�
 **Given** uma chave de capability desconhecida no corpo
 **When** recebida
 **Then** é **rejeitada com erro claro** — o `ValidationPipe` com `whitelist` descartaria em silêncio, e um typo viraria "ativei e não funcionou" sem pista (armadilha conhecida do contrato da API)
+
+> **ACRESCENTADO NA IMPLEMENTAÇÃO (2026-09-15, DL-082 e DL-083).** A spec cobria **subir**
+> de plano e não dizia nada sobre **descer** — a story seria entregue sabendo só somar. Os
+> ACs abaixo fecham o buraco.
+
+**Given** um REBAIXAMENTO de plano (DL-082)
+**When** aplicado a uma empresa que já conectou o WhatsApp
+**Then** as **credenciais de conexão são PRESERVADAS**. Rebaixar desliga o **uso**, não destrói o **vínculo**: conta Meta, verificação e aprovação são a parte cara e confusa para o dono, e obrigá-lo a refazer tudo por um mês de atraso é o atrito que faz **cliente desistir em vez de voltar**
+
+**Given** o mesmo rebaixamento
+**When** o e2e roda
+**Then** um **snapshot de TODAS as tabelas** prova que só `company_capabilities`, o rótulo `companies.plan` e o registro de auditoria mudaram. É deliberadamente genérico: a tabela de credenciais da **Story 6.1** entra nessa cobertura **sozinha** quando nascer, sem ninguém voltar ao teste
+
+**Given** tarefas já ENFILEIRADAS (lembrete agendado, confirmação) no momento do corte
+**When** o plano é rebaixado
+**Then** a fila **não é cancelada nem apagada** — quem checa é o **executor, no disparo**, lendo a linha fresca (camada 3, DL-072). Limpar a fila seria um **segundo** lugar que precisa saber de capability (e o primeiro continuaria obrigatório), destruiria a informação de *"o que deixou de sair"* e faria sumir para sempre o lembrete de quem **pagou atrasado e voltou** antes do horário
+
+**Given** a preferência do dono (DL-072)
+**When** o direito é revogado
+**Then** a preferência **não é apagada** — são campos diferentes por desenho. Ele volta um mês depois e a antecedência que havia configurado continua lá
+
+**Given** o registro da mudança (DL-083, amplia o DL-076)
+**When** um plano é aplicado ou cortado
+**Then** além da linha de log, é gravada uma linha em **`company_plan_changes`** com plano e **lista completa de capabilities antes e depois**, `changed_by` (**obrigatório**), motivo, IP e data. Log de `stdout` é rotacionado e some; a pergunta *"eu paguei o Pró em março"* chega **semanas depois**. E **revogar é apagar a linha** — sem esta tabela, um corte não deixaria rastro nenhum
+
+**Given** `changed_by`
+**When** o corpo não o traz
+**Then** a chamada é **recusada**. A `x-platform-key` é única e compartilhada: ela prova que **alguém com a chave** agiu, nunca **quem**
 
 > **DÍVIDA REGISTRADA (não é esquecimento) — tela de administração.** Rodar comando é **aceitável com
 > poucos clientes** e **insustentável com trinta**. O gatilho é o **volume**, e ele vai chegar. Fica no
