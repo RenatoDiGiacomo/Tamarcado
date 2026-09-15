@@ -11,6 +11,7 @@ import {
   authedRequest,
   clearSession,
   getAccessToken,
+  setForbiddenHandler,
   setSessionExpiredHandler,
   setTokens,
 } from "../lib/session";
@@ -157,6 +158,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionExpiredHandler(() => setUser(null));
     return () => setSessionExpiredHandler(null);
   }, []);
+
+  // Um 403 MARCADO (Story 6.15) significa que a autoridade — o backend — sabe
+  // algo que este cliente ainda não sabe: a capability foi cortada, ou o módulo
+  // revogado. Recarregar o perfil na hora fecha a janela até o próximo poll, e a
+  // rota passa a mostrar a tela de bloqueio certa em vez de a pessoa ficar
+  // clicando em algo que não responde.
+  useEffect(() => {
+    setForbiddenHandler(() => void refreshUser());
+    return () => setForbiddenHandler(null);
+  }, [refreshUser]);
 
   const login = useCallback(
     async (

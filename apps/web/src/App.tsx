@@ -2,6 +2,8 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth, loginPath } from "./auth/AuthContext";
 import { canViewModule } from "./lib/permissions";
+// Rotas bloqueadas (Story 6.15) — o CAMINHO CRU: chegar na rota direto pela URL.
+import { RequireModule } from "./components/RotaBloqueada";
 import { Financeiro } from "./pages/Financeiro";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
@@ -38,22 +40,6 @@ function Protected({ children }: { children: ReactNode }) {
   ) : (
     <Navigate to={loginPath()} replace />
   );
-}
-
-/**
- * Rota de MÓDULO (DL-062): só monta se o usuário tem o módulo; senão cai na
- * Agenda — a rota não "existe" para quem não tem acesso. Na revogação, o polling
- * de flags atualiza o `user` e esta rota passa a redirecionar sozinha, sem relogar.
- */
-function RequireModule({
-  module,
-  children,
-}: {
-  module: "financeiro" | "dashboard" | "equipe";
-  children: ReactNode;
-}) {
-  const { user } = useAuth();
-  return canViewModule(user, module) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 /**

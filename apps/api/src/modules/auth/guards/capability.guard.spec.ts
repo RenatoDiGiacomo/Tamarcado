@@ -1,4 +1,8 @@
 import { ExecutionContext, ForbiddenException } from "@nestjs/common";
+import {
+  CapabilityRequiredException,
+  type ForbiddenBody,
+} from "../../../common/errors/forbidden-reason";
 import { Reflector } from "@nestjs/core";
 import { CapabilityGuard } from "./capability.guard";
 import { REQUIRE_CAPABILITY_KEY } from "../../../common/decorators/require-capability.decorator";
@@ -66,6 +70,28 @@ describe("CapabilityGuard — camada 2 do DL-072 (Story 6.11)", () => {
     await expect(guard.canActivate(contextWith(undefined))).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it("o 403 vem MARCADO com reason `capability` e a chave (Story 6.15)", async () => {
+    // Sem a marca o front não distingue "a empresa não contratou" de "esta
+    // pessoa não tem permissão" — e o bloqueio comercial volta a aparecer como
+    // "Tivemos um problema no servidor", com um botão que nunca vai funcionar.
+    const { guard } = guardWith("whatsapp_bot", false);
+    await expect(
+      guard.canActivate(contextWith({ company_id: "7" })),
+    ).rejects.toBeInstanceOf(CapabilityRequiredException);
+
+    try {
+      await guard.canActivate(contextWith({ company_id: "7" }));
+      throw new Error("deveria ter lançado");
+    } catch (e) {
+      const body = (
+        e as CapabilityRequiredException
+      ).getResponse() as ForbiddenBody;
+      expect(body.reason).toBe("capability");
+      // A chave é o que permite ao front escolher o texto de venda certo.
+      expect(body.capability).toBe("whatsapp_bot");
+    }
   });
 
   it("a mensagem do 403 não vende nem cita preço (quem vende é a tela)", async () => {

@@ -4,7 +4,12 @@
 // as telas davam erro sem renovar — só recarregando a página. Aqui o access é
 // renovado sozinho no 401 e a requisição é refeita, sem o usuário perceber. Se o
 // refresh também venceu, a sessão é encerrada e o app cai no /login com mensagem.
-import { apiRequest, ApiConnectionError, type ApiRequestOptions } from "./api";
+import {
+  apiRequest,
+  ApiConnectionError,
+  forbiddenErrorFrom,
+  type ApiRequestOptions,
+} from "./api";
 
 const ACCESS_KEY = "tamarcado.access";
 const REFRESH_KEY = "tamarcado.refresh";
@@ -42,6 +47,26 @@ export function consumeSessionExpired(): boolean {
 let onSessionExpired: (() => void) | null = null;
 export function setSessionExpiredHandler(fn: (() => void) | null): void {
   onSessionExpired = fn;
+}
+
+/**
+ * Handler de 403 MARCADO (Story 6.15) — mesmo padrão do `onSessionExpired`
+ * acima, e pelo mesmo motivo: `authedRequest` é função de módulo, fora do React.
+ *
+ * O AuthContext o registra para RECARREGAR O PERFIL quando um bloqueio aparece.
+ * Isso fecha a janela de dessincronização: o operador corta a capability (ou o
+ * dono revoga o módulo) e, em vez de esperar o próximo ciclo do polling de ~20s,
+ * a rota reage na hora — `RequireCapability`/`RequireModule` passam a mostrar a
+ * tela de bloqueio certa.
+ *
+ * Ele também cobre o ponto cego das MUTAÇÕES: várias chamam `authedRequest` sem
+ * `try/catch` (buraco que já existe hoje para `ApiConnectionError`), então uma
+ * rejeição ali ficaria muda. Com o handler, a UI converge para a explicação em
+ * vez de simplesmente não reagir ao clique.
+ */
+let onForbidden: (() => void) | null = null;
+export function setForbiddenHandler(fn: (() => void) | null): void {
+  onForbidden = fn;
 }
 
 // Refresh SINGLE-FLIGHT: várias requisições que caem 401 ao mesmo tempo
@@ -85,12 +110,30 @@ export function refreshAccessToken(): Promise<string | null> {
  *
  * Falha de REDE (`ApiConnectionError`) propaga normalmente — é "sem conexão",
  * não "sessão vencida"; o "tentar de novo" refaz quando a rede voltar.
+ *
+ * 403 MARCADO (Story 6.15) também PROPAGA, como `ApiForbiddenError`, em vez de
+ * voltar como resposta. Isso é deliberado e é o que faz o bloqueio aparecer
+ * certo em TODAS as telas de uma vez: o padrão delas é
+ * `if (!res.ok) setErrorKind("server")` — hardcoded, sem olhar o status —, então
+ * devolver a resposta faria o bloqueio continuar virando "erro de servidor".
+ * Lançar desvia para o `catch` que as telas já têm, e o `errorKindFrom`
+ * classifica. Sem lista de exceções por tela; sem editar página por página.
+ *
+ * 403 SEM marca (proxy, versão antiga da API) volta como resposta, igual a antes.
  */
 export async function authedRequest(
   path: string,
   opts: Omit<ApiRequestOptions, "token"> = {},
 ): Promise<Response> {
   const res = await apiRequest(path, { ...opts, token: getAccessToken() });
+  if (res.status === 403) {
+    const forbidden = await forbiddenErrorFrom(res);
+    if (forbidden) {
+      onForbidden?.();
+      throw forbidden;
+    }
+    return res;
+  }
   if (res.status !== 401) return res;
 
   let newToken: string | null;
@@ -107,5 +150,15 @@ export async function authedRequest(
     onSessionExpired?.();
     return res; // 401 — a UI já vai redirecionar ao login pelo handler
   }
-  return apiRequest(path, { ...opts, token: newToken });
+  // Repetição após renovar o token: o 403 marcado também precisa propagar aqui,
+  // senão o bloqueio escaparia justamente na requisição refeita.
+  const retried = await apiRequest(path, { ...opts, token: newToken });
+  if (retried.status === 403) {
+    const forbidden = await forbiddenErrorFrom(retried);
+    if (forbidden) {
+      onForbidden?.();
+      throw forbidden;
+    }
+  }
+  return retried;
 }

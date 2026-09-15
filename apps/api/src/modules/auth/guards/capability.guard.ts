@@ -1,14 +1,10 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { REQUIRE_CAPABILITY_KEY } from "../../../common/decorators/require-capability.decorator";
 import type { CapabilityKey } from "../../../common/capabilities/capability";
 import type { User } from "../../../database/entities/user.entity";
 import { CapabilitiesService } from "../../capabilities/capabilities.service";
+import { CapabilityRequiredException } from "../../../common/errors/forbidden-reason";
 
 /**
  * CAMADA 2 do bloqueio por capability (DL-072, Story 6.11): rota autenticada de
@@ -51,7 +47,7 @@ export class CapabilityGuard implements CanActivate {
       // Sem a linha fresca não há empresa para consultar — nega por segurança
       // (mesma postura do ModuleGuard). Na prática significa `ActiveUserGuard`
       // ausente na rota, o que o guard-rail de cobertura já denuncia.
-      throw new ForbiddenException("Recurso não contratado");
+      throw new CapabilityRequiredException(required);
     }
 
     const allowed = await this.capabilities.hasCapability(
@@ -60,8 +56,9 @@ export class CapabilityGuard implements CanActivate {
     );
     if (!allowed) {
       // Mensagem NEUTRA e sem preço: quem vende é a tela (a coroa e o modal da
-      // Story 6.15). O backend só nega.
-      throw new ForbiddenException("Recurso não contratado");
+      // Story 6.15). O backend só nega — mas nega DIZENDO O MOTIVO, para o front
+      // distinguir "a empresa não contratou" de "esta pessoa não tem permissão".
+      throw new CapabilityRequiredException(required);
     }
     return true;
   }
