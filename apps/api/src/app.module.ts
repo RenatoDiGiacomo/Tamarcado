@@ -26,6 +26,7 @@ import { InstallationController } from "./modules/installation/installation.cont
 import { PublicBookingModule } from "./modules/public-booking/public-booking.module";
 import { PlatformModule } from "./modules/platform/platform.module";
 import { CapabilitiesModule } from "./modules/capabilities/capabilities.module";
+import { WhatsAppModule } from "./modules/whatsapp/whatsapp.module";
 
 @Module({
   imports: [
@@ -50,6 +51,9 @@ import { CapabilitiesModule } from "./modules/capabilities/capabilities.module";
     PlatformModule,
     // Capabilities por empresa (DL-072, Story 6.11) — fundação do Épico 6.
     CapabilitiesModule,
+    // Canal de WhatsApp (Story 6.1): webhook da Meta, provider por tenant e o
+    // primeiro consumidor real da camada 3 do gate.
+    WhatsAppModule,
   ],
 })
 export class AppModule implements NestModule {

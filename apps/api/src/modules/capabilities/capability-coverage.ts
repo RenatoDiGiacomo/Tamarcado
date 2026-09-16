@@ -109,13 +109,21 @@ export interface CapabilityGap {
  * (`@GatedByCapability` no grafo) mas não declaram `@RequireCapability` ou não
  * têm o `CapabilityGuard` na pilha efetiva (classe ∪ método).
  * Lista vazia = camada 2 íntegra; qualquer item = recurso pago sem trava.
+ *
+ * `exceptions` são os controllers que tocam o domínio gateado mas **não são rota
+ * de usuário** — o webhook (chamado pela Meta) e o endpoint de plataforma. Eles
+ * não têm como ter guard, e o gate deles mora na camada 3. A lista é auditável
+ * (`CAPABILITY_UNGUARDED_CONTROLLERS`) e o teste `findAuthenticatedExceptions`
+ * impede que uma rota autenticada se esconda nela.
  */
 export function findUngatedCapabilityRoutes(
   controllers: readonly Type[],
+  exceptions: readonly Type[] = [],
 ): CapabilityGap[] {
   const gaps: CapabilityGap[] = [];
+  const excecoes = new Set<Type>(exceptions);
   for (const controller of controllers) {
-    if (!belongsToGatedDomain(controller)) {
+    if (!belongsToGatedDomain(controller) || excecoes.has(controller)) {
       continue;
     }
     const classGuards = guardNames(
@@ -176,4 +184,28 @@ export function findUncheckedEntrypoints(
   return entrypoints
     .filter((entrypoint) => !canCheckCapability(entrypoint))
     .map((entrypoint) => entrypoint.name);
+}
+
+/**
+ * INVARIANTE DA LISTA DE EXCEÇÃO: nenhum controller nela pode ser rota de
+ * usuário. Devolve o nome dos que têm `JwtAuthGuard` na pilha — qualquer item
+ * é uma rota autenticada tentando escapar do gate pela porta dos fundos, que é
+ * como uma exceção consciente vira buraco silencioso.
+ */
+export function findAuthenticatedExceptions(
+  exceptions: readonly Type[],
+): string[] {
+  return exceptions
+    .filter((controller) => {
+      const classGuards = guardNames(
+        Reflect.getMetadata(GUARDS_METADATA, controller),
+      );
+      const proto = controller.prototype as object;
+      const handlerGuards = Object.getOwnPropertyNames(proto)
+        .map((nome) => (proto as Record<string, unknown>)[nome])
+        .filter((h): h is (...args: unknown[]) => unknown => typeof h === "function")
+        .flatMap((h) => guardNames(Reflect.getMetadata(GUARDS_METADATA, h)));
+      return [...classGuards, ...handlerGuards].includes("JwtAuthGuard");
+    })
+    .map((controller) => controller.name);
 }

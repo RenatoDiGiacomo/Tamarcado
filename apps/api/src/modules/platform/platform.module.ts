@@ -4,7 +4,9 @@ import { Company } from "../../database/entities/company.entity";
 import { CompanyPlanChange } from "../../database/entities/company-plan-change.entity";
 import { UsersModule } from "../users/users.module";
 import { CapabilitiesModule } from "../capabilities/capabilities.module";
+import { WhatsAppModule } from "../whatsapp/whatsapp.module";
 import { PlatformController } from "./platform.controller";
+import { PlatformWhatsAppController } from "./platform-whatsapp.controller";
 import { PasswordResetController } from "./password-reset.controller";
 import { PlatformService } from "./platform.service";
 import { PlatformKeyGuard } from "./platform-key.guard";
@@ -25,8 +27,15 @@ import { PlatformRateLimitService } from "./platform-rate-limit.service";
     TypeOrmModule.forFeature([Company, CompanyPlanChange]),
     UsersModule,
     CapabilitiesModule,
+    // Story 6.1: conectar o WhatsApp de um tenant à mão, enquanto a 6.12
+    // (Embedded Signup) está bloqueada pelo CNPJ inapto (DL-073).
+    WhatsAppModule,
   ],
-  controllers: [PlatformController, PasswordResetController],
+  controllers: [
+    PlatformController,
+    PasswordResetController,
+    PlatformWhatsAppController,
+  ],
   providers: [PlatformService, PlatformKeyGuard, PlatformRateLimitService],
 })
 export class PlatformModule {}

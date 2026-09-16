@@ -8,7 +8,10 @@ import { configureApp } from "./app-setup";
 import { setupSwagger } from "./swagger";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // `rawBody`: o webhook da Meta assina o corpo EXATAMENTE como ele trafegou
+  // (Story 6.1). Reserializar o JSON muda espaços e ordem de chave, e a
+  // conferência da assinatura passaria a falhar sempre. Ver whatsapp.controller.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   configureApp(app);
   // Swagger UI em /api/docs — SOMENTE fora de produção (1.5.01).
   if (process.env.NODE_ENV !== "production") {

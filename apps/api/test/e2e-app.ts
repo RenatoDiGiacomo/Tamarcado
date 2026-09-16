@@ -27,7 +27,9 @@ export async function bootstrapE2E(
     imports: [AppModule, ...extraModules],
   }).compile();
 
-  const app = moduleRef.createNestApplication();
+  // `rawBody` espelha o main.ts — sem ele o e2e do webhook não conseguiria
+  // conferir a assinatura da Meta (Story 6.1).
+  const app = moduleRef.createNestApplication({ rawBody: true });
   configureApp(app);
   await app.init();
 

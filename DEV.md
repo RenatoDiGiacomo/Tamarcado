@@ -182,6 +182,43 @@ lsof -ti tcp:5173 -sTCP:LISTEN | xargs -r kill -9
 - **Quero começar do zero** — `pnpm dev:reset` apaga o banco; o próximo
   `pnpm dev` recria o schema (migrations) e você roda o seed de novo.
 
+## WhatsApp em desenvolvimento (Story 6.1)
+
+O webhook é chamado **pela Meta**, pela internet — a `localhost:3000` não serve.
+Para testar de verdade na sua máquina é preciso um **túnel HTTPS**:
+
+```bash
+# um dos dois; a URL muda a cada sessão
+cloudflared tunnel --url http://localhost:3000
+ngrok http 3000
+```
+
+Depois, no painel da Meta (aplicativo → WhatsApp → Configuração → Webhooks),
+aponte a **URL de callback** para `https://<url-do-tunel>/api/whatsapp/webhook`,
+com o *verify token* igual ao `WHATSAPP_WEBHOOK_VERIFY_TOKEN` do seu `.env`, e
+assine o campo `messages`. **A URL muda a cada vez que o túnel sobe** — é preciso
+recadastrar.
+
+No `apps/api/.env` você precisa de (ver `apps/api/.env.example`):
+
+| Variável | Para quê |
+|---|---|
+| `WHATSAPP_APP_SECRET` | confere a assinatura. **Sem ela, todo webhook é rejeitado** |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | o handshake do cadastro da URL |
+| `WHATSAPP_TOKEN_KEY` | `openssl rand -hex 32` — cifra o token de cada empresa |
+| `WHATSAPP_ECHO_ENABLED=true` | liga o **eco temporário** (responde tudo). Só dev; sai na 6.2 |
+
+Conectar um estabelecimento local é o mesmo `PUT` da produção (RUNBOOK §16),
+contra `http://localhost:3000`. E lembre: **conectar não libera** — o direito é a
+capability, pelo endpoint da 6.16.
+
+Conferir a conexão e mandar uma mensagem real pelo mesmo caminho do bot:
+
+```bash
+pnpm --filter api run smoke:whatsapp -- salao-teste              # só confere
+pnpm --filter api run smoke:whatsapp -- salao-teste 5511999990000 "oi"
+```
+
 ## E o modo "tudo em Docker"?
 
 O `infra/compose/docker-compose.yml` (que sobe API + Web também em container)

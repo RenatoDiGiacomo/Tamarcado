@@ -178,9 +178,17 @@ Segredos gerados no servidor com `openssl rand -hex 32`. Nomes (valores NÃO est
 | `CORS_ORIGIN` | **`https://app.tamarcado.tec.br`** (DL-069 — quem chama a API é o painel; a landing page é estática e não fala com a API) |
 | `WEB_BASE_URL` | **`https://app.tamarcado.tec.br`** (DL-069 — monta `painelUrl`, `publicUrl` e os links de convite/senha por e-mail; apontar para a raiz mandaria a pessoa para o site institucional) |
 | `PLATFORM_KEY` | **nova**, gerada no servidor (`x-platform-key` do `/api/platform/*`) |
+| `WHATSAPP_APP_SECRET` | **Story 6.1.** *App Secret* do aplicativo na Meta. Confere a assinatura do webhook — **fail-closed**: sem ela, TODO webhook é rejeitado |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | **Story 6.1.** Valor do handshake; o mesmo tem de estar no painel da Meta (Webhooks → *Verificar token*) |
+| `WHATSAPP_TOKEN_KEY` | **Story 6.1.** `openssl rand -hex 32`. Cifra o token de **cada estabelecimento** em repouso. ⚠️ **Trocá-la torna todas as conexões ilegíveis** — guarde junto do backup, **fora** do banco |
+| `WHATSAPP_GRAPH_VERSION` | opcional (padrão `v21.0`). Existe para subir de versão da Graph API **sem deploy de código** |
+| `WHATSAPP_TIMEOUT_MS` | opcional (padrão `10000`) |
 
 **Aposentadas (não usar):** `AUTH_ALLOW_SINGLE_TENANT` (revogada por DL-052; confirmado que
-o código não a lê mais), `REDIS_URL` (DL-056), `WHATSAPP_*`/`EVOLUTION_*` (entram no Épico 6).
+o código não a lê mais), `REDIS_URL` (DL-056), **`WHATSAPP_PROVIDER` e `EVOLUTION_API_URL`**
+(Story 6.1 / DL-073: o provider é **por empresa**, na tabela `company_whatsapp_connections` —
+uma variável global decidiria por todos os tenants de uma vez; e a Evolution é **só
+desenvolvimento**, recusada pela factory fora de dev).
 
 > **Build do painel (Fase 2):** o front chama a API cross-origin, então o build precisa de
 > `VITE_API_URL=https://api.tamarcado.tec.br` (baked no build do web). Sem isso ele tenta
@@ -1055,3 +1063,74 @@ mv .git/hooks/pre-push.off .git/hooks/pre-push    # religa
 
 `git push --no-verify` também pula o hook — o que significa que ele é uma rede
 de proteção contra descuido, não uma trava de segurança.
+
+---
+
+## 16. WhatsApp — conectar um estabelecimento (Story 6.1)
+
+**Não existe credencial global.** Provider, número e token são **por empresa**, na tabela
+`company_whatsapp_connections` (DL-073). Enquanto o Embedded Signup (Story 6.12) estiver
+bloqueado pelo CNPJ inapto, quem preenche somos nós, pelo endpoint de plataforma.
+
+### 16.1 O webhook precisa ficar ABERTO
+
+`/api/whatsapp/webhook` é chamado **pela Meta**, sem login. Ele **não** está sob
+`/api/platform/*`, então o `deny all` do §5.1 não o alcança — e **qualquer endurecimento
+futuro do Nginx tem de preservá-lo**. Fechá-lo derruba o bot de **todos** os
+estabelecimentos de uma vez.
+
+No painel da Meta (aplicativo → WhatsApp → Configuração):
+
+| Campo | Valor |
+|---|---|
+| URL de callback | `https://api.tamarcado.tec.br/api/whatsapp/webhook` |
+| Verificar token | o mesmo de `WHATSAPP_WEBHOOK_VERIFY_TOKEN` |
+| Campos assinados | `messages` |
+
+A Meta chama a URL com `GET` uma vez, no cadastro, e espera o `hub.challenge` de volta.
+Se recusar, o motivo é quase sempre o *verify token* diferente.
+
+### 16.2 Conectar (por TÚNEL SSH — §5.1)
+
+```bash
+ssh -N -L 9443:127.0.0.1:3000 -i ~/.ssh/id_ed25519 deploy@179.198.123.87
+```
+
+```
+PUT http://localhost:9443/api/platform/companies/{slug}/whatsapp
+Header: x-platform-key: <PLATFORM_KEY do servidor>
+{
+  "provider": "cloud_api",
+  "phoneNumberId": "<Phone Number ID da Meta>",
+  "wabaId": "<WABA ID>",
+  "displayPhoneNumber": "+55 11 94245-8672",
+  "accessToken": "<token de operação>"
+}
+```
+
+A resposta traz o estado **e** uma conferência ao vivo com a Meta (`estado.conectado`), que é
+a forma de responder *"preenchi certo?"* na hora, em vez de descobrir dias depois que nada sai.
+**O token nunca volta em resposta nenhuma** — para conferir qual está gravado, regrave.
+
+- `GET` na mesma rota mostra o estado; `DELETE` **desconecta**: apaga o token e **mantém** a
+  linha (DL-082 — rebaixar plano ou desligar não pode obrigar o dono a refazer a conexão com
+  a Meta, que é a parte cara e a que faz gente desistir no meio).
+- **409** ao conectar significa que aquele número já é de outro estabelecimento. Desconecte lá
+  primeiro; a unicidade global do `phone_number_id` é o que torna o roteamento do webhook
+  determinístico.
+
+### 16.3 Liberar o recurso é OUTRA coisa
+
+Conectar **não** libera. O direito é a capability, pelo endpoint da Story 6.16
+(`PATCH /api/platform/companies/{slug}/plan`). Empresa conectada e sem `whatsapp_bot` recebe a
+mensagem, **descarta** e responde 200 à Meta — que é o comportamento certo (DL-072/DL-080).
+
+### 16.4 Sintomas e o que significam
+
+| Sintoma | Causa provável |
+|---|---|
+| `ALARME: N webhooks rejeitados ... e NENHUM aceito` no log | `WHATSAPP_APP_SECRET` errado no servidor. **Aja rápido**: enquanto durar, a Meta pode desativar o webhook do aplicativo inteiro |
+| `não foi possível decifrar o token da conexão` | `WHATSAPP_TOKEN_KEY` mudou desde a gravação. Regrave a conexão de cada estabelecimento |
+| `evento para número sem tenant` | Evento da Meta para um número que não está conectado aqui. **Não é erro** |
+| `token da conexão inválido ou expirado` | Token do estabelecimento venceu ou foi revogado — regrave pelo `PUT` |
+| `provider "evolution_api" recusado fora de desenvolvimento` | Conexão gravada com provider não oficial. Produção é **exclusivamente** Cloud API (DL-054) |

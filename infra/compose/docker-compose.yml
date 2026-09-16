@@ -19,7 +19,13 @@ services:
       DATABASE_PASSWORD: root
       DATABASE_NAME: tamarcado_dev
       REDIS_URL: redis://redis:6379
-      WHATSAPP_PROVIDER: evolution_api
+      # WhatsApp (Story 6.1): NÃO existe provider global — ele é por empresa,
+      # em `company_whatsapp_connections` (DL-073). O que é do aplicativo são os
+      # segredos abaixo, lidos do ambiente de quem sobe o compose. Sem eles o
+      # webhook rejeita tudo (fail-closed) e nenhuma conexão pode ser gravada.
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      WHATSAPP_TOKEN_KEY: ${WHATSAPP_TOKEN_KEY:-}
       EVOLUTION_API_URL: http://evolution-api:8080
       JWT_SECRET: dev-secret-change-in-prod
       JWT_ACCESS_TTL: "900"

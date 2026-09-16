@@ -369,6 +369,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 - ✅ **6.4** (notificar salão + confirmar/recusar) e ✅ **6.9** (polling de pendentes) — **entregues pelo 5B.3 (PR #43)**. Falta só, no Épico 6, **disparar a notificação ao salão quando o pré-agendamento vier do bot**.
 - ⛔ **6.8 monitoramento → roadmap** (DL-058, com Financeiro/Dashboard).
 - 🆕 **6.11 CAPABILITIES por empresa** (**DL-072, reescreve DL-057**) — a versão "interruptor por plano" (`plan` básico|pró + `whatsapp_enabled`) foi **reformulada** antes de ser construída: quem decide acesso é a **lista de capabilities por empresa**, o **plano é só um PRESET**, e o bloqueio vale em **três camadas** (front · backend 403 · **webhook e agendador**). **CAPABILITY = direito** (nosso) × **PREFERÊNCIA = uso** (do dono) são campos diferentes.
+- ✅ **6.1 provider + credenciais por tenant — ENTREGUE (2026-09-16).** Cloud API oficial, abstração `WhatsAppProvider`, factory **por tenant** que **recusa provider não oficial fora de dev**, webhook com **assinatura validada** (+ alarme de rejeição em massa) e tenant resolvido pelo `phone_number_id`. Credenciais em **tabela própria** com **token cifrado** (**DL-084**, diverge do AC-2); preenchidas à mão pelo endpoint de plataforma enquanto a 6.12 não vem (DL-073). **Camada 3 do DL-072 com consumidor real** e coberta pelo guard-rail. Eco temporário para o smoke test, desligado por padrão e recusado fora de dev — sai na 6.2.
 - 🆕 **6.20 fila de entrada do webhook** (DL-080) — o endpoint **grava e responde 200**; regra de negócio só no **processador**. Traz **idempotência** (`UNIQUE` no id do evento), **reprocessamento**, **auditoria** e **retenção** (conteúdo 30 dias / registro técnico 90). Entra **entre a 6.1 e a 6.2**, nunca depois.
 - 🆕 **6.15** coroa (marcador de recurso bloqueado, componente de plataforma — DL-075) · **6.16** ativação manual por endpoint de plataforma (DL-076) · **6.17** tela de WhatsApp no **menu principal**, dois estados + preferências + informativo (DL-073/077/078) · **6.18** **provisionamento dos modelos de mensagem** (DL-077 — buraco encontrado: sem ela o lembrete **não sai e não dá erro**) · **6.19** Termos de Uso + Política de Privacidade (DL-079).
 - ⛔ **6.12 / 6.13 / 6.14 BLOQUEADAS pelo CNPJ inapto** (DL-073) — Tech Provider exige verificação de negócio, que exige CNPJ ativo. **Não travam o épico:** as credenciais por tenant passam a nascer na **6.1**, preenchidas à mão, tendo a **WABA de desenvolvimento** (`1944290202933684`, **+55 11 94245-8672**) como **primeiro tenant**. Ordem interna revisada no cabeçalho do Épico 6.
@@ -376,7 +377,7 @@ O dono/profissional opera o **painel completo pelo celular**, instalável como *
 **Pendências que não podem sumir (não são bugs esquecidos — cada uma decidida):**
 - ⏳ **Correções visuais do mobile** levantadas pelo Renato ao usar o app — **ainda não catalogadas** numa lista; abrir o inventário antes da 2ª leva (7.2.NN).
 - ⏳ **Recuperação de senha por e-mail** — **bloqueador antes de vender**; **mitigada** pela 1.9.01 (reset por link do operador). Self-service por e-mail depende de envio de e-mail configurado (não temos).
-- ⏳ **Restringir `/api/platform/*` por IP no Nginx** — na hora do **VPS** (nota de deploy do Épico 1); os endpoints pré-tenant (1.9 / 1.9.01 / **6.16**) hoje só têm o `PLATFORM_KEY`. **O peso desta pendência SUBIU com a 6.16:** antes a superfície era provisionar e gerar link de senha; agora ela **liga e desliga o que o cliente pagou**, protegida por **um único segredo compartilhado**. É **ação do Renato no servidor**, e o endpoint de plano **não deveria ir para produção sem ela**.
+- ⏳ **Fechar `/api/platform/*` para a internet no Nginx** — os endpoints pré-tenant (1.9 / 1.9.01 / **6.16** / **6.1**) têm o `PLATFORM_KEY` como única proteção na aplicação. O **RUNBOOK §5.1 registra `deny all` + túnel SSH** como o mecanismo em produção (em vez de restringir por IP, que trancaria o Renato fora quando o IP residencial mudasse) — **conferir no servidor que ele cobre a rota nova da 6.1**, que grava **credencial de WhatsApp de cliente**. ⚠️ **O webhook (`/api/whatsapp/webhook`) NÃO pode ser fechado junto**: quem o chama é a Meta. **O peso desta pendência SUBIU com a 6.16:** antes a superfície era provisionar e gerar link de senha; agora ela **liga e desliga o que o cliente pagou**, protegida por **um único segredo compartilhado**. É **ação do Renato no servidor**, e o endpoint de plano **não deveria ir para produção sem ela**.
 - ⏳ **Testar o PWA instalado em aparelho real** — exige **HTTPS**; não dá para validar 100% em `localhost`. Fazer quando houver domínio/VPS.
 - ⏳ **3.7.01 — filtro por status na agenda**, incluindo a origem **"Link"** (agendamento vindo do público 5B, `source = 'link'`, DL-049). Planejado, fora do 5B (ver Buracos).
 
@@ -1270,7 +1271,7 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 > | 1 | **6.11** capabilities *(reformulada)* | **Fundação.** Sem o gate nas três camadas, tudo o que vier depois nasce sem trava e é retrabalho. |
 > | 2 | **6.15** coroa + modal | Depende da 6.11 e é o que **transforma bloqueio em venda**. Barato, e Financeiro/Dashboard herdam. |
 > | 3 | **6.16** ativação por endpoint | Sem ela, liberar um cliente é `UPDATE` no banco à mão. |
-> | 4 | **6.1** provider + credenciais por tenant | **Maior risco técnico do épico** — validar cedo, contra a WABA de desenvolvimento. |
+> | 4 | ✅ **6.1** provider + credenciais por tenant | **Maior risco técnico do épico** — validar cedo, contra a WABA de desenvolvimento. **Entregue em 2026-09-16.** |
 > | 5 | **6.20** fila de entrada do webhook | **Antes da 6.2, nunca depois.** Põe a fila no meio **antes de existir regra de negócio para proteger**; depois da máquina de estados já seria refactor. |
 > | 6 | **6.18** modelos de mensagem | **Antes** de qualquer envio automático existir. |
 > | 7 | **6.17** tela de WhatsApp | Precisa dos estados que 6.1 e 6.18 produzem. Conexão **assistida** enquanto a 6.12 não vem. |
@@ -1297,6 +1298,19 @@ Tela **Pendentes**: **Confirmar** (`PATCH :id/confirm`, `professionalId` **opcio
 >
 > **⚠️ ARMADILHA (DL-081) — atender vários salões piloto PELO NÚMERO DO RENATO.** Bate no teto **e**, pior, faz a **cliente final receber mensagem do "Tamarcado" em vez do salão dela** — **descaracteriza o produto inteiro** e reintroduz, pela porta dos fundos, o modelo que o **DL-068 rejeitou**. **Piloto = um ou dois salões, para provar o fluxo. NÃO é degrau de crescimento** — o caminho de crescimento é a **6.12**.
 >
+> **✅ ENTREGUE (2026-09-16).** Provider sobre a Cloud API oficial, credenciais **por tenant**,
+> webhook com validação de assinatura e o **ciclo recebe→processa→envia comprovado** — o maior risco
+> técnico do épico, derrubado antes da máquina de conversa. A **camada 3** do DL-072 ganhou seu
+> primeiro consumidor real (`WhatsAppService` no envio, `WhatsAppWebhookService` na entrada), e o
+> guard-rail passou a cobri-la. A conexão é preenchida à mão pelo endpoint de plataforma
+> (`PUT /api/platform/companies/{slug}/whatsapp`) — RUNBOOK §16.
+>
+> **AJUSTE DE ESCOPO (DL-084):** as credenciais moram em **tabela própria**
+> (`company_whatsapp_connections`), **não** em colunas de `companies` como dizia o AC-2, e o **token é
+> cifrado em repouso**. O conteúdo do AC é mantido inteiro — provider **sem default**, identificação
+> do número, por tenant; muda **onde** aquilo fica. Motivo: `companies` é carregada em quase todo
+> request, e o token nela viajaria junto de toda entidade `Company` em memória.
+
 > **Webhook (DL-080, 2026-09-05) — a proteção é ESTRUTURAL, não um `if`.** O webhook desta story **grava o evento cru e responde 200**; **nenhuma regra de negócio** roda no caminho da resposta. O **gate de capability sai daqui** e vira checagem do **processador** (as três camadas do DL-072 seguem obrigatórias — a terceira **muda de lugar**). Motivo: a Meta desativa o webhook por **qualquer** resposta ruim — banco fora, exceção, bug, demora —, não só pelo caso da empresa cortada. **Especificado na Story 6.20**, que entra **logo depois desta**.
 
 As a operador da plataforma,
@@ -1853,6 +1867,15 @@ So that eu libere o que foi pago sem precisar de tela e sem mexer no banco à m�
 > **Substitui e amplia a antiga Story 6.13** (que era "tela em Configurações"). Passa a ser **menu
 > próprio**, e absorve as **preferências do dono** e o **informativo**. A 6.13 permanece no documento
 > apenas como o **fluxo de conectar/desconectar do Embedded Signup**, que depende do CNPJ.
+>
+> **ACRESCENTADO (DL-085, 2026-09-16) — CONTAGEM DE MENSAGENS ENVIADAS no mês.** A tela exibe
+> *"este mês: 187 lembretes"*. **Por que importa comercialmente:** a Meta cobra **direto no cartão do
+> cliente** (DL-074) e **nós não vemos a fatura dele** — sem contagem nossa, a pergunta *"por que
+> minha conta veio alta?"* não tem resposta possível, e ela vai acontecer. **Onde o dado nasce:** nos
+> **status de entrega** que o webhook já recebe da Meta, gravados como qualquer outro evento pela
+> **Story 6.20**; aqui é só consulta e exibição. Contar pelo status (e não pelo envio) conta o que a
+> Meta **reconheceu**, que é o que ela cobra. **Verificado na 6.1: o dado NÃO saía de graça lá** — a
+> 6.1 não grava mensagem nenhuma, e criar tabela só para contar seria antecipar a 6.20 pela metade.
 
 As a dono do estabelecimento,
 I want uma tela própria de WhatsApp que me diga em que pé está a conexão e me deixe escolher o que o sistema faz sozinho,
@@ -1942,6 +1965,15 @@ So that eu use só a parte que me interessa e saiba o que está acontecendo com 
 > **sistema inicia** exige **modelo aprovado pela Meta**, e como a conta é **do cliente** (DL-068), o
 > modelo precisa estar aprovado **na conta dele**. Sem esta story: ele conecta, a tela diz "conectado",
 > ele liga o lembrete — **e nada sai, sem erro visível**.
+>
+> **PRÉ-REQUISITO COM PRAZO (DL-086, 2026-09-16) — aprovar os textos na conta de DESENVOLVIMENTO
+> ANTES de vender para o primeiro cliente.** Os textos são **os mesmos para todos** (é o mesmo
+> produto), então aprovar uma vez prova que eles passam na análise da Meta. Isso **não** dispensa a
+> aprovação por conta — ela é **por WABA**, e cada salão tem a sua (DL-068) —, mas transforma o que se
+> provisiona na conta do cliente numa **cópia conhecida**, em vez de um texto novo e um risco novo a
+> cada venda. **Por que com prazo:** a aprovação leva de **minutos a 24h**, então não se resolve no
+> dia da venda; e descobrir um texto reprovado com um cliente pagante dentro é caro, enquanto
+> descobrir na conta de desenvolvimento é de graça. **É tarefa do Renato, não de código.**
 
 As a dono do estabelecimento,
 I want que os envios automáticos simplesmente funcionem depois que eu conecto,

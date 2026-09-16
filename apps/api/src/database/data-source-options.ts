@@ -12,6 +12,7 @@ import { Payment } from "./entities/payment.entity";
 import { TeamPayment } from "./entities/team-payment.entity";
 import { CompanyCapability } from "./entities/company-capability.entity";
 import { CompanyPlanChange } from "./entities/company-plan-change.entity";
+import { CompanyWhatsAppConnection } from "./entities/company-whatsapp-connection.entity";
 import { CreateCompanies1718900000000 } from "./migrations/1718900000000-CreateCompanies";
 import { CreateUsers1718900100000 } from "./migrations/1718900100000-CreateUsers";
 import { CreateUserInvites1718900200000 } from "./migrations/1718900200000-CreateUserInvites";
@@ -33,6 +34,7 @@ import { AddPublicPageFields1718901700000 } from "./migrations/1718901700000-Add
 import { AddRequestedClientNameToAppointments1718901800000 } from "./migrations/1718901800000-AddRequestedClientNameToAppointments";
 import { CreateCompanyCapabilities1718901900000 } from "./migrations/1718901900000-CreateCompanyCapabilities";
 import { CreateCompanyPlanChanges1718902000000 } from "./migrations/1718902000000-CreateCompanyPlanChanges";
+import { CreateCompanyWhatsappConnections1718902100000 } from "./migrations/1718902100000-CreateCompanyWhatsappConnections";
 
 /**
  * Opções de conexão TypeORM compartilhadas entre o runtime (DatabaseModule)
@@ -62,6 +64,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       TeamPayment,
       CompanyCapability,
       CompanyPlanChange,
+      CompanyWhatsAppConnection,
     ],
     migrations: [
       CreateCompanies1718900000000,
@@ -85,6 +88,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       AddRequestedClientNameToAppointments1718901800000,
       CreateCompanyCapabilities1718901900000,
       CreateCompanyPlanChanges1718902000000,
+      CreateCompanyWhatsappConnections1718902100000,
     ],
     synchronize: false,
     migrationsRun: false,

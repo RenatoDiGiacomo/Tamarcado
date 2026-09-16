@@ -14,6 +14,7 @@
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "seed:dev": "ts-node src/database/seeds/seed-dev.ts",
+    "smoke:whatsapp": "ts-node src/scripts/whatsapp-smoke.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/typeorm.config.ts",
     "migration:run:prod": "typeorm migration:run -d dist/database/typeorm.config.js",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/typeorm.config.ts",

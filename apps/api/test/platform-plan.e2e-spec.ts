@@ -101,6 +101,7 @@ describe("Ativação manual de plano (e2e — Story 6.16, DL-076)", () => {
     ctx.app.get(PlatformRateLimitService).reset();
 
     // FK-safe: `companies` é pai de tudo aqui.
+    await ctx.dataSource.query("DELETE FROM company_whatsapp_connections");
     await ctx.dataSource.query("DELETE FROM company_plan_changes");
     await ctx.dataSource.query("DELETE FROM company_capabilities");
     await ctx.dataSource.query("DELETE FROM users");
@@ -241,6 +242,22 @@ describe("Ativação manual de plano (e2e — Story 6.16, DL-076)", () => {
 
   it("rebaixar NÃO apaga nada além da capability — a credencial de conexão sobrevive", async () => {
     await changePlan({ plan: "pro", changedBy: "renato" }).expect(200);
+
+    // Story 6.1: a tabela de credenciais existe agora, e o snapshot só prova
+    // algo sobre ela se ela tiver LINHA. Sem esta semeadura, "a credencial
+    // sobrevive" seria uma comparação entre duas tabelas vazias (DL-082).
+    await ctx.dataSource.query(
+      "INSERT INTO company_whatsapp_connections (company_id, provider, phone_number_id, waba_id, access_token, status, connected_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [
+        companyId,
+        "cloud_api",
+        "PN-DO-SALAO",
+        "1944290202933684",
+        "v1:cifrado:cifrado:cifrado",
+        "conectado",
+        "manual:plataforma",
+      ],
+    );
 
     const antes = await snapshotBanco();
     await changePlan({ plan: "basico", changedBy: "renato" }).expect(200);
